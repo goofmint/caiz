@@ -1,0 +1,13 @@
+{
+  "id": "nodebb-plugin-subdir-groups",
+  "name": "NodeBB Subdir Groups",
+  "description": "Assign groups based on subdirectories",
+  "url": "https://github.com/your-repo/nodebb-plugin-subdir-groups",
+  "library": "./library.js",
+  "hooks": [
+    {
+      "hook": "filter:middleware.render",
+      "method": "assignGroupsBasedOnSubdir"
+    }
+  ]
+}
