@@ -1,0 +1,13 @@
+{
+  "ja": {
+    "global": {
+      "header.categories": "コミュニティ"
+    },
+    "category": {
+      "subcategories": "カテゴリ"
+    },
+    "caiz": {
+      "create_community": "コミュニティを作成"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "nodebb-plugin-caiz",
+  "name": "NodeBB Plugin for Caiz",
+  "description": "NodeBB Plugin for Caiz",
+  "version": "1.0.0",
+  "library": "./library.js",
+  "staticDirs": {
+    "language": "locales"
+  },
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "init"
+    },
+    {
+      "hook": "filter:categories.build",
+      "method": "customizeCategoriesLink"
+    },
+    {
+      "hook": "filter:topic.build",
+      "method": "customizeTopicRender"
+    },
+    {
+      "hook": "filter:category.get",
+      "method": "customizeCategoryLink"
+    }
+  ]
+}

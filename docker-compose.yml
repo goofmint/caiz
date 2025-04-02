@@ -1,0 +1,40 @@
+services:
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    depends_on:
+      - nodebb
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  nodebb:
+    build: .
+    # restart: unless-stopped
+    ports:
+      - '4567:4567'
+    volumes:
+      - ./plugins:/usr/src/plugins
+      - ./app:/usr/src/app
+    command: ['nodebb', 'dev']
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:17.4-alpine
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: nodebb
+      POSTGRES_PASSWORD: nodebb
+      POSTGRES_DB: nodebb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./.docker/database/postgresql/data
