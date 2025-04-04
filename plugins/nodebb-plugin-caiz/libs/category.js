@@ -22,19 +22,13 @@ class Category extends Base {
   }
 
   static async customizeLink(data) {
-    console.log(data);
+    const {category} = data;
+    if (category && category.children) {
+      category.children.forEach(child => {
+        child.link = `/${category.handle}/${child.cid}-${child.handle}`;
+      });
+    }
     return data;
-    header.navigation.push({
-      route: '#', // 実際のページ遷移はしない
-      title: '[[plugin-community-creator:create_community]]', // 翻訳キー
-      iconClass: 'fa-plus-square', // FontAwesomeアイコン
-      textClass: 'visible-xs-inline',
-      // モーダルを開くための識別子 (idやclass) を追加
-      properties: {
-        id: 'create-community-trigger'
-      }
-    });
-    callback(null, header);
   }
 }
 

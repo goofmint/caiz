@@ -1,0 +1,26 @@
+/* Community Creator Modal z-index adjustment */
+#community-create-modal {
+  z-index: 1060; /* モーダル本体の z-index (必要ならもっと高く) */
+  pointer-events: auto;
+}
+
+/* モーダルの背景 (Backdrop) の z-index をモーダル本体より低くする */
+/* .show クラスが付いている状態を明示的に指定 */
+.modal-backdrop.show {
+  /* z-index: 1059; */ /* モーダル本体より低い値に設定 (例) */
+  /* Bootstrap 5 のデフォルトは 1050, BS4 は 1040 だったはず */
+  /* NodeBB のデフォルト値を確認し、それよりは高く、モーダルよりは低くする */
+  z-index: 900;
+
+  /* 重要: opacity が 0 になっていないか確認 */
+  /* もし opacity が 0 のままなら、デフォルト値に戻す */
+  /* opacity: 0.5; */ /* Bootstrapのデフォルトの半透明度 (例) */
+  /* 上記 opacity の行は、通常は z-index だけで解決するはずなので、 */
+  /* 問題が解決しない場合の追加策として検討してください。 */
+}
+
+/* 参考: .fade クラスも一緒についている場合 */
+.modal-backdrop.fade.show {
+    z-index: 900; /* 同様に調整 */
+    /* opacity: 0.5; */ /* 同様に調整 */
+}
