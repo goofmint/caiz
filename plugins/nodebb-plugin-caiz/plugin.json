@@ -7,6 +7,12 @@
   "staticDirs": {
     "language": "locales"
   },
+  "scripts": [
+    "static/modal.js"
+  ],
+  "scss": [
+    "static/style.scss"
+  ],
   "hooks": [
     {
       "hook": "static:app.load",

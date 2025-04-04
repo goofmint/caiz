@@ -2,6 +2,7 @@
 require('./libs/benchpress');
 const translator = require.main.require('./src/translator');
 const winston = require.main.require('winston'); 
+const sockets = require.main.require('./src/socket.io/plugins'); 
 const plugin = {};
 const Base = require('./libs/base');
 const Community = require('./libs/community');
@@ -24,10 +25,10 @@ plugin.init = async function (params) {
 
   // `/communities` を `/categories` の中身と同じように動かす
   router.get('/api/communities', controllers.categories.list);
+  router.get('/api/communities/user', middleware.authenticateRequest, Community.User);
   router.get('/api/:handle', Community.Index);
   router.get('/api/:handle/:cid-:slug', Category.Index);
   router.get('/api/:handle/:cid-:slug/:topicId-:topicSlug', Topic.Index);
-
   router.get('/communities', middleware.buildHeader, controllers.categories.list);
   // router.get('/api/communities', controllers.categories.list);
   // Community URL
@@ -61,4 +62,6 @@ plugin.customizeCategoriesLink = Community.customizeIndexLink;
 plugin.customizeCategoryLink = Category.customizeLink;
 plugin.customizeTopicRender = Topic.customizeRender;
 plugin.customizeSidebarLeft = Header.customizeSidebarLeft;
+sockets.caiz = {};
+sockets.caiz.createCommunity = Community.Create;
 module.exports = plugin;
