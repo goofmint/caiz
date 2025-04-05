@@ -1,6 +1,5 @@
 'use strict';
 require('./libs/benchpress');
-const translator = require.main.require('./src/translator');
 const winston = require.main.require('winston'); 
 const sockets = require.main.require('./src/socket.io/plugins'); 
 const plugin = {};
@@ -9,20 +8,14 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
-const languages = require('./language.json');
+
+
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
   winston.info('[plugin/caiz] Initializing Caiz plugin');
-
-  Object.keys(languages).forEach(lang => {
-    Object.keys(languages[lang]).forEach(key => {
-      translator.addTranslation(lang, key, languages[lang][key]);
-    });
-  });
   Base.router = router;
   Base.middleware = middleware;
   Base.controllers = controllers;
-
   // `/communities` を `/categories` の中身と同じように動かす
   router.get('/api/communities', controllers.categories.list);
   router.get('/api/communities/user', middleware.authenticateRequest, Community.User);
@@ -64,4 +57,7 @@ plugin.customizeTopicRender = Topic.customizeRender;
 plugin.customizeSidebarLeft = Header.customizeSidebarLeft;
 sockets.caiz = {};
 sockets.caiz.createCommunity = Community.Create;
+sockets.caiz.followCommunity = Community.Follow;
+sockets.caiz.unfollowCommunity = Community.Unfollow;
+sockets.caiz.isFollowed = Community.IsFollowed;
 module.exports = plugin;
