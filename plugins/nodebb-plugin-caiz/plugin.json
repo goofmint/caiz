@@ -4,11 +4,10 @@
   "description": "NodeBB Plugin for Caiz",
   "version": "1.0.0",
   "library": "./library.js",
-  "staticDirs": {
-    "language": "locales"
-  },
+  "languages": "languages",
   "scripts": [
-    "static/modal.js"
+    "static/modal.js",
+    "static/follow.js"
   ],
   "scss": [
     "static/style.scss"

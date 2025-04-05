@@ -1,0 +1,19 @@
+{
+  "global": {
+    "header.categories": "Community"
+  },
+  "category": {
+    "subcategories": "Category"
+  },
+  "caiz": {
+    "create_community": "Create Community",
+    "create_community_message": "Create a new community",
+    "community_name": "Community Name",
+    "community_description": "Community Description",
+    "submit_create": "Create",
+    "follow": "Followed",
+    "unfollow": "Not Followed",
+    "following": "Follow",
+    "unfollowing": "Unfollow"
+  }
+}

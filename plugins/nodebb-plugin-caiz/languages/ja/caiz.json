@@ -1,0 +1,15 @@
+{
+  "reading": "読み込み中",
+  "create_community": "コミュニティを作成",
+  "create_community_message": "新しくコミュニティを作成する",
+  "community_name": "コミュニティ名",
+  "community_description": "コミュニティの説明",
+  "submit_create": "作成",
+  "follow": "フォロー中",
+  "unfollow": "未フォロー",
+  "following": "フォローする",
+  "unfollowing": "フォロー解除する",
+  "follow_success": "フォローしました",
+  "unfollow_success": "フォロー解除しました",
+  "error.generic": "エラーが発生しました"
+}

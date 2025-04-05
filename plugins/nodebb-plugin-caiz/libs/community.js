@@ -109,7 +109,8 @@ class Community extends Base {
     await Groups.leave(communityBanGroupName, uid);
     // Save the owner group name in category data
     await db.setObjectField(`category:${cid}`, 'ownerGroup', ownerGroupName);
-
+    await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
+    
     await Privileges.categories.give(ownerPrivileges, cid, ownerGroupName);
     const communityPrivileges = ownerPrivileges.filter(p => p !== 'groups:posts:view_deleted' && p !== 'groups:purge' && p !== 'groups:moderate');
     await Privileges.categories.give(communityPrivileges, cid, communityGroupName);
@@ -127,6 +128,34 @@ class Community extends Base {
 
     winston.info(`[plugin/caiz] Community created: ${name} (CID: ${cid}), Owner: ${uid}, Owner Group: ${ownerGroupName}`);
     return newCategory;
+  }
+
+  static async getUserCommunities(uid) {
+    const categoryIds = new Set();
+    const watchedCids = await db.getSortedSetRange(`uid:${uid}:followed_cats`, 0, -1);
+    winston.info(watchedCids);
+    watchedCids.forEach(cid => categoryIds.add(parseInt(cid, 10)));
+    const uniqueCids = Array.from(watchedCids);
+    const categoryData = await Categories.getCategoriesData(uniqueCids, uid);
+    return categoryData.filter(cat => cat && cat.parentCid === 0);
+  }
+
+  static async Follow(uid, { cid }) {
+    if (!uid) throw new Error('Not logged in');
+    await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
+    return { isFollowed: true };
+  }
+
+  static async Unfollow(uid, { cid }) {
+    if (!uid) throw new Error('Not logged in');
+    await db.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
+    return { isFollowed: false };
+  }
+
+  static async IsFollowed(uid, { cid }) {
+    if (!uid) return { isFollowed: false };
+    const isFollowed = await db.sortedSetScore(`uid:${uid}:followed_cats`, cid);
+    return { isFollowed: isFollowed !== null };
   }
 
   static async customizeIndexLink(data) {

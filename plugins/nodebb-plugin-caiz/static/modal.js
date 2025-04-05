@@ -7,6 +7,12 @@ async function getAlert() {
     });
 }
 
+async function getTranslate() {
+    return new Promise((resolve, reject) => {
+        require(['translator'], resolve);
+    });
+}
+
 $(document).ready(function () {
     // Show the modal when the trigger is clicked
     $(document).on('click', '#create-community-trigger', function (e) {
