@@ -520,10 +520,116 @@ const getModalHtml = async (cid) => {
           </div>
           <div class="tab-pane fade" id="categories-tab">
             <h6 class="mb-3">Category Management</h6>
-            <p class="text-muted">This feature will be implemented in future tasks.</p>
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle me-2"></i>
-              Functionality for adding, editing, and deleting subcategories within the community will be added here.
+            
+            <!-- Add Category Button -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <p class="text-muted mb-0">Manage subcategories within this community</p>
+              <button type="button" class="btn btn-primary btn-sm" id="add-category-btn">
+                <i class="fa fa-plus me-1"></i>Add Category
+              </button>
+            </div>
+            
+            <!-- Categories List -->
+            <div id="categories-list">
+              <div class="text-center py-4" id="categories-loading">
+                <i class="fa fa-spinner fa-spin fa-2x text-muted"></i>
+                <p class="text-muted mt-2">Loading categories...</p>
+              </div>
+              
+              <div id="categories-empty" style="display: none;">
+                <div class="text-center py-4">
+                  <i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
+                  <p class="text-muted">No categories found. Click "Add Category" to create your first one.</p>
+                </div>
+              </div>
+              
+              <div id="categories-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="table table-hover">
+                    <thead>
+                      <tr>
+                        <th style="width: 40px;"><i class="fa fa-arrows-v text-muted"></i></th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th class="text-center" style="width: 80px;">Topics</th>
+                        <th class="text-center" style="width: 80px;">Posts</th>
+                        <th class="text-end" style="width: 120px;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="categories-table-body">
+                      <!-- Categories will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Category Form Modal (inline for now) -->
+            <div id="category-form-container" style="display: none;" class="mt-4">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0" id="category-form-title">Add Category</h6>
+                  <button type="button" class="btn-close" id="cancel-category-form"></button>
+                </div>
+                <div class="card-body">
+                  <form id="category-form">
+                    <input type="hidden" id="category-form-cid" name="cid">
+                    
+                    <div class="mb-3">
+                      <label for="category-form-name" class="form-label">Category Name *</label>
+                      <input type="text" class="form-control" id="category-form-name" name="name" required maxlength="50">
+                      <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="category-form-description" class="form-label">Description</label>
+                      <textarea class="form-control" id="category-form-description" name="description" rows="3" maxlength="255"></textarea>
+                      <div class="form-text">Optional description for this category</div>
+                    </div>
+                    
+                    <div class="row">
+                      <div class="col-md-4">
+                        <div class="mb-3">
+                          <label class="form-label">Icon</label>
+                          <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="category-icon-select">
+                              <i class="fa fa-icons"></i>
+                            </button>
+                            <div class="d-inline-flex align-items-center">
+                              <i id="category-selected-icon" class="fa fa-folder fa-lg"></i>
+                              <input type="hidden" id="category-form-icon" name="icon" value="fa-folder">
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="col-md-4">
+                        <div class="mb-3">
+                          <label for="category-form-color" class="form-label">Icon Color</label>
+                          <input type="color" class="form-control form-control-color" id="category-form-color" name="color" value="#000000">
+                        </div>
+                      </div>
+                      
+                      <div class="col-md-4">
+                        <div class="mb-3">
+                          <label for="category-form-bg-color" class="form-label">Background Color</label>
+                          <input type="color" class="form-control form-control-color" id="category-form-bg-color" name="bgColor" value="#ffffff">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-secondary" id="cancel-category-form-btn">Cancel</button>
+                      <button type="submit" class="btn btn-primary">
+                        <span class="category-form-btn-text">Add Category</span>
+                        <span class="category-form-btn-spinner" style="display: none;">
+                          <i class="fa fa-spinner fa-spin"></i> Saving...
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
           <div class="tab-pane fade" id="members-tab">
@@ -791,6 +897,380 @@ const setupIconColorPickers = () => {
   }
 };
 
+// Category Management Functions
+let currentCommunityId = null;
+let subcategories = [];
+
+const initializeCategoryManagement = (cid) => {
+  console.log('[caiz] Initializing category management for cid:', cid);
+  currentCommunityId = cid;
+  
+  setupCategoryEventHandlers();
+  loadSubCategories();
+};
+
+const setupCategoryEventHandlers = () => {
+  // Add category button
+  const addBtn = document.getElementById('add-category-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => showCategoryForm());
+  }
+  
+  // Cancel form buttons
+  const cancelBtns = document.querySelectorAll('#cancel-category-form, #cancel-category-form-btn');
+  cancelBtns.forEach(btn => {
+    btn.addEventListener('click', () => hideCategoryForm());
+  });
+  
+  // Form submit
+  const form = document.getElementById('category-form');
+  if (form) {
+    form.addEventListener('submit', handleCategoryFormSubmit);
+  }
+  
+  // Icon selector for category form
+  const iconSelectBtn = document.getElementById('category-icon-select');
+  if (iconSelectBtn) {
+    iconSelectBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openCategoryIconSelector();
+    });
+  }
+  
+  // Color change handlers
+  const colorInput = document.getElementById('category-form-color');
+  const bgColorInput = document.getElementById('category-form-bg-color');
+  const iconElement = document.getElementById('category-selected-icon');
+  
+  if (colorInput && iconElement) {
+    colorInput.addEventListener('input', (e) => {
+      iconElement.style.color = e.target.value;
+    });
+  }
+  
+  if (bgColorInput && iconElement) {
+    bgColorInput.addEventListener('input', (e) => {
+      iconElement.style.backgroundColor = e.target.value;
+    });
+  }
+};
+
+const loadSubCategories = async () => {
+  if (!currentCommunityId) return;
+  
+  try {
+    console.log('[caiz] Loading subcategories for cid:', currentCommunityId);
+    showCategoriesLoading();
+    
+    socket.emit('plugins.caiz.getSubCategories', { cid: currentCommunityId }, function(err, data) {
+      if (err) {
+        console.error('[caiz] Error loading subcategories:', err);
+        showCategoriesError(err.message);
+        return;
+      }
+      
+      subcategories = data || [];
+      console.log('[caiz] Loaded subcategories:', subcategories);
+      renderSubCategories();
+    });
+  } catch (error) {
+    console.error('[caiz] Error in loadSubCategories:', error);
+    showCategoriesError(error.message);
+  }
+};
+
+const showCategoriesLoading = () => {
+  document.getElementById('categories-loading').style.display = 'block';
+  document.getElementById('categories-empty').style.display = 'none';
+  document.getElementById('categories-content').style.display = 'none';
+};
+
+const showCategoriesError = (message) => {
+  document.getElementById('categories-loading').style.display = 'none';
+  document.getElementById('categories-empty').style.display = 'none';
+  document.getElementById('categories-content').style.display = 'none';
+  
+  // Show error message
+  if (typeof alerts !== 'undefined') {
+    alerts.error(`Failed to load categories: ${message}`);
+  }
+};
+
+const renderSubCategories = () => {
+  const loadingEl = document.getElementById('categories-loading');
+  const emptyEl = document.getElementById('categories-empty');
+  const contentEl = document.getElementById('categories-content');
+  const tableBody = document.getElementById('categories-table-body');
+  
+  loadingEl.style.display = 'none';
+  
+  if (!subcategories.length) {
+    emptyEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    return;
+  }
+  
+  emptyEl.style.display = 'none';
+  contentEl.style.display = 'block';
+  
+  // Render table rows
+  tableBody.innerHTML = subcategories.map(category => `
+    <tr data-cid="${category.cid}">
+      <td>
+        <i class="fa fa-grip-vertical text-muted category-drag-handle" style="cursor: move;"></i>
+      </td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          ${category.icon ? `<i class="fa ${category.icon}" style="color: ${category.color || '#000'}; background-color: ${category.bgColor || 'transparent'};"></i>` : ''}
+          <strong>${escapeHtml(category.name)}</strong>
+        </div>
+      </td>
+      <td>
+        <small class="text-muted">${category.description ? escapeHtml(category.description) : '-'}</small>
+      </td>
+      <td class="text-center">
+        <span class="badge bg-secondary">${category.topiccount || 0}</span>
+      </td>
+      <td class="text-center">
+        <span class="badge bg-info">${category.postcount || 0}</span>
+      </td>
+      <td class="text-end">
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-primary" onclick="editCategory(${category.cid})" title="Edit">
+            <i class="fa fa-edit"></i>
+          </button>
+          <button type="button" class="btn btn-outline-danger" onclick="deleteCategory(${category.cid}, '${escapeHtml(category.name)}')" title="Delete">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+};
+
+const showCategoryForm = (category = null) => {
+  const container = document.getElementById('category-form-container');
+  const title = document.getElementById('category-form-title');
+  const form = document.getElementById('category-form');
+  const cidInput = document.getElementById('category-form-cid');
+  const nameInput = document.getElementById('category-form-name');
+  const descInput = document.getElementById('category-form-description');
+  const iconInput = document.getElementById('category-form-icon');
+  const colorInput = document.getElementById('category-form-color');
+  const bgColorInput = document.getElementById('category-form-bg-color');
+  const iconElement = document.getElementById('category-selected-icon');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const btnText = submitBtn.querySelector('.category-form-btn-text');
+  
+  // Reset form
+  form.reset();
+  form.classList.remove('was-validated');
+  form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  
+  if (category) {
+    // Edit mode
+    title.textContent = 'Edit Category';
+    btnText.textContent = 'Update Category';
+    cidInput.value = category.cid;
+    nameInput.value = category.name;
+    descInput.value = category.description || '';
+    iconInput.value = category.icon || 'fa-folder';
+    colorInput.value = category.color || '#000000';
+    bgColorInput.value = category.bgColor || '#ffffff';
+    
+    // Update icon display
+    iconElement.className = `fa ${category.icon || 'fa-folder'} fa-lg`;
+    iconElement.style.color = category.color || '#000000';
+    iconElement.style.backgroundColor = category.bgColor || '#ffffff';
+  } else {
+    // Add mode
+    title.textContent = 'Add Category';
+    btnText.textContent = 'Add Category';
+    cidInput.value = '';
+    iconInput.value = 'fa-folder';
+    colorInput.value = '#000000';
+    bgColorInput.value = '#ffffff';
+    
+    // Reset icon display
+    iconElement.className = 'fa fa-folder fa-lg';
+    iconElement.style.color = '#000000';
+    iconElement.style.backgroundColor = '#ffffff';
+  }
+  
+  container.style.display = 'block';
+  nameInput.focus();
+};
+
+const hideCategoryForm = () => {
+  document.getElementById('category-form-container').style.display = 'none';
+};
+
+const handleCategoryFormSubmit = async (e) => {
+  e.preventDefault();
+  
+  const form = e.target;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+  
+  // Validate
+  if (!data.name.trim()) {
+    showFieldError(form.querySelector('#category-form-name'), 'Category name is required');
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const btnText = submitBtn.querySelector('.category-form-btn-text');
+  const btnSpinner = submitBtn.querySelector('.category-form-btn-spinner');
+  
+  // Show loading
+  btnText.style.display = 'none';
+  btnSpinner.style.display = 'inline';
+  submitBtn.disabled = true;
+  
+  try {
+    const isEdit = !!data.cid;
+    const socketEvent = isEdit ? 'plugins.caiz.updateSubCategory' : 'plugins.caiz.createSubCategory';
+    const requestData = {
+      parentCid: currentCommunityId,
+      name: data.name.trim(),
+      description: data.description.trim(),
+      icon: data.icon,
+      color: data.color !== '#000000' ? data.color : '',
+      bgColor: data.bgColor !== '#ffffff' ? data.bgColor : ''
+    };
+    
+    if (isEdit) {
+      requestData.cid = parseInt(data.cid);
+    }
+    
+    console.log('[caiz] Submitting category form:', requestData);
+    
+    socket.emit(socketEvent, requestData, function(err, result) {
+      if (err) {
+        console.error('[caiz] Error saving category:', err);
+        if (typeof alerts !== 'undefined') {
+          alerts.error(err.message || 'Failed to save category');
+        }
+        return;
+      }
+      
+      console.log('[caiz] Category saved successfully:', result);
+      
+      if (typeof alerts !== 'undefined') {
+        alerts.success(isEdit ? 'Category updated successfully' : 'Category created successfully');
+      }
+      
+      hideCategoryForm();
+      loadSubCategories(); // Reload the list
+    });
+    
+  } catch (error) {
+    console.error('[caiz] Error in form submit:', error);
+    if (typeof alerts !== 'undefined') {
+      alerts.error(error.message || 'An error occurred');
+    }
+  } finally {
+    // Reset loading state
+    btnText.style.display = 'inline';
+    btnSpinner.style.display = 'none';
+    submitBtn.disabled = false;
+  }
+};
+
+const editCategory = (cid) => {
+  const category = subcategories.find(cat => cat.cid == cid);
+  if (category) {
+    showCategoryForm(category);
+  }
+};
+
+const deleteCategory = (cid, name) => {
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete the category "${escapeHtml(name)}"? This action cannot be undone.`,
+      buttons: {
+        confirm: {
+          label: '<i class="fa fa-trash"></i> Delete',
+          className: 'btn-danger'
+        },
+        cancel: {
+          label: 'Cancel',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (result) {
+          performDeleteCategory(cid);
+        }
+      }
+    });
+  } else {
+    if (confirm(`Are you sure you want to delete the category "${name}"?`)) {
+      performDeleteCategory(cid);
+    }
+  }
+};
+
+const performDeleteCategory = (cid) => {
+  socket.emit('plugins.caiz.deleteSubCategory', {
+    cid: cid,
+    parentCid: currentCommunityId
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error deleting category:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to delete category');
+      }
+      return;
+    }
+    
+    console.log('[caiz] Category deleted successfully');
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Category deleted successfully');
+    }
+    
+    loadSubCategories(); // Reload the list
+  });
+};
+
+const openCategoryIconSelector = () => {
+  if (typeof require !== 'undefined') {
+    require(['iconSelect'], function(iconSelect) {
+      const selectedIcon = document.getElementById('category-selected-icon');
+      iconSelect.init($(selectedIcon), function(element, icon, styles) {
+        if (!icon) return;
+        
+        // Update icon preview
+        selectedIcon.className = '';
+        let fullClass = 'fa fa-lg';
+        if (icon) {
+          fullClass += ' ' + icon;
+        }
+        if (styles && styles.length > 0) {
+          fullClass += ' ' + styles.join(' ');
+        }
+        selectedIcon.className = fullClass;
+        
+        // Update hidden input
+        document.getElementById('category-form-icon').value = icon;
+      });
+    });
+  }
+};
+
+const escapeHtml = (text) => {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
+// Make functions globally available for onclick handlers
+window.editCategory = editCategory;
+window.deleteCategory = deleteCategory;
+
 // Setup icon selector using NodeBB's iconSelect module
 const setupIconSelector = () => {
   const selectBtn = document.getElementById('icon-select-btn');
@@ -929,6 +1409,9 @@ const initializeCommunityEditForm = (cid) => {
     
     // Setup icon color pickers
     setupIconColorPickers();
+    
+    // Initialize category management
+    initializeCategoryManagement(cid);
     
     // Load existing data
     loadCommunityEditData(cid).then(data => {
