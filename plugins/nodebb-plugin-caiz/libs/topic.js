@@ -27,7 +27,6 @@ class Topic extends Base {
   static async customizeRender(data) {
     const { templateData } = data;
     const { breadcrumbs } = templateData;
-    console.log(breadcrumbs);
     const community = breadcrumbs.find(b => b.url.match(/.*\/category\/[0-9]\/([^\/]*)$/));
     const host = community.url.match(/(^.*\/\/.*?\/)/, "$1")[0]
     const handle = community.url.split('/')[5];

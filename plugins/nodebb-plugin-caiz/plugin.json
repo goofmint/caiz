@@ -7,7 +7,8 @@
   "languages": "languages",
   "scripts": [
     "static/modal.js",
-    "static/follow.js"
+    "static/follow.js",
+    "static/communities.js"
   ],
   "scss": [
     "static/style.scss"
@@ -28,6 +29,10 @@
     {
       "hook": "filter:category.get",
       "method": "customizeCategoryLink"
+    },
+    {
+      "hook": "filter:middleware.renderHeader",
+      "method": "customizeSidebarCommunities"
     }
   ]
 }

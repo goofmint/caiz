@@ -1,26 +1,192 @@
 /* Community Creator Modal z-index adjustment */
 #community-create-modal {
-  z-index: 1060; /* モーダル本体の z-index (必要ならもっと高く) */
+  z-index: 1060;
+  /* モーダル本体の z-index (必要ならもっと高く) */
   pointer-events: auto;
 }
 
 /* モーダルの背景 (Backdrop) の z-index をモーダル本体より低くする */
 /* .show クラスが付いている状態を明示的に指定 */
 .modal-backdrop.show {
-  /* z-index: 1059; */ /* モーダル本体より低い値に設定 (例) */
+  /* z-index: 1059; */
+  /* モーダル本体より低い値に設定 (例) */
   /* Bootstrap 5 のデフォルトは 1050, BS4 は 1040 だったはず */
   /* NodeBB のデフォルト値を確認し、それよりは高く、モーダルよりは低くする */
   z-index: 900;
 
   /* 重要: opacity が 0 になっていないか確認 */
   /* もし opacity が 0 のままなら、デフォルト値に戻す */
-  /* opacity: 0.5; */ /* Bootstrapのデフォルトの半透明度 (例) */
+  /* opacity: 0.5; */
+  /* Bootstrapのデフォルトの半透明度 (例) */
   /* 上記 opacity の行は、通常は z-index だけで解決するはずなので、 */
   /* 問題が解決しない場合の追加策として検討してください。 */
 }
 
 /* 参考: .fade クラスも一緒についている場合 */
 .modal-backdrop.fade.show {
-    z-index: 900; /* 同様に調整 */
-    /* opacity: 0.5; */ /* 同様に調整 */
+  z-index: 900;
+  /* 同様に調整 */
+  /* opacity: 0.5; */
+  /* 同様に調整 */
+}
+
+.community-sidebar {
+  padding-left: 8px;
+  min-width: 56px;
+  max-width: 56px;
+  width: 56px;
+  transition: width 0.3s ease;
+  
+  .visible-open {
+    display: none;
+  }
+  
+  .visible-closed {
+    display: initial;
+  }
+  
+  .community-toggle {
+    .fa-angles-right {
+      display: inline-block;
+    }
+    
+    .fa-angles-left {
+      display: none;
+    }
+  }
+  
+  &.open {
+    min-width: 200px;
+    max-width: 200px;
+    width: 200px;
+    
+    .visible-open {
+      display: initial;
+    }
+    
+    .visible-closed {
+      display: none;
+    }
+    
+    .community-toggle {
+      .fa-angles-right {
+        display: none;
+      }
+      
+      .fa-angles-left {
+        display: inline-block;
+      }
+    }
+    
+    .truncate-open {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .sidebar-toggle-container {
+      width: 100%;
+    }
+  }
+}
+
+@media (min-width: 992px) {
+  .sidebar.open .sidebar-toggle .fa-angles-left {
+    display: inline-block;
+  }
+
+  .sidebar.open .visible-open {
+    display: initial;
+  }
+
+  .sidebar.open .visible-closed {
+    display: none;
+  }
+
+  .sidebar.open hr.visible-open {
+    display: block;
+  }
+
+  .sidebar.open .truncate-open {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.sidebarCommunity .visible-open {
+  display: none;
+}
+
+.sidebarCommunity .visible-closed {
+  display: initial;
+}
+
+.sidebarCommunity .truncate-open {
+  overflow: initial;
+  text-overflow: initial;
+  white-space: initial;
+}
+
+.sidebarCommunity .nav-link {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.sidebarCommunity .nav-link.active {
+  background-color: rgb(47.9, 48.1, 48);
+}
+
+.sidebarCommunity .nav-link:hover {
+  background-color: rgb(47.9, 48.1, 48);
+}
+
+.sidebarCommunity #user_dropdown .avatar {
+  margin: 2px 0;
+}
+
+.sidebarCommunity .sidebar-toggle {
+  justify-content: start;
+}
+
+.sidebarCommunity .sidebar-toggle .fa-angles-right {
+  display: inline-block;
+}
+
+.sidebarCommunity .sidebar-toggle .fa-angles-left {
+  display: none;
+}
+
+.sidebarCommunity .search-dropdown {
+  width: 300px;
+}
+
+.sidebarCommunity .chats-dropdown,
+.sidebarCommunity .notifications-dropdown,
+.sidebarCommunity .drafts-dropdown {
+  min-width: 300px;
+  width: 300px;
+}
+
+.sidebarCommunity .chats-dropdown .list-container,
+.sidebarCommunity .notifications-dropdown .list-container,
+.sidebarCommunity .drafts-dropdown .list-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.sidebarCommunity .badge {
+  font-size: 9px;
+  line-height: 12px;
+}
+
+.sidebarCommunity .badge.visible-open {
+  font-size: 12px;
+  line-height: 12px;
+  font-weight: normal;
+}
+
+.sidebarCommunity [data-widget-area=sidebar-footer] {
+  font-size: 0.75rem;
 }

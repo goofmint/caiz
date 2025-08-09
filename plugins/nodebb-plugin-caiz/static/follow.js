@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (followButton.length === 0) return;
   const { alert } = await getAlert();
   const translator = await getTranslate();
-  const messages = Object.fromEntries(await Promise.all (messageKeys.map(key => new Promise((resolve) => translator.translate(`[[${key}]]`, (t) => resolve([key, t]))))))
+  const messages = Object.fromEntries(await Promise.all(messageKeys.map(key => new Promise((resolve) => translator.translate(`[[${key}]]`, (t) => resolve([key, t]))))))
   const cid = followButton.attr('data-cid');
   const follow = {
     status: false
@@ -23,10 +23,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const changeButtonLabel = async () => {
     const key = follow.status ? 'caiz:follow' : 'caiz:unfollow';
     followButton.text(getText(key));
+    updateCommunities();
   };
 
-  socket.emit('plugins.caiz.isFollowed', { cid }, function(err, response) {
-    console.log({ response });
+  socket.emit('plugins.caiz.isFollowed', { cid }, function (err, response) {
     if (err) {
       return alert({
         type: 'error',
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const action = follow.status ?
       'plugins.caiz.unfollowCommunity' :
       'plugins.caiz.followCommunity';
-    socket.emit(action, { cid }, function(err, response) {
+    socket.emit(action, { cid }, function (err, response) {
       if (err) {
         return alert({
           type: 'error',

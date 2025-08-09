@@ -1,13 +1,13 @@
 const plugin = {};
 const db = require.main.require('./src/database');
 const Plugins = require.main.require('./src/plugins');
-const winston = require.main.require('winston'); 
+const winston = require.main.require('winston');
 const Categories = require.main.require('./src/categories');
 const Privileges = require.main.require('./src/privileges');
 const Groups = require.main.require('./src/groups');
 const Base = require('./base');
 const websockets = require.main.require('./src/socket.io/plugins');
-const initialCategories = require.main.require('./install/data/categories.json'); 
+const initialCategories = require.main.require('./install/data/categories.json');
 
 const getCommunity = async (params) => {
   const cid = await Categories.getCidByHandle(params.handle);
@@ -30,33 +30,38 @@ class Community extends Base {
   }
 
   static async Create(socket, data) {
-      const { name, description } = data;
-      winston.info(`[plugin/caiz] Creating community: ${name}`);
-      const { uid } = socket;
-      if (!uid) {
-        throw new Error('Not logged in');
-      }
-      if (!name || name.length < 3) { // 簡単なバリデーション
-        throw new Error('Community name is too short');
-      }  
-      try {
-        const community = await Community.createCommunity(uid, { name, description });
-        return {
-          message: 'Community created successfully!',
-          community: community,
-        };
-      } catch (err) {
-        winston.error(`[plugin/caiz] Error creating community: ${err.message}`);
-        throw err;
-      }
+    const { name, description } = data;
+    winston.info(`[plugin/caiz] Creating community: ${name}`);
+    const { uid } = socket;
+    if (!uid) {
+      throw new Error('Not logged in');
+    }
+    if (!name || name.length < 3) { // 簡単なバリデーション
+      throw new Error('Community name is too short');
+    }
+    try {
+      const community = await Community.createCommunity(uid, { name, description });
+      return {
+        message: 'Community created successfully!',
+        community: community,
+      };
+    } catch (err) {
+      winston.error(`[plugin/caiz] Error creating community: ${err.message}`);
+      throw err;
+    }
   };
 
-  static async User(req, res, next) {
-    if (!req.loggedIn) {
-      return res.json({ error: 'Not logged in' });
+  static async User(socket, data) {
+    winston.info('[plugin/caiz] User socket method called');
+    const { uid } = socket;
+    winston.info(`[plugin/caiz] Socket uid: ${uid}`);
+    if (!uid) {
+      winston.error('[plugin/caiz] No uid in socket, user not logged in');
+      throw new Error('Not logged in');
     }
-    const categories = await Community.getUserCommunities(req.uid);
-    res.json(categories);
+    const communities = await Community.getUserCommunities(uid);
+    winston.info(`[plugin/caiz] Returning ${communities.length} communities to client`);
+    return communities;
   }
 
   static async createCommunityGroup(name, description, ownerUid, privateFlag = 0, hidden = 0) {
@@ -76,14 +81,14 @@ class Community extends Base {
     const guestPrivileges = ['groups:find', 'groups:read', 'groups:topics:read'];
     // Create a new top-level category
     const categoryData = {
-        name,
-        description: description || '',
-        order: 100,
-        parentCid: 0, // Top Level
-        customFields: {
-          isCommunity: true
-        },
-        icon: 'fa-users', // Category Icon Example
+      name,
+      description: description || '',
+      order: 100,
+      parentCid: 0, // Top Level
+      customFields: {
+        isCommunity: true
+      },
+      icon: 'fa-users', // Category Icon Example
     };
 
     const newCategory = await Categories.create(categoryData);
@@ -110,7 +115,7 @@ class Community extends Base {
     // Save the owner group name in category data
     await db.setObjectField(`category:${cid}`, 'ownerGroup', ownerGroupName);
     await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
-    
+
     await Privileges.categories.give(ownerPrivileges, cid, ownerGroupName);
     const communityPrivileges = ownerPrivileges.filter(p => p !== 'groups:posts:view_deleted' && p !== 'groups:purge' && p !== 'groups:moderate');
     await Privileges.categories.give(communityPrivileges, cid, communityGroupName);
@@ -123,7 +128,7 @@ class Community extends Base {
 
     // TODO: Create child categories in the community
     await Promise.all(initialCategories.map((category) => {
-      return Categories.create({...category, parentCid: cid, cloneFromCid: cid});
+      return Categories.create({ ...category, parentCid: cid, cloneFromCid: cid });
     }));
 
     winston.info(`[plugin/caiz] Community created: ${name} (CID: ${cid}), Owner: ${uid}, Owner Group: ${ownerGroupName}`);
@@ -131,28 +136,41 @@ class Community extends Base {
   }
 
   static async getUserCommunities(uid) {
-    const categoryIds = new Set();
+    winston.info(`[plugin/caiz] getUserCommunities for uid: ${uid}`);
     const watchedCids = await db.getSortedSetRange(`uid:${uid}:followed_cats`, 0, -1);
-    winston.info(watchedCids);
-    watchedCids.forEach(cid => categoryIds.add(parseInt(cid, 10)));
-    const uniqueCids = Array.from(watchedCids);
-    const categoryData = await Categories.getCategoriesData(uniqueCids, uid);
-    return categoryData.filter(cat => cat && cat.parentCid === 0);
+    winston.info(`[plugin/caiz] Found ${watchedCids.length} watched categories: ${JSON.stringify(watchedCids)}`);
+    
+    if (!watchedCids || watchedCids.length === 0) {
+      return [];
+    }
+    
+    const categoryData = await Categories.getCategoriesData(watchedCids);
+    winston.info(`[plugin/caiz] Category data retrieved: ${categoryData.length} items`);
+    
+    // トップレベルカテゴリ（parentCid === 0）のみを表示
+    const communities = categoryData.filter(cat => cat && cat.parentCid === 0);
+    winston.info(`[plugin/caiz] Filtered to ${communities.length} top-level communities`);
+    winston.info(`[plugin/caiz] All category data:`, categoryData.map(c => ({ cid: c.cid, name: c.name, parentCid: c.parentCid })));
+    
+    return communities;
   }
 
-  static async Follow(uid, { cid }) {
+  static async Follow(socket, { cid }) {
+    const { uid } = socket;
     if (!uid) throw new Error('Not logged in');
     await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
     return { isFollowed: true };
   }
 
-  static async Unfollow(uid, { cid }) {
+  static async Unfollow(socket, { cid }) {
+    const { uid } = socket;
     if (!uid) throw new Error('Not logged in');
     await db.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
     return { isFollowed: false };
   }
 
-  static async IsFollowed(uid, { cid }) {
+  static async IsFollowed(socket, { cid }) {
+    const { uid } = socket;
     if (!uid) return { isFollowed: false };
     const isFollowed = await db.sortedSetScore(`uid:${uid}:followed_cats`, cid);
     return { isFollowed: isFollowed !== null };
