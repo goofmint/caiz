@@ -14,20 +14,30 @@ const addEditButton = (cid) => {
     .attr('data-cid', cid)
     .html('<i class="fa fa-edit"></i> <span>Edit Community</span>');
   
-  // Insert button in category header or create a container
-  let headerContainer = $('.category-header');
-  if (!headerContainer.length) {
-    headerContainer = $('[component="category"]').first();
-  }
+  // Find existing buttons container first
+  let buttonContainer = $('.category-tools, .topic-header .btn-toolbar, .btn-group').first();
   
-  if (headerContainer.length) {
-    headerContainer.css('position', 'relative').append(editBtn);
-    console.log('[caiz] Edit button added to category header');
+  if (buttonContainer.length) {
+    // Add to existing button container
+    buttonContainer.prepend(editBtn);
+    editBtn.css({ position: 'relative', top: 'auto', right: 'auto', marginRight: '10px' });
+    console.log('[caiz] Edit button added to existing button container');
   } else {
-    // Fallback: add to body as fixed position
-    $('body').append(editBtn);
-    editBtn.addClass('fixed-position');
-    console.log('[caiz] Edit button added as fixed position');
+    // Look for category header
+    let headerContainer = $('.category-header, [component="category"] .row').first();
+    if (!headerContainer.length) {
+      headerContainer = $('[component="category"]').first();
+    }
+    
+    if (headerContainer.length) {
+      headerContainer.css('position', 'relative').append(editBtn);
+      console.log('[caiz] Edit button added to category header');
+    } else {
+      // Fallback: add to body as fixed position
+      $('body').append(editBtn);
+      editBtn.addClass('fixed-position');
+      console.log('[caiz] Edit button added as fixed position');
+    }
   }
   
   // Add click event (placeholder for now - will connect to modal in task 03)

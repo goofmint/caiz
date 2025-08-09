@@ -196,7 +196,8 @@
   position: absolute;
   top: 20px;
   right: 20px;
-  z-index: 10;
+  z-index: 15;
+  margin-left: 10px;
   transition: all 0.3s ease;
   
   &:hover {
@@ -206,8 +207,25 @@
   
   &.fixed-position {
     position: fixed;
-    bottom: 20px;
+    bottom: 80px; /* Move up to avoid overlap with other FABs */
     right: 20px;
+  }
+}
+
+/* Adjust category header layout to accommodate edit button */
+[component="category"] {
+  .category-header,
+  .category-tools {
+    position: relative;
+    
+    .btn,
+    .dropdown {
+      margin-right: 10px;
+    }
+    
+    &:last-child {
+      margin-right: 0;
+    }
   }
 }
 
