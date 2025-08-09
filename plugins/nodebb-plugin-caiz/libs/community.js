@@ -209,6 +209,84 @@ class Community extends Base {
     }
   }
 
+  static async GetCommunityData(socket, { cid }) {
+    winston.info(`[plugin/caiz] Getting community data for cid: ${cid}, uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid) {
+      throw new Error('Authentication required');
+    }
+    
+    // Check ownership
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    
+    if (!isOwner) {
+      throw new Error('Permission denied');
+    }
+    
+    // Get category data
+    const categoryData = await Categories.getCategoryData(cid);
+    
+    return {
+      name: categoryData.name,
+      slug: categoryData.slug,
+      description: categoryData.description,
+      backgroundImage: categoryData.backgroundImage
+    };
+  }
+
+  static async UpdateCommunityData(socket, data) {
+    winston.info(`[plugin/caiz] Updating community data for cid: ${data.cid}, uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    const { cid, name, slug, description, backgroundImage } = data;
+    
+    if (!uid) {
+      throw new Error('Authentication required');
+    }
+    
+    // Check ownership
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    
+    if (!isOwner) {
+      throw new Error('Permission denied');
+    }
+    
+    // Validate input
+    if (!name || !slug) {
+      throw new Error('Name and slug are required');
+    }
+    
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      throw new Error('Slug can only contain lowercase letters, numbers, and hyphens');
+    }
+    
+    // Check slug uniqueness (exclude current category)
+    const existingCategories = await Categories.getCategoriesBySlugs([slug]);
+    if (existingCategories.length > 0 && existingCategories[0].cid != cid) {
+      throw new Error('This slug is already in use');
+    }
+    
+    // Update category
+    const updateData = {
+      name: name.trim(),
+      slug: slug.trim(),
+      description: description ? description.trim() : '',
+    };
+    
+    if (backgroundImage) {
+      updateData.backgroundImage = backgroundImage.trim();
+    }
+    
+    await Categories.update(cid, updateData);
+    
+    winston.info(`[plugin/caiz] Community data updated successfully for cid: ${cid}`);
+    
+    return { success: true };
+  }
+
   static async customizeIndexLink(data) {
     const { categories } = data.templateData;
     categories.forEach(category => {

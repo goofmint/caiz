@@ -282,10 +282,11 @@ const openBootboxModal = async (cid) => {
     }
   });
   
-  // Initialize navigation after modal is shown
+  // Initialize navigation and form after modal is shown
   modal.on('shown.bs.modal', function () {
     initializeModalNavigation();
     resetModalToFirstTab();
+    initializeCommunityEditForm(cid);
   });
   
   console.log('[caiz] Bootbox modal opened for cid:', cid);
@@ -336,6 +337,9 @@ const openCustomModal = async (cid) => {
     // Handle close events
     setupModalCloseHandlers(modalElement, backdrop);
   }
+  
+  // Initialize form after modal display
+  setTimeout(() => initializeCommunityEditForm(cid), 200);
   
   console.log('[caiz] Custom modal opened for cid:', cid);
 };
@@ -407,11 +411,38 @@ const getModalHtml = async (cid) => {
         <div class="tab-content p-4">
           <div class="tab-pane fade show active" id="general-tab">
             <h6 class="mb-3">コミュニティ情報編集</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle me-2"></i>
-              コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
-            </div>
+            
+            <form id="community-edit-form">
+              <div class="mb-3">
+                <label for="community-name" class="form-label">コミュニティ名 *</label>
+                <input type="text" class="form-control" id="community-name" name="name" required>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="community-slug" class="form-label">スラグ *</label>
+                <input type="text" class="form-control" id="community-slug" name="slug" required pattern="^[a-z0-9-]+$">
+                <div class="form-text">英小文字、数字、ハイフンのみ使用可能</div>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="community-description" class="form-label">詳細</label>
+                <textarea class="form-control" id="community-description" name="description" rows="4"></textarea>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="community-logo" class="form-label">ロゴURL</label>
+                <input type="url" class="form-control" id="community-logo" name="backgroundImage">
+                <div class="form-text">画像のURLを入力してください</div>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">保存</button>
+              </div>
+            </form>
           </div>
           <div class="tab-pane fade" id="categories-tab">
             <h6 class="mb-3">カテゴリー管理</h6>
@@ -601,4 +632,150 @@ const injectModalTemplate = () => {
   
   // Initialize navigation after template is injected
   setTimeout(initializeModalNavigation, 100);
+};
+
+// Community Edit Form Functions
+const loadCommunityEditData = async (cid) => {
+  return new Promise((resolve, reject) => {
+    socket.emit('plugins.caiz.getCommunityData', { cid }, function(err, data) {
+      if (err) {
+        console.error('[caiz] Error loading community data:', err);
+        reject(err);
+        return;
+      }
+      resolve(data);
+    });
+  });
+};
+
+const saveCommunityData = async (cid, formData) => {
+  return new Promise((resolve, reject) => {
+    const data = {
+      cid: cid,
+      name: formData.name,
+      slug: formData.slug,
+      description: formData.description,
+      backgroundImage: formData.backgroundImage
+    };
+    
+    socket.emit('plugins.caiz.updateCommunityData', data, function(err, result) {
+      if (err) {
+        console.error('[caiz] Error saving community data:', err);
+        reject(err);
+        return;
+      }
+      resolve(result);
+    });
+  });
+};
+
+const initializeCommunityEditForm = (cid) => {
+  console.log('[caiz] Initializing community edit form for cid:', cid);
+  
+  const form = document.getElementById('community-edit-form');
+  if (!form) {
+    console.log('[caiz] Community edit form not found');
+    return;
+  }
+  
+  // Load existing data
+  loadCommunityEditData(cid).then(data => {
+    console.log('[caiz] Loaded community data:', data);
+    document.getElementById('community-name').value = data.name || '';
+    document.getElementById('community-slug').value = data.slug || '';
+    document.getElementById('community-description').value = data.description || '';
+    document.getElementById('community-logo').value = data.backgroundImage || '';
+  }).catch(err => {
+    console.error('[caiz] Failed to load community data:', err);
+    // Show error notification if available
+    if (typeof alerts !== 'undefined') {
+      alerts.error('コミュニティデータの読み込みに失敗しました');
+    }
+  });
+  
+  // Form validation on input
+  form.addEventListener('input', () => validateForm());
+  
+  // Form submission
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    console.log('[caiz] Form submitted');
+    
+    if (!validateForm()) {
+      console.log('[caiz] Form validation failed');
+      return;
+    }
+    
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+      console.log('[caiz] Saving community data:', data);
+      await saveCommunityData(cid, data);
+      
+      // Success notification
+      if (typeof alerts !== 'undefined') {
+        alerts.success('コミュニティ情報を更新しました');
+      }
+      
+      // Close modal and refresh page
+      if (typeof bootbox !== 'undefined') {
+        $('.bootbox').modal('hide');
+      } else {
+        closeCommunityEditModal();
+      }
+      
+      setTimeout(() => window.location.reload(), 500);
+      
+    } catch (error) {
+      console.error('[caiz] Error saving community data:', error);
+      // Error notification
+      if (typeof alerts !== 'undefined') {
+        alerts.error(error.message || 'エラーが発生しました');
+      }
+    }
+  });
+};
+
+const validateForm = () => {
+  const form = document.getElementById('community-edit-form');
+  if (!form) return true;
+  
+  let isValid = true;
+  
+  // Name validation
+  const nameField = document.getElementById('community-name');
+  if (!nameField.value.trim()) {
+    showFieldError(nameField, 'コミュニティ名は必須です');
+    isValid = false;
+  } else {
+    clearFieldError(nameField);
+  }
+  
+  // Slug validation
+  const slugField = document.getElementById('community-slug');
+  const slugPattern = /^[a-z0-9-]+$/;
+  if (!slugField.value.trim()) {
+    showFieldError(slugField, 'スラグは必須です');
+    isValid = false;
+  } else if (!slugPattern.test(slugField.value)) {
+    showFieldError(slugField, '英小文字、数字、ハイフンのみ使用可能です');
+    isValid = false;
+  } else {
+    clearFieldError(slugField);
+  }
+  
+  return isValid;
+};
+
+const showFieldError = (field, message) => {
+  field.classList.add('is-invalid');
+  const feedback = field.parentNode.querySelector('.invalid-feedback');
+  if (feedback) {
+    feedback.textContent = message;
+  }
+};
+
+const clearFieldError = (field) => {
+  field.classList.remove('is-invalid');
 };
