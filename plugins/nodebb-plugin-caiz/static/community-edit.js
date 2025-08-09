@@ -1025,7 +1025,7 @@ function setupCategoryEventHandlers() {
   }
 }
 
-const loadSubCategories = async () => {
+async function loadSubCategories() {
   if (!currentCommunityId) return;
   
   try {
@@ -1054,15 +1054,15 @@ const loadSubCategories = async () => {
     if (loadingEl) loadingEl.style.display = 'none';
     showCategoriesError(error.message);
   }
-};
+}
 
-const showCategoriesLoading = () => {
+function showCategoriesLoading() {
   document.getElementById('categories-loading').style.display = 'block';
   document.getElementById('categories-empty').style.display = 'none';
   document.getElementById('categories-content').style.display = 'none';
-};
+}
 
-const showCategoriesError = (message) => {
+function showCategoriesError(message) {
   document.getElementById('categories-loading').style.display = 'none';
   document.getElementById('categories-empty').style.display = 'none';
   document.getElementById('categories-content').style.display = 'none';
@@ -1071,7 +1071,7 @@ const showCategoriesError = (message) => {
   if (typeof alerts !== 'undefined') {
     alerts.error(`Failed to load categories: ${message}`);
   }
-};
+}
 
 const renderSubCategories = () => {
   const loadingEl = document.getElementById('categories-loading');
@@ -2085,7 +2085,7 @@ function setupMemberEventHandlers() {
   }
 }
 
-const loadMembers = async () => {
+async function loadMembers() {
   if (!currentCommunityId) return;
   
   try {
@@ -2121,7 +2121,7 @@ const loadMembers = async () => {
     if (loadingEl) loadingEl.style.display = 'none';
     showMembersError(error.message);
   }
-};
+}
 
 function showMembersLoading() {
   const loadingEl = document.getElementById('members-loading');
