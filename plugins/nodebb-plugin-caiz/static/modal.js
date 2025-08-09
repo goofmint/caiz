@@ -22,7 +22,7 @@ $(document).ready(function () {
     });
 
     // モーダル内の作成ボタンのクリックイベント
-    $('#submit-community-create').on('click', async () =>{
+    $('#submit-community-create').on('click', async () => {
         const form = $('#community-create-form');
 
         const formData = form.serializeArray().reduce((obj, item) => {
@@ -47,7 +47,7 @@ $(document).ready(function () {
 
         // サーバーサイドAPIへPOSTリクエスト
         // NodeBBのajaxifyを使うとCSRFなどを自動処理してくれる
-        socket.emit('plugins.caiz.createCommunity', formData, function(err, response) {
+        socket.emit('plugins.caiz.createCommunity', formData, function (err, response) {
             if (err) {
                 alert({
                     type: 'error',
