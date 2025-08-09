@@ -701,20 +701,54 @@ const initializeCommunityEditForm = (cid) => {
       
       // Wait a bit more to ensure form fields are fully rendered
       setTimeout(() => {
-        const nameField = document.getElementById('community-name');
-        const descField = document.getElementById('community-description');
+        // Try multiple selectors to find the form fields
+        let nameField = document.getElementById('community-name');
+        let descField = document.getElementById('community-description');
+        
+        // If not found by ID, try within bootbox modal
+        if (!nameField) {
+          nameField = document.querySelector('.bootbox #community-name');
+          console.log('[caiz] Found name field in bootbox:', !!nameField);
+        }
+        if (!descField) {
+          descField = document.querySelector('.bootbox #community-description');
+          console.log('[caiz] Found desc field in bootbox:', !!descField);
+        }
+        
+        // Try more specific selectors
+        if (!nameField) {
+          nameField = document.querySelector('input[name="name"]');
+          console.log('[caiz] Found name field by name attr:', !!nameField);
+        }
+        if (!descField) {
+          descField = document.querySelector('textarea[name="description"]');
+          console.log('[caiz] Found desc field by name attr:', !!descField);
+        }
         
         console.log('[caiz] Name field found:', !!nameField);
         console.log('[caiz] Desc field found:', !!descField);
         
+        // Debug DOM structure
+        const allInputs = document.querySelectorAll('input, textarea');
+        console.log('[caiz] All inputs/textareas in DOM:', Array.from(allInputs).map(el => ({
+          id: el.id,
+          name: el.name,
+          type: el.type,
+          tagName: el.tagName
+        })));
+        
         if (nameField) {
           nameField.value = data.name || '';
           console.log('[caiz] Set community name:', data.name, 'Field value:', nameField.value);
+          // Force a change event to make sure it's visible
+          nameField.dispatchEvent(new Event('input', { bubbles: true }));
         }
         
         if (descField) {
           descField.value = data.description || '';
           console.log('[caiz] Set community description:', data.description, 'Field value:', descField.value);
+          // Force a change event to make sure it's visible
+          descField.dispatchEvent(new Event('input', { bubbles: true }));
         }
         
         // Show current logo if exists
