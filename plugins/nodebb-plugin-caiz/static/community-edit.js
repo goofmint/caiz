@@ -912,20 +912,38 @@ const uploadFile = async (file) => {
 };
 
 const validateForm = () => {
-  const form = document.getElementById('community-edit-form');
-  if (!form) return true;
+  const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+  if (!bootboxModal) {
+    console.error('[caiz] No bootbox modal found for validation');
+    return false;
+  }
+  
+  const form = bootboxModal.querySelector('#community-edit-form, form');
+  if (!form) {
+    console.error('[caiz] No form found in bootbox modal');
+    return false;
+  }
   
   let isValid = true;
   
   // Name validation
-  const nameField = document.getElementById('community-name');
-  if (!nameField.value.trim()) {
+  const nameField = bootboxModal.querySelector('#community-name, input[name="name"]');
+  console.log('[caiz] Validating name field:', nameField);
+  console.log('[caiz] Name field value:', nameField ? nameField.value : 'field not found');
+  
+  if (!nameField) {
+    console.error('[caiz] Name field not found during validation');
+    isValid = false;
+  } else if (!nameField.value.trim()) {
     showFieldError(nameField, 'Community name is required');
+    console.log('[caiz] Name validation failed: empty value');
     isValid = false;
   } else {
     clearFieldError(nameField);
+    console.log('[caiz] Name validation passed');
   }
   
+  console.log('[caiz] Form validation result:', isValid);
   return isValid;
 };
 
