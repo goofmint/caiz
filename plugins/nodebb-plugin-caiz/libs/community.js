@@ -70,13 +70,13 @@ class Community extends Base {
       winston.info(`[plugin/caiz] Group ${name} already exists`);
       return group;
     }
-    winston.info(`[plugin/caiz] Creating new group ${name} with owner ${ownerUid}`);
+    winston.info(`[plugin/caiz] Creating new group ${name}`);
+    // Don't set ownerUid for all groups - only add members explicitly
     return Groups.create({
       name,
       description,
       private: privateFlag,
-      hidden,
-      ownerUid
+      hidden
     });
   }
 
@@ -638,7 +638,7 @@ class Community extends Base {
     }
     
     try {
-      const members = [];
+      const memberMap = new Map(); // Use Map to track unique users
       const groups = [
         { name: ownerGroup, role: 'owner' },
         { name: managerGroup, role: 'manager' },
@@ -646,6 +646,7 @@ class Community extends Base {
         { name: `community-${cid}-banned`, role: 'banned' }
       ];
       
+      // Process groups in priority order - first role found wins
       for (const group of groups) {
         const groupExists = await Groups.exists(group.name);
         if (!groupExists) {
@@ -664,17 +665,25 @@ class Community extends Base {
           
           userData.forEach(user => {
             if (user && user.uid) {
-              winston.info(`[plugin/caiz] Adding user ${user.uid} (${user.username}) with role ${group.role} to members list`);
-              members.push({
-                ...user,
-                role: group.role,
-                joindate: parseInt(user.joindate) || Date.now(),
-                lastonline: parseInt(user.lastonline) || Date.now()
-              });
+              // Only add user if not already in the map (first role wins)
+              if (!memberMap.has(user.uid)) {
+                winston.info(`[plugin/caiz] Adding user ${user.uid} (${user.username}) with role ${group.role} to members list`);
+                memberMap.set(user.uid, {
+                  ...user,
+                  role: group.role,
+                  joindate: parseInt(user.joindate) || Date.now(),
+                  lastonline: parseInt(user.lastonline) || Date.now()
+                });
+              } else {
+                winston.info(`[plugin/caiz] User ${user.uid} already in list with role ${memberMap.get(user.uid).role}, skipping ${group.role}`);
+              }
             }
           });
         }
       }
+      
+      // Convert Map to array
+      const members = Array.from(memberMap.values());
       
       // Sort by role priority, then by username
       const roleOrder = { owner: 0, manager: 1, member: 2, banned: 3 };
