@@ -256,6 +256,40 @@
   }
 }
 
+/* Bootbox Modal Dark Mode Support */
+.bootbox .modal-content {
+  background-color: var(--bs-body-bg, #ffffff) !important;
+  color: var(--bs-body-color, #212529) !important;
+  border: 1px solid var(--bs-border-color, #dee2e6) !important;
+}
+
+.bootbox .modal-header {
+  background-color: var(--bs-body-bg, #ffffff) !important;
+  color: var(--bs-body-color, #212529) !important;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6) !important;
+}
+
+.bootbox .modal-body {
+  background-color: var(--bs-body-bg, #ffffff) !important;
+  color: var(--bs-body-color, #212529) !important;
+}
+
+.bootbox .modal-footer {
+  background-color: var(--bs-body-bg, #ffffff) !important;
+  border-top: 1px solid var(--bs-border-color, #dee2e6) !important;
+}
+
+/* Force dark mode support for dynamically generated content */
+.bootbox .modal-body > div,
+.bootbox .modal-body .row,
+.bootbox .modal-body .col-md-4,
+.bootbox .modal-body .col-md-8,
+.bootbox .modal-body .sidebar-menu,
+.bootbox .modal-body .content-area {
+  background-color: var(--bs-body-bg, #ffffff) !important;
+  color: var(--bs-body-color, #212529) !important;
+}
+
 /* Community Edit Modal Styles */
 .community-edit-modal {
   .modal-dialog {
@@ -266,15 +300,17 @@
   
   .modal-content {
     height: 100%;
-    background-color: var(--bs-body-bg, #ffffff);
-    color: var(--bs-body-color, #212529);
+    background-color: var(--bs-body-bg, #ffffff) !important;
+    color: var(--bs-body-color, #212529) !important;
     border: 1px solid var(--bs-border-color, #dee2e6);
   }
   
   .modal-body {
     height: calc(100% - 60px); /* Header height */
     overflow: hidden;
+    background-color: var(--bs-body-bg, #ffffff) !important;
   }
+}
   
   .sidebar-menu {
     background-color: var(--bs-tertiary-bg, #f8f9fa);
@@ -325,17 +361,20 @@
   .content-area {
     min-height: 100%;
     overflow-y: auto;
-    background-color: var(--bs-body-bg, #ffffff);
+    background-color: var(--bs-body-bg, #ffffff) !important;
     
     .tab-content {
       min-height: calc(100% - 2rem);
+      background-color: var(--bs-body-bg, #ffffff) !important;
     }
     
     .tab-pane {
       min-height: 400px;
+      background-color: var(--bs-body-bg, #ffffff) !important;
+      color: var(--bs-body-color, #212529) !important;
       
       h6 {
-        color: var(--bs-heading-color, #495057);
+        color: var(--bs-heading-color, #495057) !important;
         font-weight: 600;
         border-bottom: 2px solid var(--bs-border-color, #e9ecef);
         padding-bottom: 0.5rem;
@@ -345,8 +384,12 @@
       .alert {
         border: none;
         border-left: 4px solid var(--bs-info, #0dcaf0);
-        background-color: var(--bs-info-bg-subtle, #f0f9ff);
-        color: var(--bs-info-text-emphasis, #0c63e4);
+        background-color: var(--bs-info-bg-subtle, #f0f9ff) !important;
+        color: var(--bs-info-text-emphasis, #0c63e4) !important;
+      }
+      
+      p {
+        color: var(--bs-body-color, #212529) !important;
       }
     }
   }
