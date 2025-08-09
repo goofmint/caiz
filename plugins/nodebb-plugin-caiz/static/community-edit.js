@@ -701,29 +701,21 @@ const initializeCommunityEditForm = (cid) => {
       
       // Wait a bit more to ensure form fields are fully rendered
       setTimeout(() => {
-        // Try multiple selectors to find the form fields
-        let nameField = document.getElementById('community-name');
-        let descField = document.getElementById('community-description');
-        
-        // If not found by ID, try within bootbox modal
-        if (!nameField) {
-          nameField = document.querySelector('.bootbox #community-name');
-          console.log('[caiz] Found name field in bootbox:', !!nameField);
-        }
-        if (!descField) {
-          descField = document.querySelector('.bootbox #community-description');
-          console.log('[caiz] Found desc field in bootbox:', !!descField);
+        // Target elements specifically within the visible bootbox modal
+        const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+        if (!bootboxModal) {
+          console.error('[caiz] No visible bootbox modal found');
+          return;
         }
         
-        // Try more specific selectors
-        if (!nameField) {
-          nameField = document.querySelector('input[name="name"]');
-          console.log('[caiz] Found name field by name attr:', !!nameField);
-        }
-        if (!descField) {
-          descField = document.querySelector('textarea[name="description"]');
-          console.log('[caiz] Found desc field by name attr:', !!descField);
-        }
+        console.log('[caiz] Found bootbox modal:', bootboxModal);
+        
+        // Find form fields within the bootbox modal only
+        let nameField = bootboxModal.querySelector('#community-name, input[name="name"]');
+        let descField = bootboxModal.querySelector('#community-description, textarea[name="description"]');
+        
+        console.log('[caiz] Bootbox modal class list:', bootboxModal.classList.toString());
+        console.log('[caiz] Bootbox modal HTML preview:', bootboxModal.innerHTML.substring(0, 200) + '...');
         
         console.log('[caiz] Name field found:', !!nameField);
         console.log('[caiz] Desc field found:', !!descField);
@@ -753,8 +745,8 @@ const initializeCommunityEditForm = (cid) => {
         
         // Show current logo if exists
         if (data.backgroundImage) {
-          const currentLogoPreview = document.getElementById('current-logo-preview');
-          const currentLogoImg = document.getElementById('current-logo-img');
+          const currentLogoPreview = bootboxModal.querySelector('#current-logo-preview');
+          const currentLogoImg = bootboxModal.querySelector('#current-logo-img');
           if (currentLogoImg && currentLogoPreview) {
             currentLogoImg.src = data.backgroundImage;
             currentLogoPreview.style.display = 'block';
@@ -772,15 +764,21 @@ const initializeCommunityEditForm = (cid) => {
     
     // Setup file input change handler for logo preview
     setTimeout(() => {
-      const logoInput = document.getElementById('community-logo');
+      const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+      if (!bootboxModal) {
+        console.error('[caiz] No bootbox modal found for event handlers');
+        return;
+      }
+      
+      const logoInput = bootboxModal.querySelector('#community-logo, input[type="file"]');
       if (logoInput) {
         logoInput.addEventListener('change', (e) => {
           const file = e.target.files[0];
           if (file) {
             const reader = new FileReader();
             reader.onload = (e) => {
-              const newLogoPreview = document.getElementById('new-logo-preview');
-              const newLogoImg = document.getElementById('new-logo-img');
+              const newLogoPreview = bootboxModal.querySelector('#new-logo-preview');
+              const newLogoImg = bootboxModal.querySelector('#new-logo-img');
               if (newLogoPreview && newLogoImg) {
                 newLogoImg.src = e.target.result;
                 newLogoPreview.style.display = 'block';
@@ -788,7 +786,7 @@ const initializeCommunityEditForm = (cid) => {
             };
             reader.readAsDataURL(file);
           } else {
-            const newLogoPreview = document.getElementById('new-logo-preview');
+            const newLogoPreview = bootboxModal.querySelector('#new-logo-preview');
             if (newLogoPreview) {
               newLogoPreview.style.display = 'none';
             }
@@ -797,6 +795,7 @@ const initializeCommunityEditForm = (cid) => {
       }
       
       // Form validation on input
+      const form = bootboxModal.querySelector('#community-edit-form, form');
       if (form) {
         form.addEventListener('input', () => validateForm());
         
@@ -823,16 +822,20 @@ const initializeCommunityEditForm = (cid) => {
             let backgroundImage = null;
             
             // Handle file upload if a file was selected
-            const logoFile = document.getElementById('community-logo').files[0];
+            const logoFileInput = bootboxModal.querySelector('#community-logo, input[type="file"]');
+            const logoFile = logoFileInput ? logoFileInput.files[0] : null;
             if (logoFile) {
               console.log('[caiz] Uploading logo file:', logoFile.name);
               backgroundImage = await uploadFile(logoFile);
               console.log('[caiz] Logo uploaded successfully:', backgroundImage);
             }
             
+            const nameFieldSubmit = bootboxModal.querySelector('#community-name, input[name="name"]');
+            const descFieldSubmit = bootboxModal.querySelector('#community-description, textarea[name="description"]');
+            
             const data = {
-              name: document.getElementById('community-name').value,
-              description: document.getElementById('community-description').value
+              name: nameFieldSubmit ? nameFieldSubmit.value : '',
+              description: descFieldSubmit ? descFieldSubmit.value : ''
             };
             
             // Only include backgroundImage if a new file was uploaded
