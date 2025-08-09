@@ -2045,10 +2045,12 @@ function clearFieldError(field) {
 
 // Member Management Functions
 function initializeMemberManagement(cid) {
-  console.log('[caiz] Initializing member management for cid:', cid);
+  console.log('[caiz] DEBUG: Initializing member management for cid:', cid);
   currentCommunityId = cid;
   
+  console.log('[caiz] DEBUG: Setting up member event handlers');
   setupMemberEventHandlers();
+  console.log('[caiz] DEBUG: Loading members');
   loadMembers();
 }
 
@@ -2091,10 +2093,18 @@ async function loadMembers() {
     console.log('[caiz] Loading members for cid:', currentCommunityId);
     showMembersLoading();
     
+    console.log('[caiz] DEBUG: Emitting plugins.caiz.getMembers with cid:', currentCommunityId);
     socket.emit('plugins.caiz.getMembers', { cid: currentCommunityId }, function(err, data) {
+      console.log('[caiz] DEBUG: getMembers callback received, err:', err, 'data:', data);
+      
       // Always hide loading state
       const loadingEl = document.getElementById('members-loading');
-      if (loadingEl) loadingEl.style.display = 'none';
+      if (loadingEl) {
+        console.log('[caiz] DEBUG: Hiding loading element');
+        loadingEl.style.display = 'none';
+      } else {
+        console.log('[caiz] DEBUG: Loading element not found');
+      }
       
       if (err) {
         console.error('[caiz] Error loading members:', err);
@@ -2103,14 +2113,20 @@ async function loadMembers() {
       }
       
       currentMembers = data || [];
-      console.log('[caiz] Loaded members:', currentMembers);
+      console.log('[caiz] DEBUG: currentMembers set to:', currentMembers);
+      console.log('[caiz] DEBUG: currentMembers length:', currentMembers.length);
+      console.log('[caiz] DEBUG: currentMembers type:', typeof currentMembers);
+      console.log('[caiz] DEBUG: Is array?', Array.isArray(currentMembers));
       
       // Get current user's role
+      console.log('[caiz] DEBUG: app.user:', app.user);
       if (app.user && app.user.uid) {
         const currentUser = currentMembers.find(m => m.uid == app.user.uid);
         currentUserRole = currentUser ? currentUser.role : null;
+        console.log('[caiz] DEBUG: Current user role:', currentUserRole, 'currentUser:', currentUser);
       }
       
+      console.log('[caiz] DEBUG: Calling renderMembers()');
       renderMembers();
     });
   } catch (error) {
@@ -2148,25 +2164,41 @@ function showMembersError(message) {
 }
 
 function renderMembers() {
+  console.log('[caiz] DEBUG: renderMembers() called');
+  
   const loadingEl = document.getElementById('members-loading');
   const emptyEl = document.getElementById('members-empty');
   const contentEl = document.getElementById('members-content');
   const tableBody = document.getElementById('members-table-body');
   
+  console.log('[caiz] DEBUG: renderMembers DOM elements:');
+  console.log('  loadingEl:', !!loadingEl);
+  console.log('  emptyEl:', !!emptyEl);
+  console.log('  contentEl:', !!contentEl);
+  console.log('  tableBody:', !!tableBody);
+  
   if (loadingEl) loadingEl.style.display = 'none';
   
+  console.log('[caiz] DEBUG: currentMembers.length:', currentMembers.length);
+  
   if (!currentMembers.length) {
+    console.log('[caiz] DEBUG: No members, showing empty state');
     if (emptyEl) emptyEl.style.display = 'block';
     if (contentEl) contentEl.style.display = 'none';
     return;
   }
   
+  console.log('[caiz] DEBUG: Members found, showing content');
   if (emptyEl) emptyEl.style.display = 'none';
   if (contentEl) contentEl.style.display = 'block';
   
   // Render table rows
   if (tableBody) {
-    tableBody.innerHTML = currentMembers.map(member => {
+    console.log('[caiz] DEBUG: Rendering table rows for', currentMembers.length, 'members');
+    console.log('[caiz] DEBUG: First member data:', currentMembers[0]);
+    
+    const renderedHTML = currentMembers.map(member => {
+      console.log('[caiz] DEBUG: Rendering member:', member.uid, member.username, member.role);
       const decodedUsername = decodeHTMLEntities(member.username || '');
       const roleClass = getRoleClass(member.role);
       const canManage = canManageMember(member);
@@ -2211,6 +2243,13 @@ function renderMembers() {
         </tr>
       `;
     }).join('');
+    
+    console.log('[caiz] DEBUG: Generated HTML length:', renderedHTML.length);
+    console.log('[caiz] DEBUG: Setting tableBody.innerHTML');
+    tableBody.innerHTML = renderedHTML;
+    console.log('[caiz] DEBUG: tableBody.innerHTML set, rows count:', tableBody.querySelectorAll('tr').length);
+  } else {
+    console.log('[caiz] DEBUG: tableBody not found');
   }
 }
 
