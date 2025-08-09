@@ -237,24 +237,31 @@ class Community extends Base {
 
   static async UpdateCommunityData(socket, data) {
     winston.info(`[plugin/caiz] Updating community data for cid: ${data.cid}, uid: ${socket.uid}`);
+    winston.info(`[plugin/caiz] Received data:`, JSON.stringify(data, null, 2));
     
     const { uid } = socket;
     const { cid, name, description, backgroundImage } = data;
     
     if (!uid) {
+      winston.error(`[plugin/caiz] Authentication required for cid: ${cid}`);
       throw new Error('Authentication required');
     }
     
     // Check ownership
     const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    winston.info(`[plugin/caiz] Owner group for cid ${cid}: ${ownerGroup}`);
+    
     const isOwner = await Groups.isMember(uid, ownerGroup);
+    winston.info(`[plugin/caiz] User ${uid} is owner: ${isOwner}`);
     
     if (!isOwner) {
+      winston.error(`[plugin/caiz] Permission denied for uid ${uid}, cid ${cid}`);
       throw new Error('Permission denied');
     }
     
     // Validate input
     if (!name) {
+      winston.error(`[plugin/caiz] Name is required but not provided`);
       throw new Error('Name is required');
     }
     
@@ -267,9 +274,18 @@ class Community extends Base {
     // Only update backgroundImage if a new one is provided
     if (backgroundImage) {
       updateData.backgroundImage = backgroundImage.trim();
+      winston.info(`[plugin/caiz] Including background image: ${backgroundImage}`);
     }
     
-    await Categories.update(cid, updateData);
+    winston.info(`[plugin/caiz] Update data prepared:`, JSON.stringify(updateData, null, 2));
+    
+    try {
+      await Categories.update(cid, updateData);
+      winston.info(`[plugin/caiz] Categories.update completed for cid: ${cid}`);
+    } catch (updateError) {
+      winston.error(`[plugin/caiz] Categories.update failed:`, updateError);
+      throw updateError;
+    }
     
     winston.info(`[plugin/caiz] Community data updated successfully for cid: ${cid}`);
     

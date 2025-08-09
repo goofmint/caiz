@@ -825,9 +825,18 @@ const initializeCommunityEditForm = (cid) => {
             const logoFileInput = bootboxModal.querySelector('#community-logo, input[type="file"]');
             const logoFile = logoFileInput ? logoFileInput.files[0] : null;
             if (logoFile) {
-              console.log('[caiz] Uploading logo file:', logoFile.name);
-              backgroundImage = await uploadFile(logoFile);
-              console.log('[caiz] Logo uploaded successfully:', backgroundImage);
+              try {
+                console.log('[caiz] Uploading logo file:', logoFile.name);
+                backgroundImage = await uploadFile(logoFile);
+                console.log('[caiz] Logo uploaded successfully:', backgroundImage);
+              } catch (uploadError) {
+                console.error('[caiz] Logo upload failed:', uploadError);
+                if (typeof alerts !== 'undefined') {
+                  alerts.warning('Logo upload failed, but continuing with other updates');
+                }
+                // Continue without logo update
+                backgroundImage = null;
+              }
             }
             
             const nameFieldSubmit = bootboxModal.querySelector('#community-name, input[name="name"]');
