@@ -735,7 +735,6 @@ const initializeCommunityEditForm = (cid) => {
         alerts.error('Failed to load community data');
       }
     });
-  });
     
     // Setup file input change handler for logo preview
     setTimeout(() => {
@@ -769,73 +768,73 @@ const initializeCommunityEditForm = (cid) => {
         
         // Form submission
         form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    console.log('[caiz] Form submitted');
-    
-    if (!validateForm()) {
-      console.log('[caiz] Form validation failed');
-      return;
-    }
-    
-    // Show loading state
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const btnText = submitBtn.querySelector('.btn-text');
-    const btnSpinner = submitBtn.querySelector('.btn-spinner');
-    
-    btnText.style.display = 'none';
-    btnSpinner.style.display = 'inline';
-    submitBtn.disabled = true;
-    
-    try {
-      let backgroundImage = null;
-      
-      // Handle file upload if a file was selected
-      const logoFile = document.getElementById('community-logo').files[0];
-      if (logoFile) {
-        console.log('[caiz] Uploading logo file:', logoFile.name);
-        backgroundImage = await uploadFile(logoFile);
-        console.log('[caiz] Logo uploaded successfully:', backgroundImage);
-      }
-      
-      const data = {
-        name: document.getElementById('community-name').value,
-        description: document.getElementById('community-description').value
-      };
-      
-      // Only include backgroundImage if a new file was uploaded
-      if (backgroundImage) {
-        data.backgroundImage = backgroundImage;
-      }
-      
-      console.log('[caiz] Saving community data:', data);
-      await saveCommunityData(cid, data);
-      
-      // Success notification
-      if (typeof alerts !== 'undefined') {
-        alerts.success('Community information updated successfully');
-      }
-      
-      // Close modal and refresh page
-      if (typeof bootbox !== 'undefined') {
-        $('.bootbox').modal('hide');
-      } else {
-        closeCommunityEditModal();
-      }
-      
-      setTimeout(() => window.location.reload(), 500);
-      
-    } catch (error) {
-      console.error('[caiz] Error saving community data:', error);
-      // Error notification
-      if (typeof alerts !== 'undefined') {
-        alerts.error(error.message || 'An error occurred while saving');
-      }
-    } finally {
-      // Reset loading state
-          btnText.style.display = 'inline';
-          btnSpinner.style.display = 'none';
-          submitBtn.disabled = false;
-        }
+          e.preventDefault();
+          console.log('[caiz] Form submitted');
+          
+          if (!validateForm()) {
+            console.log('[caiz] Form validation failed');
+            return;
+          }
+          
+          // Show loading state
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const btnText = submitBtn.querySelector('.btn-text');
+          const btnSpinner = submitBtn.querySelector('.btn-spinner');
+          
+          btnText.style.display = 'none';
+          btnSpinner.style.display = 'inline';
+          submitBtn.disabled = true;
+          
+          try {
+            let backgroundImage = null;
+            
+            // Handle file upload if a file was selected
+            const logoFile = document.getElementById('community-logo').files[0];
+            if (logoFile) {
+              console.log('[caiz] Uploading logo file:', logoFile.name);
+              backgroundImage = await uploadFile(logoFile);
+              console.log('[caiz] Logo uploaded successfully:', backgroundImage);
+            }
+            
+            const data = {
+              name: document.getElementById('community-name').value,
+              description: document.getElementById('community-description').value
+            };
+            
+            // Only include backgroundImage if a new file was uploaded
+            if (backgroundImage) {
+              data.backgroundImage = backgroundImage;
+            }
+            
+            console.log('[caiz] Saving community data:', data);
+            await saveCommunityData(cid, data);
+            
+            // Success notification
+            if (typeof alerts !== 'undefined') {
+              alerts.success('Community information updated successfully');
+            }
+            
+            // Close modal and refresh page
+            if (typeof bootbox !== 'undefined') {
+              $('.bootbox').modal('hide');
+            } else {
+              closeCommunityEditModal();
+            }
+            
+            setTimeout(() => window.location.reload(), 500);
+            
+          } catch (error) {
+            console.error('[caiz] Error saving community data:', error);
+            // Error notification
+            if (typeof alerts !== 'undefined') {
+              alerts.error(error.message || 'An error occurred while saving');
+            }
+          } finally {
+            // Reset loading state
+            btnText.style.display = 'inline';
+            btnSpinner.style.display = 'none';
+            submitBtn.disabled = false;
+          }
         });
       }
     }, 300);
