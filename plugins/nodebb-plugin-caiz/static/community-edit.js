@@ -1014,38 +1014,44 @@ const renderSubCategories = () => {
   contentEl.style.display = 'block';
   
   // Render table rows
-  tableBody.innerHTML = subcategories.map(category => `
-    <tr data-cid="${category.cid}" draggable="true" class="category-row">
-      <td>
-        <i class="fa fa-grip-vertical text-muted category-drag-handle" style="cursor: move;"></i>
-      </td>
-      <td>
-        <div class="d-flex align-items-center gap-2">
-          ${category.icon ? `<i class="fa ${category.icon}" style="color: ${category.color || '#000'}; background-color: ${category.bgColor || 'transparent'};"></i>` : ''}
-          <strong>${escapeHtml(category.name)}</strong>
-        </div>
-      </td>
-      <td>
-        <small class="text-muted">${category.description ? escapeHtml(category.description) : '-'}</small>
-      </td>
-      <td class="text-center">
-        <span class="badge bg-secondary">${category.topiccount || 0}</span>
-      </td>
-      <td class="text-center">
-        <span class="badge bg-info">${category.postcount || 0}</span>
-      </td>
-      <td class="text-end">
-        <div class="btn-group btn-group-sm">
-          <button type="button" class="btn btn-outline-primary" onclick="editCategory(${category.cid})" title="Edit">
-            <i class="fa fa-edit"></i>
-          </button>
-          <button type="button" class="btn btn-outline-danger" onclick="deleteCategory(${category.cid}, '${escapeHtml(category.name)}')" title="Delete">
-            <i class="fa fa-trash"></i>
-          </button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+  tableBody.innerHTML = subcategories.map(category => {
+    // Decode HTML entities in category name and description for display
+    const decodedName = decodeHTMLEntities(category.name || '');
+    const decodedDescription = decodeHTMLEntities(category.description || '');
+    
+    return `
+      <tr data-cid="${category.cid}" draggable="true" class="category-row">
+        <td>
+          <i class="fa fa-grip-vertical text-muted category-drag-handle" style="cursor: move;"></i>
+        </td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            ${category.icon ? `<i class="fa ${category.icon}" style="color: ${category.color || '#000'}; background-color: ${category.bgColor || 'transparent'};"></i>` : ''}
+            <strong>${escapeHtml(decodedName)}</strong>
+          </div>
+        </td>
+        <td>
+          <small class="text-muted">${decodedDescription ? escapeHtml(decodedDescription) : '-'}</small>
+        </td>
+        <td class="text-center">
+          <span class="badge bg-secondary">${category.topiccount || 0}</span>
+        </td>
+        <td class="text-center">
+          <span class="badge bg-info">${category.postcount || 0}</span>
+        </td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-primary" onclick="editCategory(${category.cid})" title="Edit">
+              <i class="fa fa-edit"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger" onclick="deleteCategory(${category.cid}, '${escapeHtml(decodedName)}')" title="Delete">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
   
   // Initialize drag and drop after rendering
   initializeDragAndDrop();
@@ -1075,8 +1081,8 @@ const showCategoryForm = (category = null) => {
     title.textContent = 'Edit Category';
     btnText.textContent = 'Update Category';
     cidInput.value = category.cid;
-    nameInput.value = category.name;
-    descInput.value = category.description || '';
+    nameInput.value = decodeHTMLEntities(category.name || '');
+    descInput.value = decodeHTMLEntities(category.description || '');
     iconInput.value = category.icon || 'fa-folder';
     colorInput.value = category.color || '#000000';
     bgColorInput.value = category.bgColor || '#ffffff';
@@ -1188,10 +1194,12 @@ const editCategory = (cid) => {
 };
 
 const deleteCategory = (cid, name) => {
+  const decodedName = decodeHTMLEntities(name || '');
+  
   if (typeof bootbox !== 'undefined') {
     bootbox.confirm({
       title: 'Delete Category',
-      message: `Are you sure you want to delete the category "${escapeHtml(name)}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete the category "${escapeHtml(decodedName)}"? This action cannot be undone.`,
       buttons: {
         confirm: {
           label: '<i class="fa fa-trash"></i> Delete',
@@ -1209,7 +1217,7 @@ const deleteCategory = (cid, name) => {
       }
     });
   } else {
-    if (confirm(`Are you sure you want to delete the category "${name}"?`)) {
+    if (confirm(`Are you sure you want to delete the category "${decodedName}"?`)) {
       performDeleteCategory(cid);
     }
   }
@@ -1265,8 +1273,11 @@ const openCategoryIconSelector = () => {
 
 const escapeHtml = (text) => {
   if (!text) return '';
+  // First decode any existing HTML entities, then escape properly
   const div = document.createElement('div');
-  div.textContent = text;
+  div.innerHTML = text;
+  const decodedText = div.textContent || div.innerText || '';
+  div.textContent = decodedText;
   return div.innerHTML;
 };
 
