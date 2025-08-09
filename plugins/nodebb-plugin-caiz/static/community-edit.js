@@ -1995,7 +1995,7 @@ const uploadFile = async (file) => {
   });
 };
 
-const validateForm = () => {
+function validateForm() {
   const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
   if (!bootboxModal) {
     console.error('[caiz] No bootbox modal found for validation');
@@ -2029,19 +2029,19 @@ const validateForm = () => {
   
   console.log('[caiz] Form validation result:', isValid);
   return isValid;
-};
+}
 
-const showFieldError = (field, message) => {
+function showFieldError(field, message) {
   field.classList.add('is-invalid');
   const feedback = field.parentNode.querySelector('.invalid-feedback');
   if (feedback) {
     feedback.textContent = message;
   }
-};
+}
 
-const clearFieldError = (field) => {
+function clearFieldError(field) {
   field.classList.remove('is-invalid');
-};
+}
 
 // Member Management Functions
 function initializeMemberManagement(cid) {
