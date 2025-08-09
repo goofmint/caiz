@@ -679,70 +679,96 @@ const saveCommunityData = async (cid, formData) => {
 const initializeCommunityEditForm = (cid) => {
   console.log('[caiz] Initializing community edit form for cid:', cid);
   
-  const form = document.getElementById('community-edit-form');
-  if (!form) {
-    console.log('[caiz] Community edit form not found');
-    return;
-  }
-  
-  // Load existing data
-  loadCommunityEditData(cid).then(data => {
-    console.log('[caiz] Loaded community data:', data);
-    
-    const nameField = document.getElementById('community-name');
-    const descField = document.getElementById('community-description');
-    
-    if (nameField) {
-      nameField.value = data.name || '';
-      console.log('[caiz] Set community name:', data.name);
-    }
-    
-    if (descField) {
-      descField.value = data.description || '';
-      console.log('[caiz] Set community description:', data.description);
-    }
-    
-    // Show current logo if exists
-    if (data.backgroundImage) {
-      const currentLogoPreview = document.getElementById('current-logo-preview');
-      const currentLogoImg = document.getElementById('current-logo-img');
-      if (currentLogoImg && currentLogoPreview) {
-        currentLogoImg.src = data.backgroundImage;
-        currentLogoPreview.style.display = 'block';
-        console.log('[caiz] Set current logo:', data.backgroundImage);
-      }
-    }
-  }).catch(err => {
-    console.error('[caiz] Failed to load community data:', err);
-    // Show error notification if available
-    if (typeof alerts !== 'undefined') {
-      alerts.error('Failed to load community data');
-    }
-  });
-  
-  // File input change handler for logo preview
-  const logoInput = document.getElementById('community-logo');
-  logoInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const newLogoPreview = document.getElementById('new-logo-preview');
-        const newLogoImg = document.getElementById('new-logo-img');
-        newLogoImg.src = e.target.result;
-        newLogoPreview.style.display = 'block';
-      };
-      reader.readAsDataURL(file);
+  // Wait for form to be available in DOM
+  const waitForForm = (callback, attempts = 0) => {
+    const form = document.getElementById('community-edit-form');
+    if (form) {
+      callback();
+    } else if (attempts < 20) {
+      setTimeout(() => waitForForm(callback, attempts + 1), 100);
     } else {
-      document.getElementById('new-logo-preview').style.display = 'none';
+      console.error('[caiz] Community edit form not found after waiting');
     }
+  };
+  
+  waitForForm(() => {
+    const form = document.getElementById('community-edit-form');
+    console.log('[caiz] Form found, loading data');
+    
+    // Load existing data
+    loadCommunityEditData(cid).then(data => {
+      console.log('[caiz] Loaded community data:', data);
+      
+      // Wait a bit more to ensure form fields are fully rendered
+      setTimeout(() => {
+        const nameField = document.getElementById('community-name');
+        const descField = document.getElementById('community-description');
+        
+        console.log('[caiz] Name field found:', !!nameField);
+        console.log('[caiz] Desc field found:', !!descField);
+        
+        if (nameField) {
+          nameField.value = data.name || '';
+          console.log('[caiz] Set community name:', data.name, 'Field value:', nameField.value);
+        }
+        
+        if (descField) {
+          descField.value = data.description || '';
+          console.log('[caiz] Set community description:', data.description, 'Field value:', descField.value);
+        }
+        
+        // Show current logo if exists
+        if (data.backgroundImage) {
+          const currentLogoPreview = document.getElementById('current-logo-preview');
+          const currentLogoImg = document.getElementById('current-logo-img');
+          if (currentLogoImg && currentLogoPreview) {
+            currentLogoImg.src = data.backgroundImage;
+            currentLogoPreview.style.display = 'block';
+            console.log('[caiz] Set current logo:', data.backgroundImage);
+          }
+        }
+      }, 200);
+    }).catch(err => {
+      console.error('[caiz] Failed to load community data:', err);
+      // Show error notification if available
+      if (typeof alerts !== 'undefined') {
+        alerts.error('Failed to load community data');
+      }
+    });
   });
-  
-  // Form validation on input
-  form.addEventListener('input', () => validateForm());
-  
-  // Form submission
-  form.addEventListener('submit', async (e) => {
+    
+    // Setup file input change handler for logo preview
+    setTimeout(() => {
+      const logoInput = document.getElementById('community-logo');
+      if (logoInput) {
+        logoInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const newLogoPreview = document.getElementById('new-logo-preview');
+              const newLogoImg = document.getElementById('new-logo-img');
+              if (newLogoPreview && newLogoImg) {
+                newLogoImg.src = e.target.result;
+                newLogoPreview.style.display = 'block';
+              }
+            };
+            reader.readAsDataURL(file);
+          } else {
+            const newLogoPreview = document.getElementById('new-logo-preview');
+            if (newLogoPreview) {
+              newLogoPreview.style.display = 'none';
+            }
+          }
+        });
+      }
+      
+      // Form validation on input
+      if (form) {
+        form.addEventListener('input', () => validateForm());
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
     e.preventDefault();
     console.log('[caiz] Form submitted');
     
@@ -806,10 +832,13 @@ const initializeCommunityEditForm = (cid) => {
       }
     } finally {
       // Reset loading state
-      btnText.style.display = 'inline';
-      btnSpinner.style.display = 'none';
-      submitBtn.disabled = false;
-    }
+          btnText.style.display = 'inline';
+          btnSpinner.style.display = 'none';
+          submitBtn.disabled = false;
+        }
+        });
+      }
+    }, 300);
   });
 };
 
