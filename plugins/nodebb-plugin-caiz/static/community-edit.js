@@ -66,11 +66,10 @@ const addEditButton = (cid) => {
     console.log('[caiz] Edit button added:', insertLocation);
   }
   
-  // Add click event (placeholder for now - will connect to modal in task 03)
+  // Add click event to open edit modal
   editBtn.on('click', function() {
     console.log('[caiz] Edit button clicked for community', cid);
-    // TODO: Open edit modal (task 03)
-    alert('Edit modal will be implemented in task 03');
+    openCommunityEditModal(cid);
   });
 };
 
@@ -238,4 +237,368 @@ $(document).ready(function() {
   if (typeof ajaxify !== 'undefined') {
     setTimeout(initializeCommunityPage, 100);
   }
+  
+  // Initialize modal navigation after DOM is ready
+  setTimeout(initializeModalNavigation, 200);
 });
+
+// Modal Management Functions
+const openCommunityEditModal = async (cid) => {
+  console.log('[caiz] Opening edit modal for community', cid);
+  
+  try {
+    // Use NodeBB's bootbox for modal if available
+    if (typeof bootbox !== 'undefined') {
+      console.log('[caiz] Using NodeBB bootbox modal');
+      await openBootboxModal(cid);
+    } else {
+      console.log('[caiz] Bootbox not available, using custom modal');
+      await openCustomModal(cid);
+    }
+  } catch (error) {
+    console.error('[caiz] Error opening modal:', error);
+    // Fallback to simple modal
+    await openCustomModal(cid);
+  }
+};
+
+const openBootboxModal = async (cid) => {
+  const modalHtml = await getModalHtml(cid);
+  
+  const modal = bootbox.dialog({
+    title: 'Edit Community',
+    message: modalHtml,
+    size: 'extra-large',
+    backdrop: true,
+    onEscape: true,
+    buttons: {
+      close: {
+        label: 'Close',
+        className: 'btn-secondary',
+        callback: function () {
+          console.log('[caiz] Modal closed via button');
+        }
+      }
+    }
+  });
+  
+  // Initialize navigation after modal is shown
+  modal.on('shown.bs.modal', function () {
+    initializeModalNavigation();
+    resetModalToFirstTab();
+  });
+  
+  console.log('[caiz] Bootbox modal opened for cid:', cid);
+};
+
+const openCustomModal = async (cid) => {
+  // Ensure modal template is loaded
+  await ensureModalTemplate();
+  
+  const modalElement = document.getElementById('community-edit-modal');
+  
+  if (!modalElement) {
+    console.error('[caiz] Modal element not found');
+    return;
+  }
+  
+  // Reset to first tab
+  resetModalToFirstTab();
+  
+  // Store current community ID for later use
+  modalElement.setAttribute('data-cid', cid);
+  
+  // Use jQuery/Bootstrap modal if available
+  if (typeof $ !== 'undefined' && $.fn.modal) {
+    console.log('[caiz] Using jQuery modal');
+    $(modalElement).modal('show');
+    
+    // Handle modal close events
+    $(modalElement).on('hidden.bs.modal', function () {
+      console.log('[caiz] Modal closed via jQuery');
+    });
+  } else {
+    console.log('[caiz] Using manual modal display');
+    // Manual modal display
+    modalElement.style.display = 'block';
+    modalElement.classList.add('show');
+    modalElement.setAttribute('aria-hidden', 'false');
+    
+    // Add backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'community-edit-modal-backdrop';
+    document.body.appendChild(backdrop);
+    
+    // Add body class for modal-open state
+    document.body.classList.add('modal-open');
+    
+    // Handle close events
+    setupModalCloseHandlers(modalElement, backdrop);
+  }
+  
+  console.log('[caiz] Custom modal opened for cid:', cid);
+};
+
+const setupModalCloseHandlers = (modalElement, backdrop) => {
+  const closeHandler = () => {
+    closeCommunityEditModal();
+  };
+  
+  // Close button
+  const closeBtn = modalElement.querySelector('.btn-close, [data-bs-dismiss="modal"]');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeHandler);
+  }
+  
+  // Backdrop click
+  if (backdrop) {
+    backdrop.addEventListener('click', closeHandler);
+  }
+  
+  // ESC key
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeHandler();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+};
+
+const closeCommunityEditModal = () => {
+  console.log('[caiz] Closing community edit modal');
+  
+  const modalElement = document.getElementById('community-edit-modal');
+  const backdrop = document.getElementById('community-edit-modal-backdrop');
+  
+  if (modalElement) {
+    modalElement.style.display = 'none';
+    modalElement.classList.remove('show');
+    modalElement.setAttribute('aria-hidden', 'true');
+  }
+  
+  if (backdrop) {
+    backdrop.remove();
+  }
+  
+  document.body.classList.remove('modal-open');
+};
+
+const getModalHtml = async (cid) => {
+  return `
+    <div class="row g-0 h-100" style="min-height: 60vh;">
+      <!-- Left Sidebar (30%) -->
+      <div class="col-md-4 sidebar-menu border-end" style="background-color: #f8f9fa; min-height: 100%;">
+        <div class="list-group list-group-flush">
+          <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
+            <i class="fa fa-edit me-2"></i>編集
+          </a>
+          <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
+            <i class="fa fa-folder me-2"></i>カテゴリー
+          </a>
+          <a href="#" class="list-group-item list-group-item-action" data-tab="members">
+            <i class="fa fa-users me-2"></i>メンバー
+          </a>
+        </div>
+      </div>
+      <!-- Right Content Area (70%) -->
+      <div class="col-md-8 content-area" style="min-height: 100%; background-color: #ffffff;">
+        <div class="tab-content p-4">
+          <div class="tab-pane fade show active" id="general-tab">
+            <h6 class="mb-3">コミュニティ情報編集</h6>
+            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <div class="alert alert-info">
+              <i class="fa fa-info-circle me-2"></i>
+              コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
+            </div>
+          </div>
+          <div class="tab-pane fade" id="categories-tab">
+            <h6 class="mb-3">カテゴリー管理</h6>
+            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <div class="alert alert-info">
+              <i class="fa fa-info-circle me-2"></i>
+              コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+            </div>
+          </div>
+          <div class="tab-pane fade" id="members-tab">
+            <h6 class="mb-3">メンバー管理</h6>
+            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <div class="alert alert-info">
+              <i class="fa fa-info-circle me-2"></i>
+              メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const resetModalToFirstTab = () => {
+  console.log('[caiz] Resetting modal to first tab');
+  
+  // Reset sidebar menu
+  document.querySelectorAll('.sidebar-menu .list-group-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  const firstItem = document.querySelector('.sidebar-menu .list-group-item[data-tab="general"]');
+  if (firstItem) {
+    firstItem.classList.add('active');
+  }
+  
+  // Reset content tabs
+  document.querySelectorAll('.tab-pane').forEach(pane => {
+    pane.classList.remove('active', 'show');
+  });
+  const firstTab = document.getElementById('general-tab');
+  if (firstTab) {
+    firstTab.classList.add('active', 'show');
+  }
+};
+
+const initializeModalNavigation = () => {
+  console.log('[caiz] Initializing modal navigation');
+  
+  // Remove existing event listeners to prevent duplicates
+  document.querySelectorAll('.sidebar-menu .list-group-item').forEach(item => {
+    const newItem = item.cloneNode(true);
+    item.parentNode.replaceChild(newItem, item);
+  });
+  
+  // Add event listeners to sidebar menu items
+  document.querySelectorAll('.sidebar-menu .list-group-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      console.log('[caiz] Sidebar menu item clicked:', this.getAttribute('data-tab'));
+      
+      // Update sidebar active state
+      document.querySelectorAll('.sidebar-menu .list-group-item').forEach(i => {
+        i.classList.remove('active');
+      });
+      this.classList.add('active');
+      
+      // Update content area
+      const tabName = this.getAttribute('data-tab');
+      document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active', 'show');
+      });
+      
+      const targetTab = document.getElementById(tabName + '-tab');
+      if (targetTab) {
+        targetTab.classList.add('active', 'show');
+      }
+      
+      console.log('[caiz] Switched to tab:', tabName);
+    });
+  });
+};
+
+const ensureModalTemplate = async () => {
+  console.log('[caiz] Ensuring modal template is loaded');
+  
+  // Check if modal already exists
+  if (document.getElementById('community-edit-modal')) {
+    console.log('[caiz] Modal template already loaded');
+    return;
+  }
+  
+  try {
+    // Try to fetch and inject the modal template
+    const response = await fetch('/plugins/nodebb-plugin-caiz/templates/partials/community-edit-modal.tpl');
+    
+    if (response.ok) {
+      const templateHtml = await response.text();
+      
+      // Create a temporary element to parse the template
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = templateHtml;
+      
+      // Append to body
+      document.body.appendChild(tempDiv.firstElementChild);
+      
+      // Re-initialize navigation after template is loaded
+      setTimeout(initializeModalNavigation, 100);
+      
+      console.log('[caiz] Modal template loaded successfully');
+    } else {
+      console.error('[caiz] Failed to load modal template:', response.status);
+      // Fallback: inject modal HTML directly
+      injectModalTemplate();
+    }
+  } catch (error) {
+    console.error('[caiz] Error loading modal template:', error);
+    // Fallback: inject modal HTML directly
+    injectModalTemplate();
+  }
+};
+
+const injectModalTemplate = () => {
+  console.log('[caiz] Injecting modal template directly');
+  
+  const modalHtml = `
+    <div class="modal fade community-edit-modal" id="community-edit-modal" tabindex="-1" aria-labelledby="community-edit-modal-label" aria-hidden="true">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="community-edit-modal-label">Edit Community</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-0">
+            <div class="row g-0 h-100">
+              <!-- Left Sidebar (30%) -->
+              <div class="col-md-4 sidebar-menu border-end">
+                <div class="list-group list-group-flush">
+                  <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
+                    <i class="fa fa-edit me-2"></i>編集
+                  </a>
+                  <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
+                    <i class="fa fa-folder me-2"></i>カテゴリー
+                  </a>
+                  <a href="#" class="list-group-item list-group-item-action" data-tab="members">
+                    <i class="fa fa-users me-2"></i>メンバー
+                  </a>
+                </div>
+              </div>
+              <!-- Right Content Area (70%) -->
+              <div class="col-md-8 content-area">
+                <div class="tab-content p-4">
+                  <div class="tab-pane fade show active" id="general-tab">
+                    <h6 class="mb-3">コミュニティ情報編集</h6>
+                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <div class="alert alert-info">
+                      <i class="fa fa-info-circle me-2"></i>
+                      コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
+                    </div>
+                  </div>
+                  <div class="tab-pane fade" id="categories-tab">
+                    <h6 class="mb-3">カテゴリー管理</h6>
+                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <div class="alert alert-info">
+                      <i class="fa fa-info-circle me-2"></i>
+                      コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+                    </div>
+                  </div>
+                  <div class="tab-pane fade" id="members-tab">
+                    <h6 class="mb-3">メンバー管理</h6>
+                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <div class="alert alert-info">
+                      <i class="fa fa-info-circle me-2"></i>
+                      メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Initialize navigation after template is injected
+  setTimeout(initializeModalNavigation, 100);
+};

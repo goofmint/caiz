@@ -34,6 +34,10 @@
     {
       "hook": "filter:middleware.renderHeader",
       "method": "customizeSidebarCommunities"
+    },
+    {
+      "hook": "filter:middleware.renderHeader",
+      "method": "loadCommunityEditModal"
     }
   ]
 }
