@@ -688,15 +688,29 @@ const initializeCommunityEditForm = (cid) => {
   // Load existing data
   loadCommunityEditData(cid).then(data => {
     console.log('[caiz] Loaded community data:', data);
-    document.getElementById('community-name').value = data.name || '';
-    document.getElementById('community-description').value = data.description || '';
+    
+    const nameField = document.getElementById('community-name');
+    const descField = document.getElementById('community-description');
+    
+    if (nameField) {
+      nameField.value = data.name || '';
+      console.log('[caiz] Set community name:', data.name);
+    }
+    
+    if (descField) {
+      descField.value = data.description || '';
+      console.log('[caiz] Set community description:', data.description);
+    }
     
     // Show current logo if exists
     if (data.backgroundImage) {
       const currentLogoPreview = document.getElementById('current-logo-preview');
       const currentLogoImg = document.getElementById('current-logo-img');
-      currentLogoImg.src = data.backgroundImage;
-      currentLogoPreview.style.display = 'block';
+      if (currentLogoImg && currentLogoPreview) {
+        currentLogoImg.src = data.backgroundImage;
+        currentLogoPreview.style.display = 'block';
+        console.log('[caiz] Set current logo:', data.backgroundImage);
+      }
     }
   }).catch(err => {
     console.error('[caiz] Failed to load community data:', err);
@@ -762,6 +776,7 @@ const initializeCommunityEditForm = (cid) => {
         description: document.getElementById('community-description').value
       };
       
+      // Only include backgroundImage if a new file was uploaded
       if (backgroundImage) {
         data.backgroundImage = backgroundImage;
       }

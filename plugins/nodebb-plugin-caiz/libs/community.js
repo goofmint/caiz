@@ -264,6 +264,7 @@ class Community extends Base {
       description: description ? description.trim() : '',
     };
     
+    // Only update backgroundImage if a new one is provided
     if (backgroundImage) {
       updateData.backgroundImage = backgroundImage.trim();
     }
