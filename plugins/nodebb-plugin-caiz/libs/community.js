@@ -230,7 +230,6 @@ class Community extends Base {
     
     return {
       name: categoryData.name,
-      slug: categoryData.slug,
       description: categoryData.description,
       backgroundImage: categoryData.backgroundImage
     };
@@ -240,7 +239,7 @@ class Community extends Base {
     winston.info(`[plugin/caiz] Updating community data for cid: ${data.cid}, uid: ${socket.uid}`);
     
     const { uid } = socket;
-    const { cid, name, slug, description, backgroundImage } = data;
+    const { cid, name, description, backgroundImage } = data;
     
     if (!uid) {
       throw new Error('Authentication required');
@@ -255,29 +254,13 @@ class Community extends Base {
     }
     
     // Validate input
-    if (!name || !slug) {
-      throw new Error('Name and slug are required');
+    if (!name) {
+      throw new Error('Name is required');
     }
     
-    if (!/^[a-z0-9-]+$/.test(slug)) {
-      throw new Error('Slug can only contain lowercase letters, numbers, and hyphens');
-    }
-    
-    // Check slug uniqueness (exclude current category)
-    try {
-      const existingCategories = await Categories.getCategoriesBySlugs([slug]);
-      if (existingCategories.length > 0 && existingCategories[0].cid != cid) {
-        throw new Error('This slug is already in use');
-      }
-    } catch (slugCheckError) {
-      // If slug check fails, continue with update (slug might be unique)
-      winston.warn(`[plugin/caiz] Slug uniqueness check failed: ${slugCheckError.message}`);
-    }
-    
-    // Update category
+    // Update category (excluding slug - it's auto-generated)
     const updateData = {
       name: name.trim(),
-      slug: slug.trim(),
       description: description ? description.trim() : '',
     };
     

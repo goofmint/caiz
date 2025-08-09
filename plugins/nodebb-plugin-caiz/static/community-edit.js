@@ -420,13 +420,6 @@ const getModalHtml = async (cid) => {
               </div>
               
               <div class="mb-3">
-                <label for="community-slug" class="form-label">Slug *</label>
-                <input type="text" class="form-control" id="community-slug" name="slug" required pattern="^[a-z0-9-]+$">
-                <div class="form-text">Only lowercase letters, numbers, and hyphens allowed</div>
-                <div class="invalid-feedback"></div>
-              </div>
-              
-              <div class="mb-3">
                 <label for="community-description" class="form-label">Description</label>
                 <textarea class="form-control" id="community-description" name="description" rows="4"></textarea>
                 <div class="invalid-feedback"></div>
@@ -668,7 +661,6 @@ const saveCommunityData = async (cid, formData) => {
     const data = {
       cid: cid,
       name: formData.name,
-      slug: formData.slug,
       description: formData.description,
       backgroundImage: formData.backgroundImage
     };
@@ -697,7 +689,6 @@ const initializeCommunityEditForm = (cid) => {
   loadCommunityEditData(cid).then(data => {
     console.log('[caiz] Loaded community data:', data);
     document.getElementById('community-name').value = data.name || '';
-    document.getElementById('community-slug').value = data.slug || '';
     document.getElementById('community-description').value = data.description || '';
     
     // Show current logo if exists
@@ -768,7 +759,6 @@ const initializeCommunityEditForm = (cid) => {
       
       const data = {
         name: document.getElementById('community-name').value,
-        slug: document.getElementById('community-slug').value,
         description: document.getElementById('community-description').value
       };
       
@@ -854,19 +844,6 @@ const validateForm = () => {
     isValid = false;
   } else {
     clearFieldError(nameField);
-  }
-  
-  // Slug validation
-  const slugField = document.getElementById('community-slug');
-  const slugPattern = /^[a-z0-9-]+$/;
-  if (!slugField.value.trim()) {
-    showFieldError(slugField, 'Slug is required');
-    isValid = false;
-  } else if (!slugPattern.test(slugField.value)) {
-    showFieldError(slugField, 'Only lowercase letters, numbers, and hyphens are allowed');
-    isValid = false;
-  } else {
-    clearFieldError(slugField);
   }
   
   return isValid;
