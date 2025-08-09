@@ -637,8 +637,9 @@ const getModalHtml = async (cid) => {
             
             <!-- Add Member Button and Search -->
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <div class="d-flex align-items-center gap-2">
-                <input type="text" class="form-control" id="member-search" placeholder="Search members..." style="width: 250px;">
+              <div class="input-group" style="width: 250px;">
+                <span class="input-group-text"><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" id="member-search" placeholder="Search members...">
               </div>
               <button type="button" class="btn btn-primary btn-sm" id="add-member-btn">
                 <i class="fa fa-plus me-1"></i>Add Member
@@ -1032,6 +1033,10 @@ const loadSubCategories = async () => {
     showCategoriesLoading();
     
     socket.emit('plugins.caiz.getSubCategories', { cid: currentCommunityId }, function(err, data) {
+      // Always hide loading state
+      const loadingEl = document.getElementById('categories-loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+      
       if (err) {
         console.error('[caiz] Error loading subcategories:', err);
         showCategoriesError(err.message);
@@ -1044,6 +1049,9 @@ const loadSubCategories = async () => {
     });
   } catch (error) {
     console.error('[caiz] Error in loadSubCategories:', error);
+    // Hide loading state on error
+    const loadingEl = document.getElementById('categories-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
     showCategoriesError(error.message);
   }
 };
@@ -2085,6 +2093,10 @@ const loadMembers = async () => {
     showMembersLoading();
     
     socket.emit('plugins.caiz.getMembers', { cid: currentCommunityId }, function(err, data) {
+      // Always hide loading state
+      const loadingEl = document.getElementById('members-loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+      
       if (err) {
         console.error('[caiz] Error loading members:', err);
         showMembersError(err.message);
@@ -2104,6 +2116,9 @@ const loadMembers = async () => {
     });
   } catch (error) {
     console.error('[caiz] Error in loadMembers:', error);
+    // Hide loading state on error
+    const loadingEl = document.getElementById('members-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
     showMembersError(error.message);
   }
 };

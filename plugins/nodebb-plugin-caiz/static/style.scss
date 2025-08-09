@@ -930,6 +930,19 @@
   }
 }
 
+/* Input group for search */
+.input-group {
+  .input-group-text {
+    background-color: var(--bs-tertiary-bg, #f8f9fa);
+    border-color: var(--bs-border-color, #ced4da);
+    color: var(--bs-secondary-color, #6c757d);
+    
+    i {
+      font-size: 0.875rem;
+    }
+  }
+}
+
 /* Role badge styling */
 .badge {
   &.bg-danger {

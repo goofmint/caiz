@@ -102,16 +102,20 @@ class Community extends Base {
     await Community.createCommunityGroup(ownerGroupName, ownerGroupDesc, uid, 1, 1);
     await Groups.join(ownerGroupName, uid);
 
-    // Create a community group (example: community-{cid}-members)
+    // Create a community managers group (example: community-{cid}-managers)
+    const managerGroupName = `community-${cid}-managers`;
+    const managerGroupDesc = `Managers of Community: ${name}`;
+    await Community.createCommunityGroup(managerGroupName, managerGroupDesc, uid, 0, 0);
+    
+    // Create a community members group (example: community-{cid}-members)
     const communityGroupName = `community-${cid}-members`;
     const communityGroupDesc = `Members of Community: ${name}`;
     await Community.createCommunityGroup(communityGroupName, communityGroupDesc, uid, 0, 0);
-    await Groups.leave(communityGroupName, uid);
+    
     // Create a community banned group (example: community-{cid}-banned)
     const communityBanGroupName = `community-${cid}-banned`;
     const communityBanGroupDesc = `Banned members of Community: ${name}`;
     await Community.createCommunityGroup(communityBanGroupName, communityBanGroupDesc, uid, 1, 1);
-    await Groups.leave(communityBanGroupName, uid);
     // Save the owner group name in category data
     await db.setObjectField(`category:${cid}`, 'ownerGroup', ownerGroupName);
     await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
@@ -611,12 +615,18 @@ class Community extends Base {
     
     // Check if user has permission to view members (owner or manager)
     const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    if (!ownerGroup) {
+      winston.error(`[plugin/caiz] No owner group found for cid: ${cid}`);
+      throw new Error('Community configuration error');
+    }
+    
     const managerGroup = `community-${cid}-managers`;
     
     const isOwner = await Groups.isMember(uid, ownerGroup);
     const isManager = await Groups.isMember(uid, managerGroup);
     
     if (!isOwner && !isManager) {
+      winston.info(`[plugin/caiz] User ${uid} does not have permission to view members`);
       throw new Error('Permission denied');
     }
     
@@ -631,9 +641,13 @@ class Community extends Base {
       
       for (const group of groups) {
         const groupExists = await Groups.exists(group.name);
-        if (!groupExists) continue;
+        if (!groupExists) {
+          winston.info(`[plugin/caiz] Group ${group.name} does not exist, skipping`);
+          continue;
+        }
         
         const memberUids = await db.getSortedSetRange(`group:${group.name}:members`, 0, -1);
+        winston.info(`[plugin/caiz] Found ${memberUids.length} members in group ${group.name}`);
         
         if (memberUids.length > 0) {
           const Users = require.main.require('./src/user');
@@ -646,8 +660,8 @@ class Community extends Base {
               members.push({
                 ...user,
                 role: group.role,
-                joindate: parseInt(user.joindate),
-                lastonline: parseInt(user.lastonline)
+                joindate: parseInt(user.joindate) || Date.now(),
+                lastonline: parseInt(user.lastonline) || Date.now()
               });
             }
           });
@@ -663,12 +677,12 @@ class Community extends Base {
         return a.username.localeCompare(b.username);
       });
       
-      winston.info(`[plugin/caiz] Returning ${members.length} members`);
+      winston.info(`[plugin/caiz] Returning ${members.length} members for cid: ${cid}`);
       return members;
       
     } catch (error) {
       winston.error(`[plugin/caiz] Error getting members:`, error);
-      throw new Error('Failed to get members');
+      throw new Error(`Failed to get members: ${error.message}`);
     }
   }
 
