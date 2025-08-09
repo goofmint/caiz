@@ -716,7 +716,7 @@ const getModalHtml = async (cid) => {
   `;
 };
 
-const resetModalToFirstTab = () => {
+function resetModalToFirstTab() {
   console.log('[caiz] Resetting modal to first tab');
   
   // Reset sidebar menu
@@ -736,9 +736,9 @@ const resetModalToFirstTab = () => {
   if (firstTab) {
     firstTab.classList.add('active', 'show');
   }
-};
+}
 
-const initializeModalNavigation = () => {
+function initializeModalNavigation() {
   console.log('[caiz] Initializing modal navigation');
   
   // Remove existing event listeners to prevent duplicates
@@ -774,7 +774,7 @@ const initializeModalNavigation = () => {
       console.log('[caiz] Switched to tab:', tabName);
     });
   });
-};
+}
 
 const ensureModalTemplate = async () => {
   console.log('[caiz] Ensuring modal template is loaded');
@@ -1612,7 +1612,7 @@ const saveCommunityData = async (cid, formData) => {
   });
 };
 
-const initializeCommunityEditForm = (cid) => {
+function initializeCommunityEditForm(cid) {
   console.log('[caiz] Initializing community edit form for cid:', cid);
   
   // Wait for form to be available in DOM
@@ -1914,7 +1914,7 @@ const initializeCommunityEditForm = (cid) => {
       }
     }, 300);
   });
-};
+}
 
 const uploadFile = async (file) => {
   return new Promise((resolve, reject) => {
