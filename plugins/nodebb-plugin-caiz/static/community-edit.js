@@ -1,5 +1,13 @@
 // Community Edit Button Management
 
+// Global variables
+let currentCommunityId = null;
+let subcategories = [];
+let draggedElement = null;
+let draggedIndex = -1;
+let currentMembers = [];
+let currentUserRole = null;
+
 const addEditButton = (cid) => {
   console.log('[caiz] Adding edit button for community', cid);
   
@@ -968,9 +976,6 @@ function setupIconColorPickers() {
 }
 
 // Category Management Functions
-let currentCommunityId = null;
-let subcategories = [];
-
 function initializeCategoryManagement(cid) {
   console.log('[caiz] Initializing category management for cid:', cid);
   currentCommunityId = cid;
@@ -1359,9 +1364,6 @@ const escapeHtml = (text) => {
 };
 
 // Drag and Drop functionality
-let draggedElement = null;
-let draggedIndex = -1;
-
 function initializeDragAndDrop() {
   const tableBody = document.getElementById('categories-table-body');
   if (!tableBody) return;
@@ -1558,7 +1560,7 @@ function setupIconSelector() {
 }
 
 // Community Edit Form Functions
-const loadCommunityEditData = async (cid) => {
+async function loadCommunityEditData(cid) {
   return new Promise((resolve, reject) => {
     socket.emit('plugins.caiz.getCommunityData', { cid }, function(err, data) {
       if (err) {
@@ -1569,9 +1571,9 @@ const loadCommunityEditData = async (cid) => {
       resolve(data);
     });
   });
-};
+}
 
-const saveCommunityData = async (cid, formData) => {
+async function saveCommunityData(cid, formData) {
   return new Promise((resolve, reject) => {
     const data = {
       cid: cid,
@@ -1610,7 +1612,7 @@ const saveCommunityData = async (cid, formData) => {
       resolve(result);
     });
   });
-};
+}
 
 function initializeCommunityEditForm(cid) {
   console.log('[caiz] Initializing community edit form for cid:', cid);
@@ -2042,9 +2044,6 @@ const clearFieldError = (field) => {
 };
 
 // Member Management Functions
-let currentMembers = [];
-let currentUserRole = null;
-
 function initializeMemberManagement(cid) {
   console.log('[caiz] Initializing member management for cid:', cid);
   currentCommunityId = cid;
