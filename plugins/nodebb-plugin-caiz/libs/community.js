@@ -176,6 +176,39 @@ class Community extends Base {
     return { isFollowed: isFollowed !== null };
   }
 
+  static async IsCommunityOwner(socket, { cid }) {
+    winston.info(`[plugin/caiz] Checking community owner for cid: ${cid}, uid: ${socket.uid}`);
+    const { uid } = socket;
+    if (!uid) {
+      winston.info('[plugin/caiz] User not logged in, not owner');
+      return { isOwner: false };
+    }
+
+    try {
+      // Get category data to find owner group
+      const category = await Categories.getCategoryData(cid);
+      if (!category) {
+        winston.warn(`[plugin/caiz] Category ${cid} not found`);
+        return { isOwner: false };
+      }
+
+      const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+      if (!ownerGroup) {
+        winston.info(`[plugin/caiz] No owner group found for category ${cid}`);
+        return { isOwner: false };
+      }
+
+      // Check if user is in owner group
+      const isOwner = await Groups.isMember(uid, ownerGroup);
+      winston.info(`[plugin/caiz] User ${uid} owner status for category ${cid}: ${isOwner}`);
+      
+      return { isOwner };
+    } catch (err) {
+      winston.error(`[plugin/caiz] Error checking community owner: ${err.message}`);
+      return { isOwner: false };
+    }
+  }
+
   static async customizeIndexLink(data) {
     const { categories } = data.templateData;
     categories.forEach(category => {

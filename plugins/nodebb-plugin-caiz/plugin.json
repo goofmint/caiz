@@ -8,7 +8,8 @@
   "scripts": [
     "static/modal.js",
     "static/follow.js",
-    "static/communities.js"
+    "static/communities.js",
+    "static/community-edit.js"
   ],
   "scss": [
     "static/style.scss"
