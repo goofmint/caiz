@@ -634,10 +634,79 @@ const getModalHtml = async (cid) => {
           </div>
           <div class="tab-pane fade" id="members-tab">
             <h6 class="mb-3">Member Management</h6>
-            <p class="text-muted">This feature will be implemented in future tasks.</p>
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle me-2"></i>
-              Member role management functionality (Owner, Manager, Member, Ban) will be added here.
+            
+            <!-- Add Member Button and Search -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <input type="text" class="form-control" id="member-search" placeholder="Search members..." style="width: 250px;">
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="add-member-btn">
+                <i class="fa fa-plus me-1"></i>Add Member
+              </button>
+            </div>
+            
+            <!-- Members List -->
+            <div id="members-list">
+              <div class="text-center py-4" id="members-loading">
+                <i class="fa fa-spinner fa-spin fa-2x text-muted"></i>
+                <p class="text-muted mt-2">Loading members...</p>
+              </div>
+              
+              <div id="members-empty" style="display: none;">
+                <div class="text-center py-4">
+                  <i class="fa fa-users fa-3x text-muted mb-3"></i>
+                  <p class="text-muted">No members found. Click "Add Member" to invite your first member.</p>
+                </div>
+              </div>
+              
+              <div id="members-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Member</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                        <th>Last Online</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="members-table-body">
+                      <!-- Members will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Add Member Form (inline) -->
+            <div id="add-member-form-container" style="display: none;" class="mt-4">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">Add Member</h6>
+                  <button type="button" class="btn-close" id="cancel-add-member"></button>
+                </div>
+                <div class="card-body">
+                  <form id="add-member-form">
+                    <div class="mb-3">
+                      <label for="add-member-username" class="form-label">Username *</label>
+                      <input type="text" class="form-control" id="add-member-username" name="username" required maxlength="50" placeholder="Enter username">
+                      <div class="invalid-feedback"></div>
+                      <div class="form-text">Enter the exact username of the user you want to add</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-secondary" id="cancel-add-member-btn">Cancel</button>
+                      <button type="submit" class="btn btn-primary">
+                        <span class="add-member-btn-text">Add Member</span>
+                        <span class="add-member-btn-spinner" style="display: none;">
+                          <i class="fa fa-spinner fa-spin"></i> Adding...
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1421,6 +1490,8 @@ const updateCategoryOrder = () => {
 // Make functions globally available for onclick handlers
 window.editCategory = editCategory;
 window.deleteCategory = deleteCategory;
+window.changeMemberRole = changeMemberRole;
+window.removeMember = removeMember;
 
 // Setup icon selector using NodeBB's iconSelect module
 const setupIconSelector = () => {
@@ -1563,6 +1634,9 @@ const initializeCommunityEditForm = (cid) => {
     
     // Initialize category management
     initializeCategoryManagement(cid);
+    
+    // Initialize member management
+    initializeMemberManagement(cid);
     
     // Load existing data
     loadCommunityEditData(cid).then(data => {
@@ -1957,4 +2031,446 @@ const showFieldError = (field, message) => {
 
 const clearFieldError = (field) => {
   field.classList.remove('is-invalid');
+};
+
+// Member Management Functions
+let currentMembers = [];
+let currentUserRole = null;
+
+const initializeMemberManagement = (cid) => {
+  console.log('[caiz] Initializing member management for cid:', cid);
+  currentCommunityId = cid;
+  
+  setupMemberEventHandlers();
+  loadMembers();
+};
+
+const setupMemberEventHandlers = () => {
+  // Add member button
+  const addBtn = document.getElementById('add-member-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => showAddMemberForm());
+  }
+  
+  // Cancel add member form
+  const cancelBtns = document.querySelectorAll('#cancel-add-member, #cancel-add-member-btn');
+  cancelBtns.forEach(btn => {
+    btn.addEventListener('click', () => hideAddMemberForm());
+  });
+  
+  // Add member form submit
+  const form = document.getElementById('add-member-form');
+  if (form) {
+    form.addEventListener('submit', handleAddMemberSubmit);
+  }
+  
+  // Member search input
+  const searchInput = document.getElementById('member-search');
+  if (searchInput) {
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        filterMembers(e.target.value);
+      }, 300);
+    });
+  }
+};
+
+const loadMembers = async () => {
+  if (!currentCommunityId) return;
+  
+  try {
+    console.log('[caiz] Loading members for cid:', currentCommunityId);
+    showMembersLoading();
+    
+    socket.emit('plugins.caiz.getMembers', { cid: currentCommunityId }, function(err, data) {
+      if (err) {
+        console.error('[caiz] Error loading members:', err);
+        showMembersError(err.message);
+        return;
+      }
+      
+      currentMembers = data || [];
+      console.log('[caiz] Loaded members:', currentMembers);
+      
+      // Get current user's role
+      if (app.user && app.user.uid) {
+        const currentUser = currentMembers.find(m => m.uid == app.user.uid);
+        currentUserRole = currentUser ? currentUser.role : null;
+      }
+      
+      renderMembers();
+    });
+  } catch (error) {
+    console.error('[caiz] Error in loadMembers:', error);
+    showMembersError(error.message);
+  }
+};
+
+const showMembersLoading = () => {
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
+};
+
+const showMembersError = (message) => {
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
+  
+  // Show error message
+  if (typeof alerts !== 'undefined') {
+    alerts.error(`Failed to load members: ${message}`);
+  }
+};
+
+const renderMembers = () => {
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  const tableBody = document.getElementById('members-table-body');
+  
+  if (loadingEl) loadingEl.style.display = 'none';
+  
+  if (!currentMembers.length) {
+    if (emptyEl) emptyEl.style.display = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+    return;
+  }
+  
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'block';
+  
+  // Render table rows
+  if (tableBody) {
+    tableBody.innerHTML = currentMembers.map(member => {
+      const decodedUsername = decodeHTMLEntities(member.username || '');
+      const roleClass = getRoleClass(member.role);
+      const canManage = canManageMember(member);
+      
+      return `
+        <tr data-uid="${member.uid}" class="member-row">
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              ${member.picture ? 
+                `<img src="${member.picture}" alt="${escapeHtml(decodedUsername)}" class="rounded-circle" style="width: 32px; height: 32px;">` : 
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; color: white; font-size: 14px;">${decodedUsername.charAt(0).toUpperCase()}</div>`
+              }
+              <div>
+                <strong>${escapeHtml(decodedUsername)}</strong>
+                <br>
+                <small class="text-muted">@${member.userslug || member.username}</small>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge ${roleClass}">${getRoleDisplayName(member.role)}</span>
+          </td>
+          <td>
+            <small class="text-muted">${formatDate(member.joindate)}</small>
+          </td>
+          <td>
+            <small class="text-muted">${formatDate(member.lastonline)}</small>
+          </td>
+          <td class="text-end">
+            ${canManage ? `
+              <div class="btn-group btn-group-sm">
+                <select class="form-select form-select-sm" onchange="changeMemberRole(${member.uid}, this.value)" style="width: auto;">
+                  <option value="">Change Role</option>
+                  ${getRoleOptions(member.role, member.uid).join('')}
+                </select>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeMember(${member.uid}, '${escapeHtml(decodedUsername)}')" title="Remove">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
+            ` : '-'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+};
+
+const filterMembers = (searchTerm) => {
+  const tableBody = document.getElementById('members-table-body');
+  if (!tableBody) return;
+  
+  const rows = tableBody.querySelectorAll('.member-row');
+  const term = searchTerm.toLowerCase();
+  
+  rows.forEach(row => {
+    const username = row.querySelector('strong').textContent.toLowerCase();
+    const userslug = row.querySelector('small').textContent.toLowerCase();
+    
+    if (username.includes(term) || userslug.includes(term)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+};
+
+const getRoleClass = (role) => {
+  const classes = {
+    owner: 'bg-danger',
+    manager: 'bg-warning text-dark',
+    member: 'bg-primary',
+    banned: 'bg-dark'
+  };
+  return classes[role] || 'bg-secondary';
+};
+
+const getRoleDisplayName = (role) => {
+  const names = {
+    owner: 'Owner',
+    manager: 'Manager',
+    member: 'Member',
+    banned: 'Banned'
+  };
+  return names[role] || role;
+};
+
+const canManageMember = (member) => {
+  if (!currentUserRole) return false;
+  if (member.uid == app.user.uid) return false; // Can't manage yourself
+  
+  // Owners can manage everyone
+  if (currentUserRole === 'owner') return true;
+  
+  // Managers can manage members and banned users
+  if (currentUserRole === 'manager') {
+    return member.role === 'member' || member.role === 'banned';
+  }
+  
+  return false;
+};
+
+const getRoleOptions = (currentRole, memberUid) => {
+  const options = [];
+  const isCurrentUser = memberUid == app.user.uid;
+  
+  if (currentUserRole === 'owner') {
+    if (currentRole !== 'owner') options.push('<option value="owner">Owner</option>');
+    if (currentRole !== 'manager') options.push('<option value="manager">Manager</option>');
+    if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+    if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
+  } else if (currentUserRole === 'manager') {
+    if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+    if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
+  }
+  
+  return options;
+};
+
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'Never';
+  const date = new Date(parseInt(timestamp));
+  return date.toLocaleDateString();
+};
+
+const showAddMemberForm = () => {
+  const container = document.getElementById('add-member-form-container');
+  const input = document.getElementById('add-member-username');
+  
+  if (container) {
+    container.style.display = 'block';
+  }
+  if (input) {
+    input.focus();
+  }
+};
+
+const hideAddMemberForm = () => {
+  const container = document.getElementById('add-member-form-container');
+  const form = document.getElementById('add-member-form');
+  
+  if (container) {
+    container.style.display = 'none';
+  }
+  if (form) {
+    form.reset();
+    form.classList.remove('was-validated');
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  }
+};
+
+const handleAddMemberSubmit = async (e) => {
+  e.preventDefault();
+  
+  const form = e.target;
+  const formData = new FormData(form);
+  const username = formData.get('username');
+  
+  // Validate
+  if (!username || !username.trim()) {
+    showFieldError(form.querySelector('#add-member-username'), 'Username is required');
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const btnText = submitBtn.querySelector('.add-member-btn-text');
+  const btnSpinner = submitBtn.querySelector('.add-member-btn-spinner');
+  
+  // Show loading
+  if (btnText) btnText.style.display = 'none';
+  if (btnSpinner) btnSpinner.style.display = 'inline';
+  submitBtn.disabled = true;
+  
+  try {
+    console.log('[caiz] Adding member:', username.trim());
+    
+    socket.emit('plugins.caiz.addMember', {
+      cid: currentCommunityId,
+      username: username.trim()
+    }, function(err, result) {
+      if (err) {
+        console.error('[caiz] Error adding member:', err);
+        if (typeof alerts !== 'undefined') {
+          alerts.error(err.message || 'Failed to add member');
+        }
+        return;
+      }
+      
+      console.log('[caiz] Member added successfully:', result);
+      
+      if (typeof alerts !== 'undefined') {
+        alerts.success('Member added successfully');
+      }
+      
+      hideAddMemberForm();
+      loadMembers(); // Reload the list
+    });
+    
+  } catch (error) {
+    console.error('[caiz] Error in add member submit:', error);
+    if (typeof alerts !== 'undefined') {
+      alerts.error(error.message || 'An error occurred');
+    }
+  } finally {
+    // Reset loading state
+    if (btnText) btnText.style.display = 'inline';
+    if (btnSpinner) btnSpinner.style.display = 'none';
+    submitBtn.disabled = false;
+  }
+};
+
+const changeMemberRole = (targetUid, newRole) => {
+  if (!newRole) return;
+  
+  const member = currentMembers.find(m => m.uid == targetUid);
+  if (!member) return;
+  
+  const confirmMessage = `Are you sure you want to change ${member.username}'s role to ${getRoleDisplayName(newRole)}?`;
+  
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: 'Change Member Role',
+      message: confirmMessage,
+      buttons: {
+        confirm: {
+          label: '<i class="fa fa-check"></i> Confirm',
+          className: 'btn-primary'
+        },
+        cancel: {
+          label: 'Cancel',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (result) {
+          performRoleChange(targetUid, newRole);
+        }
+      }
+    });
+  } else {
+    if (confirm(confirmMessage)) {
+      performRoleChange(targetUid, newRole);
+    }
+  }
+};
+
+const performRoleChange = (targetUid, newRole) => {
+  socket.emit('plugins.caiz.changeMemberRole', {
+    cid: currentCommunityId,
+    targetUid: targetUid,
+    newRole: newRole
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error changing member role:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to change member role');
+      }
+      return;
+    }
+    
+    console.log('[caiz] Member role changed successfully');
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Member role updated successfully');
+    }
+    
+    loadMembers(); // Reload the list
+  });
+};
+
+const removeMember = (targetUid, username) => {
+  const decodedUsername = decodeHTMLEntities(username || '');
+  
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: 'Remove Member',
+      message: `Are you sure you want to remove "${escapeHtml(decodedUsername)}" from this community? This action cannot be undone.`,
+      buttons: {
+        confirm: {
+          label: '<i class="fa fa-trash"></i> Remove',
+          className: 'btn-danger'
+        },
+        cancel: {
+          label: 'Cancel',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (result) {
+          performRemoveMember(targetUid);
+        }
+      }
+    });
+  } else {
+    if (confirm(`Are you sure you want to remove "${decodedUsername}" from this community?`)) {
+      performRemoveMember(targetUid);
+    }
+  }
+};
+
+const performRemoveMember = (targetUid) => {
+  socket.emit('plugins.caiz.removeMember', {
+    cid: currentCommunityId,
+    targetUid: targetUid
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error removing member:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to remove member');
+      }
+      return;
+    }
+    
+    console.log('[caiz] Member removed successfully');
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Member removed successfully');
+    }
+    
+    loadMembers(); // Reload the list
+  });
 };

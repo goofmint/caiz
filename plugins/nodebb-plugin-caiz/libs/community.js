@@ -599,6 +599,304 @@ class Community extends Base {
     }
   }
 
+  // Member Management Methods
+  
+  static async GetMembers(socket, { cid }) {
+    winston.info(`[plugin/caiz] Getting members for cid: ${cid}, uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid) {
+      throw new Error('Authentication required');
+    }
+    
+    // Check if user has permission to view members (owner or manager)
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const managerGroup = `community-${cid}-managers`;
+    
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    const isManager = await Groups.isMember(uid, managerGroup);
+    
+    if (!isOwner && !isManager) {
+      throw new Error('Permission denied');
+    }
+    
+    try {
+      const members = [];
+      const groups = [
+        { name: ownerGroup, role: 'owner' },
+        { name: managerGroup, role: 'manager' },
+        { name: `community-${cid}-members`, role: 'member' },
+        { name: `community-${cid}-banned`, role: 'banned' }
+      ];
+      
+      for (const group of groups) {
+        const groupExists = await Groups.exists(group.name);
+        if (!groupExists) continue;
+        
+        const memberUids = await db.getSortedSetRange(`group:${group.name}:members`, 0, -1);
+        
+        if (memberUids.length > 0) {
+          const Users = require.main.require('./src/user');
+          const userData = await Users.getUsersFields(memberUids, [
+            'uid', 'username', 'userslug', 'picture', 'joindate', 'lastonline', 'status'
+          ]);
+          
+          userData.forEach(user => {
+            if (user && user.uid) {
+              members.push({
+                ...user,
+                role: group.role,
+                joindate: parseInt(user.joindate),
+                lastonline: parseInt(user.lastonline)
+              });
+            }
+          });
+        }
+      }
+      
+      // Sort by role priority, then by username
+      const roleOrder = { owner: 0, manager: 1, member: 2, banned: 3 };
+      members.sort((a, b) => {
+        if (roleOrder[a.role] !== roleOrder[b.role]) {
+          return roleOrder[a.role] - roleOrder[b.role];
+        }
+        return a.username.localeCompare(b.username);
+      });
+      
+      winston.info(`[plugin/caiz] Returning ${members.length} members`);
+      return members;
+      
+    } catch (error) {
+      winston.error(`[plugin/caiz] Error getting members:`, error);
+      throw new Error('Failed to get members');
+    }
+  }
+
+  static async AddMember(socket, { cid, username }) {
+    winston.info(`[plugin/caiz] Adding member ${username} to cid: ${cid}, uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid || !username) {
+      throw new Error('Authentication and username required');
+    }
+    
+    // Check permissions (owner or manager can add members)
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const managerGroup = `community-${cid}-managers`;
+    
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    const isManager = await Groups.isMember(uid, managerGroup);
+    
+    if (!isOwner && !isManager) {
+      throw new Error('Permission denied');
+    }
+    
+    try {
+      // Get user data
+      const Users = require.main.require('./src/user');
+      const targetUser = await Users.getUserDataByUsername(username);
+      
+      if (!targetUser || !targetUser.uid) {
+        throw new Error('User not found');
+      }
+      
+      // Check if user is already a member in any role
+      const memberGroups = [
+        ownerGroup,
+        managerGroup,
+        `community-${cid}-members`,
+        `community-${cid}-banned`
+      ];
+      
+      for (const groupName of memberGroups) {
+        const groupExists = await Groups.exists(groupName);
+        if (groupExists && await Groups.isMember(targetUser.uid, groupName)) {
+          throw new Error('User is already a member of this community');
+        }
+      }
+      
+      // Add user to members group
+      const memberGroupName = `community-${cid}-members`;
+      await Groups.join(memberGroupName, targetUser.uid);
+      
+      winston.info(`[plugin/caiz] User ${username} added to community ${cid}`);
+      
+      return {
+        success: true,
+        user: {
+          uid: targetUser.uid,
+          username: targetUser.username,
+          userslug: targetUser.userslug,
+          picture: targetUser.picture,
+          role: 'member',
+          joindate: Date.now(),
+          lastonline: targetUser.lastonline || Date.now(),
+          status: targetUser.status || 'online'
+        }
+      };
+      
+    } catch (error) {
+      winston.error(`[plugin/caiz] Error adding member:`, error);
+      throw error;
+    }
+  }
+
+  static async ChangeMemberRole(socket, { cid, targetUid, newRole }) {
+    winston.info(`[plugin/caiz] Changing role for uid ${targetUid} to ${newRole} in cid: ${cid}, by uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid || !targetUid || !newRole) {
+      throw new Error('Authentication, target user, and new role required');
+    }
+    
+    const validRoles = ['owner', 'manager', 'member', 'banned'];
+    if (!validRoles.includes(newRole)) {
+      throw new Error('Invalid role');
+    }
+    
+    // Check permissions
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    
+    // Only owners can change roles to/from owner or banned
+    if ((newRole === 'owner' || newRole === 'banned') && !isOwner) {
+      throw new Error('Permission denied - only owners can assign owner or banned roles');
+    }
+    
+    // Check if user is trying to change their own role inappropriately
+    if (uid === targetUid) {
+      const currentUserRole = await Community.getUserRole(uid, cid);
+      
+      // Owners can only demote themselves if there are other owners
+      if (currentUserRole === 'owner' && newRole !== 'owner') {
+        const ownerMembers = await db.getSortedSetRange(`group:${ownerGroup}:members`, 0, -1);
+        if (ownerMembers.length <= 1) {
+          throw new Error('Cannot remove the last owner of the community');
+        }
+      }
+      
+      // Non-owners cannot promote themselves
+      if (currentUserRole !== 'owner' && (newRole === 'owner' || newRole === 'manager')) {
+        throw new Error('Cannot promote yourself');
+      }
+    }
+    
+    try {
+      // Remove user from all community groups
+      const allGroups = [
+        ownerGroup,
+        `community-${cid}-managers`,
+        `community-${cid}-members`,
+        `community-${cid}-banned`
+      ];
+      
+      for (const groupName of allGroups) {
+        const groupExists = await Groups.exists(groupName);
+        if (groupExists) {
+          await Groups.leave(groupName, targetUid);
+        }
+      }
+      
+      // Add user to appropriate group based on new role
+      let targetGroup;
+      switch (newRole) {
+        case 'owner':
+          targetGroup = ownerGroup;
+          break;
+        case 'manager':
+          targetGroup = `community-${cid}-managers`;
+          break;
+        case 'member':
+          targetGroup = `community-${cid}-members`;
+          break;
+        case 'banned':
+          targetGroup = `community-${cid}-banned`;
+          break;
+      }
+      
+      await Groups.join(targetGroup, targetUid);
+      
+      winston.info(`[plugin/caiz] User ${targetUid} role changed to ${newRole} in community ${cid}`);
+      
+      return { success: true };
+      
+    } catch (error) {
+      winston.error(`[plugin/caiz] Error changing member role:`, error);
+      throw error;
+    }
+  }
+
+  static async RemoveMember(socket, { cid, targetUid }) {
+    winston.info(`[plugin/caiz] Removing member uid ${targetUid} from cid: ${cid}, by uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid || !targetUid) {
+      throw new Error('Authentication and target user required');
+    }
+    
+    // Check permissions (owner or manager)
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const managerGroup = `community-${cid}-managers`;
+    
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    const isManager = await Groups.isMember(uid, managerGroup);
+    
+    if (!isOwner && !isManager) {
+      throw new Error('Permission denied');
+    }
+    
+    // Check if trying to remove an owner (only owners can remove owners)
+    const targetIsOwner = await Groups.isMember(targetUid, ownerGroup);
+    if (targetIsOwner && !isOwner) {
+      throw new Error('Permission denied - only owners can remove owners');
+    }
+    
+    // Prevent removing the last owner
+    if (targetIsOwner) {
+      const ownerMembers = await db.getSortedSetRange(`group:${ownerGroup}:members`, 0, -1);
+      if (ownerMembers.length <= 1) {
+        throw new Error('Cannot remove the last owner of the community');
+      }
+    }
+    
+    try {
+      // Remove user from all community groups
+      const allGroups = [
+        ownerGroup,
+        `community-${cid}-managers`,
+        `community-${cid}-members`,
+        `community-${cid}-banned`
+      ];
+      
+      for (const groupName of allGroups) {
+        const groupExists = await Groups.exists(groupName);
+        if (groupExists) {
+          await Groups.leave(groupName, targetUid);
+        }
+      }
+      
+      winston.info(`[plugin/caiz] User ${targetUid} removed from community ${cid}`);
+      
+      return { success: true };
+      
+    } catch (error) {
+      winston.error(`[plugin/caiz] Error removing member:`, error);
+      throw error;
+    }
+  }
+
+  // Helper method to get user's role in a community
+  static async getUserRole(uid, cid) {
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    
+    if (await Groups.isMember(uid, ownerGroup)) return 'owner';
+    if (await Groups.isMember(uid, `community-${cid}-managers`)) return 'manager';
+    if (await Groups.isMember(uid, `community-${cid}-members`)) return 'member';
+    if (await Groups.isMember(uid, `community-${cid}-banned`)) return 'banned';
+    
+    return null; // Not a member
+  }
+
   static async customizeIndexLink(data) {
     const { categories } = data.templateData;
     categories.forEach(category => {
