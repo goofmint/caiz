@@ -91,47 +91,151 @@ const checkCommunityOwnership = async (cid) => {
   });
 };
 
-const initializeCommunityEdit = async () => {
-  console.log('[caiz] Initializing community edit for page:', ajaxify.data.template.name);
+const initializeFollowButton = async (cid) => {
+  console.log('[caiz] Initializing follow button for cid:', cid);
+  
+  const followButton = $('#community-follow-button');
+  if (followButton.length === 0) {
+    console.log('[caiz] No follow button found');
+    return;
+  }
+
+  // Get translator and alert utilities
+  const { alert } = await getAlert();
+  const translator = await getTranslate();
+  const messageKeys = [
+    'caiz:follow',
+    'caiz:unfollow', 
+    'caiz:follow_success',
+    'caiz:unfollow_success',
+    'caiz:error.generic',
+    'caiz:unfollowing',
+    'caiz:following',
+  ];
+  
+  const messages = Object.fromEntries(
+    await Promise.all(
+      messageKeys.map(key => 
+        new Promise((resolve) => 
+          translator.translate(`[[${key}]]`, (t) => resolve([key, t]))
+        )
+      )
+    )
+  );
+
+  const getText = (key) => messages[key] || key;
+  
+  let followStatus = false;
+
+  const changeButtonLabel = () => {
+    const key = followStatus ? 'caiz:unfollow' : 'caiz:follow';
+    followButton.text(getText(key));
+    if (typeof updateCommunities !== 'undefined') {
+      updateCommunities();
+    }
+  };
+
+  // Get initial follow status
+  socket.emit('plugins.caiz.isFollowed', { cid }, function (err, response) {
+    if (err) {
+      console.error('[caiz] Error getting follow status:', err);
+      return alert({
+        type: 'error',
+        message: err.message || getText('caiz:error.generic'),
+        timeout: 3000,
+      });
+    }
+    
+    followStatus = response.isFollowed;
+    changeButtonLabel();
+    console.log('[caiz] Follow status updated:', followStatus);
+  });
+
+  // Remove existing event handlers to prevent duplicates
+  followButton.off('mouseenter mouseleave click');
+
+  // Add hover effects
+  followButton.on('mouseenter', () => {
+    const key = followStatus ? 'caiz:unfollowing' : 'caiz:following';
+    followButton.text(getText(key));
+  });
+
+  followButton.on('mouseleave', () => {
+    const key = followStatus ? 'caiz:unfollow' : 'caiz:follow';
+    followButton.text(getText(key));
+  });
+
+  // Add click handler
+  followButton.on('click', () => {
+    const action = followStatus ? 
+      'plugins.caiz.unfollowCommunity' : 
+      'plugins.caiz.followCommunity';
+      
+    socket.emit(action, { cid }, function (err, response) {
+      if (err) {
+        console.error('[caiz] Follow action error:', err);
+        return alert({
+          type: 'error',
+          message: err.message || getText('caiz:error.generic'),
+          timeout: 3000,
+        });
+      }
+      
+      followStatus = response.isFollowed;
+      alert({
+        type: 'success',
+        message: getText(followStatus ? 'caiz:follow_success' : 'caiz:unfollow_success'),
+        timeout: 3000,
+      });
+      changeButtonLabel();
+      console.log('[caiz] Follow status changed to:', followStatus);
+    });
+  });
+};
+
+const initializeCommunityPage = async () => {
+  console.log('[caiz] Initializing community page for template:', ajaxify.data.template.name);
   
   // Only run on category pages
   if (ajaxify.data.template.name !== 'category') {
-    console.log('[caiz] Not a category page, skipping community edit');
-    return;
-  }
-  
-  // Check if user is logged in
-  if (!app.user || !app.user.uid) {
-    console.log('[caiz] User not logged in, skipping community edit');
+    console.log('[caiz] Not a category page, skipping community features');
     return;
   }
   
   const cid = ajaxify.data.cid;
   if (!cid) {
-    console.log('[caiz] No category ID found, skipping community edit');
+    console.log('[caiz] No category ID found, skipping community features');
     return;
   }
   
-  console.log('[caiz] Checking ownership for category ID:', cid);
-  const isOwner = await checkCommunityOwnership(cid);
-  
-  if (isOwner) {
-    console.log('[caiz] User is owner, adding edit button');
-    addEditButton(cid);
+  // Initialize follow button for all users
+  if (app.user && app.user.uid) {
+    await initializeFollowButton(cid);
+    
+    // Check if user is owner and add edit button
+    console.log('[caiz] Checking ownership for category ID:', cid);
+    const isOwner = await checkCommunityOwnership(cid);
+    
+    if (isOwner) {
+      console.log('[caiz] User is owner, adding edit button');
+      addEditButton(cid);
+    } else {
+      console.log('[caiz] User is not owner, no edit button');
+    }
   } else {
-    console.log('[caiz] User is not owner, no edit button');
+    console.log('[caiz] User not logged in, skipping community features');
   }
 };
 
 // Initialize on page load
 $(window).on('action:ajaxify.end', function(event, data) {
   // Small delay to ensure DOM is ready
-  setTimeout(initializeCommunityEdit, 100);
+  setTimeout(initializeCommunityPage, 100);
 });
 
 // Initialize on initial page load
 $(document).ready(function() {
   if (typeof ajaxify !== 'undefined') {
-    setTimeout(initializeCommunityEdit, 100);
+    setTimeout(initializeCommunityPage, 100);
   }
 });

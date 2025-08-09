@@ -1,4 +1,9 @@
-document.addEventListener('DOMContentLoaded', async () => {
+// DEPRECATED: This functionality has been moved to community-edit.js
+// to ensure it works with NodeBB's ajaxify navigation
+// Keeping this file for backward compatibility but disabling the main function
+
+// document.addEventListener('DOMContentLoaded', async () => {
+const DEPRECATED_followInitializer = async () => {
   const followButton = $('#community-follow-button');
   const messageKeys = [
     'caiz:follow',
@@ -71,4 +76,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       changeButtonLabel();
     });
   });
-});
+};
