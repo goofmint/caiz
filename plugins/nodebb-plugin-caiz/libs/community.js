@@ -231,7 +231,10 @@ class Community extends Base {
     return {
       name: categoryData.name,
       description: categoryData.description,
-      backgroundImage: categoryData.backgroundImage
+      backgroundImage: categoryData.backgroundImage,
+      icon: categoryData.icon,
+      color: categoryData.color,
+      bgColor: categoryData.bgColor
     };
   }
 
@@ -240,7 +243,7 @@ class Community extends Base {
     winston.info(`[plugin/caiz] Received data:`, JSON.stringify(data, null, 2));
     
     const { uid } = socket;
-    const { cid, name, description, backgroundImage } = data;
+    const { cid, name, description, backgroundImage, icon, color, bgColor } = data;
     
     if (!uid) {
       winston.error(`[plugin/caiz] Authentication required for cid: ${cid}`);
@@ -271,16 +274,52 @@ class Community extends Base {
       description: description ? description.trim() : '',
     };
     
-    // Only update backgroundImage if a new one is provided
-    if (backgroundImage) {
-      updateData.backgroundImage = backgroundImage.trim();
-      winston.info(`[plugin/caiz] Including background image: ${backgroundImage}`);
+    // Handle icon and backgroundImage updates
+    if (backgroundImage !== undefined) {
+      if (backgroundImage) {
+        updateData.backgroundImage = backgroundImage.trim();
+        // Clear icon when backgroundImage is set to avoid overlap
+        updateData.icon = '';
+        winston.info(`[plugin/caiz] Including background image: ${backgroundImage}`);
+        winston.info(`[plugin/caiz] Clearing icon to avoid overlap with background image`);
+      } else {
+        // Clear backgroundImage if empty string is provided
+        updateData.backgroundImage = '';
+        winston.info(`[plugin/caiz] Clearing background image`);
+      }
+    }
+    
+    if (icon !== undefined) {
+      if (icon) {
+        updateData.icon = icon.trim();
+        // Clear backgroundImage when icon is set
+        updateData.backgroundImage = '';
+        winston.info(`[plugin/caiz] Including icon: ${icon}`);
+        winston.info(`[plugin/caiz] Clearing background image to use icon instead`);
+      } else {
+        // Clear icon if empty string is provided
+        updateData.icon = '';
+        winston.info(`[plugin/caiz] Clearing icon`);
+      }
+    }
+    
+    // Handle color updates
+    if (color !== undefined) {
+      updateData.color = color || '';
+      winston.info(`[plugin/caiz] Setting icon color: ${color || 'default'}`);
+    }
+    
+    if (bgColor !== undefined) {
+      updateData.bgColor = bgColor || '';
+      winston.info(`[plugin/caiz] Setting background color: ${bgColor || 'default'}`);
     }
     
     winston.info(`[plugin/caiz] Update data prepared:`, JSON.stringify(updateData, null, 2));
     
     try {
-      await Categories.update(cid, updateData);
+      // Categories.update expects an object with cid as key
+      const modifiedData = { [cid]: updateData };
+      await Categories.update(modifiedData);
       winston.info(`[plugin/caiz] Categories.update completed for cid: ${cid}`);
     } catch (updateError) {
       winston.error(`[plugin/caiz] Categories.update failed:`, updateError);
