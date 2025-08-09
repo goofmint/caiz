@@ -1,3 +1,4 @@
+{{{ if user.uid }}}
 <nav component="sidebar-communities"
   class="open text-dark bg-light community-sidebar sidebar-left start-0 border-end vh-100 d-none d-lg-flex flex-column justify-content-between sticky-top">
   <ul id="category-nav" class="list-unstyled d-flex flex-column w-100 gap-2 mt-2 overflow-y-auto">
@@ -15,3 +16,4 @@
     </div>
   </div>
 </nav>
+{{{ end }}}

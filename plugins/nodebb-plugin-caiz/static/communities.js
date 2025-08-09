@@ -58,7 +58,10 @@ const toggleCommunity = async () => {
 
 // NodeBBのajaxifyフックを使用してページ遷移時に実行
 $(window).on('action:ajaxify.end', function () {
-  if (!app.user || !app.user.uid) return;
+  if (!app.user || !app.user.uid) {
+    console.log('[caiz] User not logged in, skipping community sidebar initialization');
+    return;
+  }
   
   // コミュニティサイドバーが存在する場合のみ処理
   const sidebar = document.querySelector('nav[component="sidebar-communities"]');
@@ -77,7 +80,10 @@ $(window).on('action:ajaxify.end', function () {
 
 // DOMContentLoadedでも初期化（初回ロード時用）
 document.addEventListener('DOMContentLoaded', function () {
-  if (!app.user || !app.user.uid) return;
+  if (!app.user || !app.user.uid) {
+    console.log('[caiz] User not logged in, skipping community sidebar initialization');
+    return;
+  }
   
   const sidebar = document.querySelector('nav[component="sidebar-communities"]');
   if (sidebar) {

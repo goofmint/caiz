@@ -24,23 +24,16 @@
 
 ### 実装方法
 
-#### パターン1: テンプレートレベルでの制御（推奨）
-
-```html
-{{{ if user.uid }}}
-<nav component="sidebar-communities" class="...">
-  <!-- サイドバーの内容 -->
-</nav>
-{{{ end }}}
-```
-
-#### パターン2: JavaScript レベルでの制御
+デフォルトは非表示でOK。
 
 ```javascript
 // communities.js内で早期リターン
 if (!app.user || !app.user.uid) {
   console.log('[caiz] User not logged in, skipping community sidebar');
   return;
+} else {
+  // ログインユーザーの場合の処理
+  updateCommunities();
 }
 ```
 
