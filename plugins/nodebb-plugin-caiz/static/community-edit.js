@@ -894,7 +894,7 @@ const decodeHTMLEntities = (text) => {
 };
 
 // Setup logo type toggle (icon vs image)
-const setupLogoTypeToggle = () => {
+function setupLogoTypeToggle() {
   const iconRadio = document.getElementById('logo-type-icon');
   const imageRadio = document.getElementById('logo-type-image');
   const iconGroup = document.getElementById('icon-selector-group');
@@ -920,10 +920,10 @@ const setupLogoTypeToggle = () => {
       console.log('[caiz] Switched to image mode');
     }
   });
-};
+}
 
 // Setup icon color pickers
-const setupIconColorPickers = () => {
+function setupIconColorPickers() {
   const iconColorInput = document.getElementById('icon-color');
   const bgColorInput = document.getElementById('icon-bg-color');
   const selectedIcon = document.getElementById('selected-icon');
@@ -965,21 +965,21 @@ const setupIconColorPickers = () => {
       console.log('[caiz] Background color reset to default');
     });
   }
-};
+}
 
 // Category Management Functions
 let currentCommunityId = null;
 let subcategories = [];
 
-const initializeCategoryManagement = (cid) => {
+function initializeCategoryManagement(cid) {
   console.log('[caiz] Initializing category management for cid:', cid);
   currentCommunityId = cid;
   
   setupCategoryEventHandlers();
   loadSubCategories();
-};
+}
 
-const setupCategoryEventHandlers = () => {
+function setupCategoryEventHandlers() {
   // Add category button
   const addBtn = document.getElementById('add-category-btn');
   if (addBtn) {
@@ -1023,7 +1023,7 @@ const setupCategoryEventHandlers = () => {
       iconElement.style.backgroundColor = e.target.value;
     });
   }
-};
+}
 
 const loadSubCategories = async () => {
   if (!currentCommunityId) return;
@@ -1362,7 +1362,7 @@ const escapeHtml = (text) => {
 let draggedElement = null;
 let draggedIndex = -1;
 
-const initializeDragAndDrop = () => {
+function initializeDragAndDrop() {
   const tableBody = document.getElementById('categories-table-body');
   if (!tableBody) return;
   
@@ -1376,7 +1376,7 @@ const initializeDragAndDrop = () => {
     row.addEventListener('drop', handleDrop);
     row.addEventListener('dragend', handleDragEnd);
   });
-};
+}
 
 const handleDragStart = (e) => {
   draggedElement = e.target.closest('tr');
@@ -1502,7 +1502,7 @@ window.changeMemberRole = changeMemberRole;
 window.removeMember = removeMember;
 
 // Setup icon selector using NodeBB's iconSelect module
-const setupIconSelector = () => {
+function setupIconSelector() {
   const selectBtn = document.getElementById('icon-select-btn');
   const selectedIcon = document.getElementById('selected-icon');
   const iconInput = document.getElementById('community-icon');
@@ -1555,7 +1555,7 @@ const setupIconSelector = () => {
       }
     }
   });
-};
+}
 
 // Community Edit Form Functions
 const loadCommunityEditData = async (cid) => {
@@ -2045,15 +2045,15 @@ const clearFieldError = (field) => {
 let currentMembers = [];
 let currentUserRole = null;
 
-const initializeMemberManagement = (cid) => {
+function initializeMemberManagement(cid) {
   console.log('[caiz] Initializing member management for cid:', cid);
   currentCommunityId = cid;
   
   setupMemberEventHandlers();
   loadMembers();
-};
+}
 
-const setupMemberEventHandlers = () => {
+function setupMemberEventHandlers() {
   // Add member button
   const addBtn = document.getElementById('add-member-btn');
   if (addBtn) {
@@ -2083,7 +2083,7 @@ const setupMemberEventHandlers = () => {
       }, 300);
     });
   }
-};
+}
 
 const loadMembers = async () => {
   if (!currentCommunityId) return;
