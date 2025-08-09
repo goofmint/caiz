@@ -48,4 +48,5 @@ sockets.caiz.getSubCategories = Community.GetSubCategories;
 sockets.caiz.createSubCategory = Community.CreateSubCategory;
 sockets.caiz.updateSubCategory = Community.UpdateSubCategory;
 sockets.caiz.deleteSubCategory = Community.DeleteSubCategory;
+sockets.caiz.reorderSubCategories = Community.ReorderSubCategories;
 module.exports = plugin;

@@ -543,6 +543,62 @@ class Community extends Base {
     return { success: true };
   }
 
+  static async ReorderSubCategories(socket, { parentCid, categoryIds }) {
+    winston.info(`[plugin/caiz] Reordering subcategories for parent: ${parentCid}, uid: ${socket.uid}`);
+    winston.info(`[plugin/caiz] New order:`, categoryIds);
+    
+    const { uid } = socket;
+    
+    if (!uid || !parentCid || !Array.isArray(categoryIds)) {
+      throw new Error('Authentication, parent ID, and category order required');
+    }
+    
+    // Check ownership of parent community
+    const ownerGroup = await db.getObjectField(`category:${parentCid}`, 'ownerGroup');
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    
+    if (!isOwner) {
+      throw new Error('Permission denied');
+    }
+    
+    // Verify all categories belong to this parent
+    const existingSubcategories = await Community.GetSubCategories(socket, { cid: parentCid });
+    const existingIds = existingSubcategories.map(cat => parseInt(cat.cid));
+    const requestedIds = categoryIds.map(id => parseInt(id));
+    
+    // Check if all requested IDs exist and belong to parent
+    const invalidIds = requestedIds.filter(id => !existingIds.includes(id));
+    if (invalidIds.length > 0) {
+      throw new Error(`Invalid category IDs: ${invalidIds.join(', ')}`);
+    }
+    
+    // Check if all existing categories are included
+    if (requestedIds.length !== existingIds.length) {
+      throw new Error('All categories must be included in reorder operation');
+    }
+    
+    try {
+      // Update order for each category
+      const updates = {};
+      
+      for (let i = 0; i < categoryIds.length; i++) {
+        const cid = parseInt(categoryIds[i]);
+        const newOrder = i + 1;
+        updates[cid] = { order: newOrder };
+      }
+      
+      // Apply updates using Categories.update
+      await Categories.update(updates);
+      
+      winston.info(`[plugin/caiz] Subcategories reordered successfully for parent: ${parentCid}`);
+      
+      return { success: true };
+    } catch (error) {
+      winston.error(`[plugin/caiz] Error reordering subcategories:`, error);
+      throw new Error('Failed to reorder categories');
+    }
+  }
+
   static async customizeIndexLink(data) {
     const { categories } = data.templateData;
     categories.forEach(category => {

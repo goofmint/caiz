@@ -445,3 +445,259 @@
     }
   }
 }
+
+/* Drag and Drop Styles for Category Management */
+.category-row {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  
+  &[draggable="true"] {
+    cursor: move;
+  }
+  
+  &.dragging {
+    opacity: 0.5;
+    background-color: #f8f9fa;
+    transform: scale(0.98);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    position: relative;
+  }
+  
+  &.drag-over {
+    background-color: #e3f2fd;
+    border-top: 2px solid #2196f3;
+    border-bottom: 2px solid #2196f3;
+    transform: translateY(-2px);
+  }
+  
+  .category-drag-handle {
+    transition: color 0.2s ease;
+    padding: 4px;
+    border-radius: 4px;
+    
+    &:hover {
+      color: #0d6efd !important;
+      background-color: #f8f9fa;
+    }
+  }
+  
+  &:hover:not(.dragging) {
+    background-color: #f8f9fa;
+  }
+}
+
+/* Category Management Styles */
+#categories-list {
+  .table-responsive {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    
+    .table {
+      margin-bottom: 0;
+      
+      thead {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        
+        th {
+          border-top: none;
+          font-weight: 600;
+          color: #495057;
+          font-size: 0.875rem;
+          padding: 1rem 0.75rem;
+          
+          &:first-child {
+            text-align: center;
+            width: 40px;
+          }
+        }
+      }
+      
+      tbody {
+        tr {
+          border-bottom: 1px solid #f1f3f5;
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          td {
+            vertical-align: middle;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            
+            &:first-child {
+              text-align: center;
+              width: 40px;
+              padding: 0.75rem 0.5rem;
+            }
+            
+            .badge {
+              font-size: 0.75rem;
+              padding: 0.25rem 0.5rem;
+            }
+            
+            .btn-group {
+              .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.75rem;
+                
+                i {
+                  font-size: 0.875rem;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+#categories-loading,
+#categories-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  
+  i {
+    color: #6c757d;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin: 0;
+  }
+}
+
+#category-form-container {
+  .card {
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    .card-header {
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+      padding: 1rem 1.25rem;
+      
+      h6 {
+        color: #495057;
+        font-weight: 600;
+        margin: 0;
+      }
+      
+      .btn-close {
+        padding: 0.5rem;
+        margin: -0.5rem -0.5rem -0.5rem auto;
+      }
+    }
+    
+    .card-body {
+      padding: 1.5rem;
+    }
+  }
+}
+
+/* Icon selector styling for categories */
+.category-icon-selector {
+  .d-flex {
+    align-items: center;
+    gap: 0.75rem;
+    
+    button {
+      flex-shrink: 0;
+    }
+    
+    i {
+      padding: 0.5rem;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+      transition: all 0.2s ease;
+    }
+  }
+}
+
+/* Form validation styles */
+.form-control {
+  &.is-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    
+    &:focus {
+      border-color: #dc3545;
+      box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+  }
+}
+
+.invalid-feedback {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #dc3545;
+}
+
+/* Loading and success states */
+.btn {
+  .btn-spinner {
+    display: none;
+    
+    .fa-spinner {
+      animation: spin 1s linear infinite;
+    }
+  }
+  
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments for category management */
+@media (max-width: 768px) {
+  #categories-list {
+    .table-responsive {
+      font-size: 0.8rem;
+      
+      .table {
+        thead th,
+        tbody td {
+          padding: 0.5rem 0.25rem;
+          
+          &:first-child {
+            padding: 0.5rem 0.25rem;
+          }
+        }
+        
+        .btn-group .btn {
+          padding: 0.25rem;
+          
+          i {
+            font-size: 0.75rem;
+          }
+        }
+      }
+    }
+  }
+  
+  #category-form-container {
+    margin-top: 1rem;
+    
+    .card-body {
+      padding: 1rem;
+    }
+    
+    .row .col-md-4 {
+      margin-bottom: 1rem;
+    }
+  }
+}

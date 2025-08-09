@@ -1015,7 +1015,7 @@ const renderSubCategories = () => {
   
   // Render table rows
   tableBody.innerHTML = subcategories.map(category => `
-    <tr data-cid="${category.cid}">
+    <tr data-cid="${category.cid}" draggable="true" class="category-row">
       <td>
         <i class="fa fa-grip-vertical text-muted category-drag-handle" style="cursor: move;"></i>
       </td>
@@ -1046,6 +1046,9 @@ const renderSubCategories = () => {
       </td>
     </tr>
   `).join('');
+  
+  // Initialize drag and drop after rendering
+  initializeDragAndDrop();
 };
 
 const showCategoryForm = (category = null) => {
@@ -1265,6 +1268,143 @@ const escapeHtml = (text) => {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+};
+
+// Drag and Drop functionality
+let draggedElement = null;
+let draggedIndex = -1;
+
+const initializeDragAndDrop = () => {
+  const tableBody = document.getElementById('categories-table-body');
+  if (!tableBody) return;
+  
+  const rows = tableBody.querySelectorAll('.category-row');
+  
+  rows.forEach((row, index) => {
+    row.addEventListener('dragstart', handleDragStart);
+    row.addEventListener('dragover', handleDragOver);
+    row.addEventListener('dragenter', handleDragEnter);
+    row.addEventListener('dragleave', handleDragLeave);
+    row.addEventListener('drop', handleDrop);
+    row.addEventListener('dragend', handleDragEnd);
+  });
+};
+
+const handleDragStart = (e) => {
+  draggedElement = e.target.closest('tr');
+  draggedIndex = Array.from(draggedElement.parentNode.children).indexOf(draggedElement);
+  
+  draggedElement.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/html', draggedElement.outerHTML);
+  
+  console.log('[caiz] Drag started:', draggedElement.dataset.cid);
+};
+
+const handleDragOver = (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+};
+
+const handleDragEnter = (e) => {
+  e.preventDefault();
+  const targetRow = e.target.closest('tr');
+  if (targetRow && targetRow !== draggedElement) {
+    targetRow.classList.add('drag-over');
+  }
+};
+
+const handleDragLeave = (e) => {
+  const targetRow = e.target.closest('tr');
+  if (targetRow) {
+    targetRow.classList.remove('drag-over');
+  }
+};
+
+const handleDrop = (e) => {
+  e.preventDefault();
+  const targetRow = e.target.closest('tr');
+  
+  if (!targetRow || !draggedElement || targetRow === draggedElement) {
+    return;
+  }
+  
+  const targetIndex = Array.from(targetRow.parentNode.children).indexOf(targetRow);
+  const tableBody = targetRow.parentNode;
+  
+  // Remove drag over styling
+  targetRow.classList.remove('drag-over');
+  
+  // Perform the DOM manipulation
+  if (draggedIndex < targetIndex) {
+    tableBody.insertBefore(draggedElement, targetRow.nextSibling);
+  } else {
+    tableBody.insertBefore(draggedElement, targetRow);
+  }
+  
+  console.log('[caiz] Dropped at position:', targetIndex);
+  
+  // Update the order on server
+  updateCategoryOrder();
+};
+
+const handleDragEnd = (e) => {
+  const targetRow = e.target.closest('tr');
+  if (targetRow) {
+    targetRow.classList.remove('dragging', 'drag-over');
+  }
+  
+  // Clean up all drag over styling
+  document.querySelectorAll('.category-row').forEach(row => {
+    row.classList.remove('drag-over', 'dragging');
+  });
+  
+  draggedElement = null;
+  draggedIndex = -1;
+  
+  console.log('[caiz] Drag ended');
+};
+
+const updateCategoryOrder = () => {
+  const tableBody = document.getElementById('categories-table-body');
+  if (!tableBody) return;
+  
+  const rows = tableBody.querySelectorAll('.category-row');
+  const newOrder = Array.from(rows).map(row => parseInt(row.dataset.cid));
+  
+  console.log('[caiz] New category order:', newOrder);
+  
+  // Send to server
+  socket.emit('plugins.caiz.reorderSubCategories', {
+    parentCid: currentCommunityId,
+    categoryIds: newOrder
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error reordering categories:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to reorder categories');
+      }
+      // Reload to restore original order
+      loadSubCategories();
+      return;
+    }
+    
+    console.log('[caiz] Categories reordered successfully');
+    
+    // Update local subcategories array to match new order
+    const reorderedSubcategories = [];
+    newOrder.forEach(cid => {
+      const category = subcategories.find(cat => cat.cid == cid);
+      if (category) {
+        reorderedSubcategories.push(category);
+      }
+    });
+    subcategories = reorderedSubcategories;
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Categories reordered successfully');
+    }
+  });
 };
 
 // Make functions globally available for onclick handlers

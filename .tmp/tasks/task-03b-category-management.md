@@ -66,7 +66,6 @@ sockets.caiz.reorderSubCategories = Category.ReorderSubCategories;
 - 説明文
 - アイコン選択（FontAwesome）
 - 表示順序
-- アクセス権限設定（将来拡張）
 
 ### バリデーション
 - カテゴリー名の重複チェック
@@ -83,11 +82,6 @@ sockets.caiz.reorderSubCategories = Category.ReorderSubCategories;
 - コミュニティオーナー権限の厳格なチェック
 - 入力値のサニタイゼーション
 - CSRF対策
-
-## パフォーマンス考慮事項
-- カテゴリー一覧の効率的な取得
-- リアルタイム更新での過度なAPIコール防止
-- 大量サブカテゴリーでの表示パフォーマンス
 
 ## 関連ファイル
 - `/plugins/nodebb-plugin-caiz/static/community-edit.js`
