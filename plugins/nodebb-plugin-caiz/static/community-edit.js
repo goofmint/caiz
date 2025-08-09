@@ -1353,7 +1353,7 @@ const openCategoryIconSelector = () => {
   }
 };
 
-const escapeHtml = (text) => {
+function escapeHtml(text) {
   if (!text) return '';
   // First decode any existing HTML entities, then escape properly
   const div = document.createElement('div');
@@ -1361,7 +1361,7 @@ const escapeHtml = (text) => {
   const decodedText = div.textContent || div.innerText || '';
   div.textContent = decodedText;
   return div.innerHTML;
-};
+}
 
 // Drag and Drop functionality
 function initializeDragAndDrop() {
@@ -2272,7 +2272,7 @@ function filterMembers(searchTerm) {
   });
 }
 
-const getRoleClass = (role) => {
+function getRoleClass(role) {
   const classes = {
     owner: 'bg-danger',
     manager: 'bg-warning text-dark',
@@ -2280,9 +2280,9 @@ const getRoleClass = (role) => {
     banned: 'bg-dark'
   };
   return classes[role] || 'bg-secondary';
-};
+}
 
-const getRoleDisplayName = (role) => {
+function getRoleDisplayName(role) {
   const names = {
     owner: 'Owner',
     manager: 'Manager',
@@ -2290,9 +2290,9 @@ const getRoleDisplayName = (role) => {
     banned: 'Banned'
   };
   return names[role] || role;
-};
+}
 
-const canManageMember = (member) => {
+function canManageMember(member) {
   if (!currentUserRole) return false;
   if (member.uid == app.user.uid) return false; // Can't manage yourself
   
@@ -2305,9 +2305,9 @@ const canManageMember = (member) => {
   }
   
   return false;
-};
+}
 
-const getRoleOptions = (currentRole, memberUid) => {
+function getRoleOptions(currentRole, memberUid) {
   const options = [];
   const isCurrentUser = memberUid == app.user.uid;
   
@@ -2322,13 +2322,13 @@ const getRoleOptions = (currentRole, memberUid) => {
   }
   
   return options;
-};
+}
 
-const formatDate = (timestamp) => {
+function formatDate(timestamp) {
   if (!timestamp) return 'Never';
   const date = new Date(parseInt(timestamp));
   return date.toLocaleDateString();
-};
+}
 
 function showAddMemberForm() {
   const container = document.getElementById('add-member-form-container');
