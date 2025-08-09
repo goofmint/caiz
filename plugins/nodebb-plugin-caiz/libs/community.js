@@ -209,6 +209,128 @@ class Community extends Base {
     }
   }
 
+  static async GetCommunityData(socket, { cid }) {
+    winston.info(`[plugin/caiz] Getting community data for cid: ${cid}, uid: ${socket.uid}`);
+    
+    const { uid } = socket;
+    if (!uid) {
+      throw new Error('Authentication required');
+    }
+    
+    // Check ownership
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    
+    if (!isOwner) {
+      throw new Error('Permission denied');
+    }
+    
+    // Get category data
+    const categoryData = await Categories.getCategoryData(cid);
+    
+    return {
+      name: categoryData.name,
+      description: categoryData.description,
+      backgroundImage: categoryData.backgroundImage,
+      icon: categoryData.icon,
+      color: categoryData.color,
+      bgColor: categoryData.bgColor
+    };
+  }
+
+  static async UpdateCommunityData(socket, data) {
+    winston.info(`[plugin/caiz] Updating community data for cid: ${data.cid}, uid: ${socket.uid}`);
+    winston.info(`[plugin/caiz] Received data:`, JSON.stringify(data, null, 2));
+    
+    const { uid } = socket;
+    const { cid, name, description, backgroundImage, icon, color, bgColor } = data;
+    
+    if (!uid) {
+      winston.error(`[plugin/caiz] Authentication required for cid: ${cid}`);
+      throw new Error('Authentication required');
+    }
+    
+    // Check ownership
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    winston.info(`[plugin/caiz] Owner group for cid ${cid}: ${ownerGroup}`);
+    
+    const isOwner = await Groups.isMember(uid, ownerGroup);
+    winston.info(`[plugin/caiz] User ${uid} is owner: ${isOwner}`);
+    
+    if (!isOwner) {
+      winston.error(`[plugin/caiz] Permission denied for uid ${uid}, cid ${cid}`);
+      throw new Error('Permission denied');
+    }
+    
+    // Validate input
+    if (!name) {
+      winston.error(`[plugin/caiz] Name is required but not provided`);
+      throw new Error('Name is required');
+    }
+    
+    // Update category (excluding slug - it's auto-generated)
+    const updateData = {
+      name: name.trim(),
+      description: description ? description.trim() : '',
+    };
+    
+    // Handle icon and backgroundImage updates
+    if (backgroundImage !== undefined) {
+      if (backgroundImage) {
+        updateData.backgroundImage = backgroundImage.trim();
+        // Clear icon when backgroundImage is set to avoid overlap
+        updateData.icon = '';
+        winston.info(`[plugin/caiz] Including background image: ${backgroundImage}`);
+        winston.info(`[plugin/caiz] Clearing icon to avoid overlap with background image`);
+      } else {
+        // Clear backgroundImage if empty string is provided
+        updateData.backgroundImage = '';
+        winston.info(`[plugin/caiz] Clearing background image`);
+      }
+    }
+    
+    if (icon !== undefined) {
+      if (icon) {
+        updateData.icon = icon.trim();
+        // Clear backgroundImage when icon is set
+        updateData.backgroundImage = '';
+        winston.info(`[plugin/caiz] Including icon: ${icon}`);
+        winston.info(`[plugin/caiz] Clearing background image to use icon instead`);
+      } else {
+        // Clear icon if empty string is provided
+        updateData.icon = '';
+        winston.info(`[plugin/caiz] Clearing icon`);
+      }
+    }
+    
+    // Handle color updates
+    if (color !== undefined) {
+      updateData.color = color || '';
+      winston.info(`[plugin/caiz] Setting icon color: ${color || 'default'}`);
+    }
+    
+    if (bgColor !== undefined) {
+      updateData.bgColor = bgColor || '';
+      winston.info(`[plugin/caiz] Setting background color: ${bgColor || 'default'}`);
+    }
+    
+    winston.info(`[plugin/caiz] Update data prepared:`, JSON.stringify(updateData, null, 2));
+    
+    try {
+      // Categories.update expects an object with cid as key
+      const modifiedData = { [cid]: updateData };
+      await Categories.update(modifiedData);
+      winston.info(`[plugin/caiz] Categories.update completed for cid: ${cid}`);
+    } catch (updateError) {
+      winston.error(`[plugin/caiz] Categories.update failed:`, updateError);
+      throw updateError;
+    }
+    
+    winston.info(`[plugin/caiz] Community data updated successfully for cid: ${cid}`);
+    
+    return { success: true };
+  }
+
   static async customizeIndexLink(data) {
     const { categories } = data.templateData;
     categories.forEach(category => {

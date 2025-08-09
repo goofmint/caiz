@@ -10,9 +10,16 @@ const addEditButton = (cid) => {
   }
   
   const editBtn = $('<button>')
-    .addClass('btn btn-primary community-edit-btn')
+    .addClass('btn btn-link p-0 community-edit-btn')
     .attr('data-cid', cid)
-    .html('<i class="fa fa-edit"></i> <span>Edit Community</span>');
+    .attr('title', 'Edit Community')
+    .html('<i class="fa fa-cog fa-lg text-muted"></i>')
+    .css({
+      'background': 'none',
+      'border': 'none',
+      'padding': '8px',
+      'margin-left': '8px'
+    });
   
   // Check screen size first
   const isMobile = window.innerWidth <= 768;
@@ -31,16 +38,16 @@ const addEditButton = (cid) => {
       // Get the parent container of the follow button
       const followContainer = followBtn.parent();
       
-      // Add edit button to the same container with proper spacing
-      editBtn.css({ marginRight: '10px' });
-      followContainer.prepend(editBtn);
-      insertLocation = 'in follow button container';
+      // Add edit button to the right side of follow button
+      editBtn.css({ marginLeft: '8px' });
+      followContainer.append(editBtn);
+      insertLocation = 'after follow button in container';
     } else {
       // Look for the right side container in category header
       const rightContainer = $('.category-header .d-flex.justify-content-between > div:last-child').first();
       if (rightContainer.length) {
-        editBtn.css({ marginRight: '10px' });
-        rightContainer.prepend(editBtn);
+        editBtn.css({ marginLeft: '8px' });
+        rightContainer.append(editBtn);
         insertLocation = 'in right container';
       } else {
         // Create a new container in the header
@@ -51,8 +58,8 @@ const addEditButton = (cid) => {
             rightDiv = $('<div></div>');
             headerTopRow.append(rightDiv);
           }
-          editBtn.css({ marginRight: '10px' });
-          rightDiv.prepend(editBtn);
+          editBtn.css({ marginLeft: '8px' });
+          rightDiv.append(editBtn);
           insertLocation = 'in created right container';
         } else {
           // Ultimate fallback
@@ -65,6 +72,15 @@ const addEditButton = (cid) => {
     
     console.log('[caiz] Edit button added:', insertLocation);
   }
+  
+  // Add hover effects
+  editBtn.on('mouseenter', function() {
+    $(this).find('i').removeClass('text-muted').addClass('text-primary');
+  });
+  
+  editBtn.on('mouseleave', function() {
+    $(this).find('i').removeClass('text-primary').addClass('text-muted');
+  });
   
   // Add click event to open edit modal
   editBtn.on('click', function() {
@@ -282,10 +298,11 @@ const openBootboxModal = async (cid) => {
     }
   });
   
-  // Initialize navigation after modal is shown
+  // Initialize navigation and form after modal is shown
   modal.on('shown.bs.modal', function () {
     initializeModalNavigation();
     resetModalToFirstTab();
+    initializeCommunityEditForm(cid);
   });
   
   console.log('[caiz] Bootbox modal opened for cid:', cid);
@@ -336,6 +353,9 @@ const openCustomModal = async (cid) => {
     // Handle close events
     setupModalCloseHandlers(modalElement, backdrop);
   }
+  
+  // Initialize form after modal display
+  setTimeout(() => initializeCommunityEditForm(cid), 200);
   
   console.log('[caiz] Custom modal opened for cid:', cid);
 };
@@ -392,13 +412,13 @@ const getModalHtml = async (cid) => {
       <div class="col-md-4 sidebar-menu border-end" style="background-color: #f8f9fa; min-height: 100%;">
         <div class="list-group list-group-flush">
           <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-            <i class="fa fa-edit me-2"></i>編集
+            <i class="fa fa-edit me-2"></i>Edit
           </a>
           <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-            <i class="fa fa-folder me-2"></i>カテゴリー
+            <i class="fa fa-folder me-2"></i>Categories
           </a>
           <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-            <i class="fa fa-users me-2"></i>メンバー
+            <i class="fa fa-users me-2"></i>Members
           </a>
         </div>
       </div>
@@ -406,27 +426,112 @@ const getModalHtml = async (cid) => {
       <div class="col-md-8 content-area" style="min-height: 100%; background-color: #ffffff;">
         <div class="tab-content p-4">
           <div class="tab-pane fade show active" id="general-tab">
-            <h6 class="mb-3">コミュニティ情報編集</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle me-2"></i>
-              コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
-            </div>
+            <h6 class="mb-3">Edit Community Information</h6>
+            
+            <form id="community-edit-form">
+              <div class="mb-3">
+                <label for="community-name" class="form-label">Community Name *</label>
+                <input type="text" class="form-control" id="community-name" name="name" required>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="community-description" class="form-label">Description</label>
+                <textarea class="form-control" id="community-description" name="description" rows="4"></textarea>
+                <div class="invalid-feedback"></div>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Community Icon/Logo</label>
+                
+                <!-- Toggle between icon and image -->
+                <div class="btn-group mb-2 d-block" role="group">
+                  <input type="radio" class="btn-check" name="logo-type" id="logo-type-icon" value="icon" autocomplete="off" checked>
+                  <label class="btn btn-outline-primary" for="logo-type-icon">
+                    <i class="fa fa-icons me-1"></i>Icon
+                  </label>
+                  
+                  <input type="radio" class="btn-check" name="logo-type" id="logo-type-image" value="image" autocomplete="off">
+                  <label class="btn btn-outline-primary" for="logo-type-image">
+                    <i class="fa fa-image me-1"></i>Image
+                  </label>
+                </div>
+                
+                <!-- Icon selector -->
+                <div id="icon-selector-group" style="display: block;">
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <button type="button" class="btn btn-secondary" id="icon-select-btn">
+                      <i class="fa fa-icons me-1"></i>Select Icon
+                    </button>
+                    <div id="selected-icon-preview" class="d-inline-flex align-items-center" style="padding: 10px; border-radius: 8px; background: #f8f9fa;">
+                      <i id="selected-icon" class="fa fa-users fa-2x"></i>
+                      <input type="hidden" id="community-icon" name="icon" value="fa-users">
+                    </div>
+                  </div>
+                  
+                  <!-- Icon color picker -->
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <label for="icon-color" class="form-label mb-0">Icon Color:</label>
+                    <input type="color" class="form-control form-control-color" id="icon-color" name="iconColor" value="#000000" style="width: 60px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="reset-icon-color">
+                      <i class="fa fa-undo"></i> Reset
+                    </button>
+                  </div>
+                  
+                  <!-- Background color picker -->
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <label for="icon-bg-color" class="form-label mb-0">Background Color:</label>
+                    <input type="color" class="form-control form-control-color" id="icon-bg-color" name="bgColor" value="#f8f9fa" style="width: 60px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="reset-bg-color">
+                      <i class="fa fa-undo"></i> Reset
+                    </button>
+                  </div>
+                  
+                  <div class="form-text">Select an icon and customize its colors</div>
+                </div>
+                
+                <!-- Image uploader -->
+                <div id="image-uploader-group" style="display: none;">
+                  <input type="file" class="form-control" id="community-logo" name="logoFile" accept="image/*">
+                  <div class="form-text">Select an image file for the community logo</div>
+                  <div class="invalid-feedback"></div>
+                  <div class="mt-2" id="current-logo-preview" style="display: none;">
+                    <small class="text-muted">Current logo:</small>
+                    <br>
+                    <img id="current-logo-img" src="" alt="Current logo" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                  </div>
+                  <div class="mt-2" id="new-logo-preview" style="display: none;">
+                    <small class="text-muted">New logo preview:</small>
+                    <br>
+                    <img id="new-logo-img" src="" alt="New logo preview" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                  <span class="btn-text">Save Changes</span>
+                  <span class="btn-spinner" style="display: none;">
+                    <i class="fa fa-spinner fa-spin"></i> Saving...
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
           <div class="tab-pane fade" id="categories-tab">
-            <h6 class="mb-3">カテゴリー管理</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <h6 class="mb-3">Category Management</h6>
+            <p class="text-muted">This feature will be implemented in future tasks.</p>
             <div class="alert alert-info">
               <i class="fa fa-info-circle me-2"></i>
-              コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+              Functionality for adding, editing, and deleting subcategories within the community will be added here.
             </div>
           </div>
           <div class="tab-pane fade" id="members-tab">
-            <h6 class="mb-3">メンバー管理</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <h6 class="mb-3">Member Management</h6>
+            <p class="text-muted">This feature will be implemented in future tasks.</p>
             <div class="alert alert-info">
               <i class="fa fa-info-circle me-2"></i>
-              メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+              Member role management functionality (Owner, Manager, Member, Ban) will be added here.
             </div>
           </div>
         </div>
@@ -551,13 +656,13 @@ const injectModalTemplate = () => {
               <div class="col-md-4 sidebar-menu border-end">
                 <div class="list-group list-group-flush">
                   <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-                    <i class="fa fa-edit me-2"></i>編集
+                    <i class="fa fa-edit me-2"></i>Edit
                   </a>
                   <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-                    <i class="fa fa-folder me-2"></i>カテゴリー
+                    <i class="fa fa-folder me-2"></i>Categories
                   </a>
                   <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-                    <i class="fa fa-users me-2"></i>メンバー
+                    <i class="fa fa-users me-2"></i>Members
                   </a>
                 </div>
               </div>
@@ -565,27 +670,27 @@ const injectModalTemplate = () => {
               <div class="col-md-8 content-area">
                 <div class="tab-content p-4">
                   <div class="tab-pane fade show active" id="general-tab">
-                    <h6 class="mb-3">コミュニティ情報編集</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Edit Community Information</h6>
+                    <p class="text-muted">Edit basic community information including name, slug, description, and logo.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
+                      This form will be dynamically loaded when the modal opens.
                     </div>
                   </div>
                   <div class="tab-pane fade" id="categories-tab">
-                    <h6 class="mb-3">カテゴリー管理</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Category Management</h6>
+                    <p class="text-muted">This feature will be implemented in future tasks.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+                      Functionality for adding, editing, and deleting subcategories within the community will be added here.
                     </div>
                   </div>
                   <div class="tab-pane fade" id="members-tab">
-                    <h6 class="mb-3">メンバー管理</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Member Management</h6>
+                    <p class="text-muted">This feature will be implemented in future tasks.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+                      Member role management functionality (Owner, Manager, Member, Ban) will be added here.
                     </div>
                   </div>
                 </div>
@@ -601,4 +706,621 @@ const injectModalTemplate = () => {
   
   // Initialize navigation after template is injected
   setTimeout(initializeModalNavigation, 100);
+};
+
+// Utility function to decode HTML entities
+const decodeHTMLEntities = (text) => {
+  if (!text) return text;
+  
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+};
+
+// Setup logo type toggle (icon vs image)
+const setupLogoTypeToggle = () => {
+  const iconRadio = document.getElementById('logo-type-icon');
+  const imageRadio = document.getElementById('logo-type-image');
+  const iconGroup = document.getElementById('icon-selector-group');
+  const imageGroup = document.getElementById('image-uploader-group');
+  
+  if (!iconRadio || !imageRadio || !iconGroup || !imageGroup) {
+    console.error('[caiz] Logo type toggle elements not found');
+    return;
+  }
+  
+  iconRadio.addEventListener('change', () => {
+    if (iconRadio.checked) {
+      iconGroup.style.display = 'block';
+      imageGroup.style.display = 'none';
+      console.log('[caiz] Switched to icon mode');
+    }
+  });
+  
+  imageRadio.addEventListener('change', () => {
+    if (imageRadio.checked) {
+      iconGroup.style.display = 'none';
+      imageGroup.style.display = 'block';
+      console.log('[caiz] Switched to image mode');
+    }
+  });
+};
+
+// Setup icon color pickers
+const setupIconColorPickers = () => {
+  const iconColorInput = document.getElementById('icon-color');
+  const bgColorInput = document.getElementById('icon-bg-color');
+  const selectedIcon = document.getElementById('selected-icon');
+  const iconPreview = document.getElementById('selected-icon-preview');
+  const resetIconColor = document.getElementById('reset-icon-color');
+  const resetBgColor = document.getElementById('reset-bg-color');
+  
+  if (!iconColorInput || !bgColorInput || !selectedIcon || !iconPreview) {
+    console.error('[caiz] Color picker elements not found');
+    return;
+  }
+  
+  // Icon color change
+  iconColorInput.addEventListener('input', (e) => {
+    selectedIcon.style.color = e.target.value;
+    console.log('[caiz] Icon color changed to:', e.target.value);
+  });
+  
+  // Background color change
+  bgColorInput.addEventListener('input', (e) => {
+    iconPreview.style.background = e.target.value;
+    console.log('[caiz] Background color changed to:', e.target.value);
+  });
+  
+  // Reset icon color
+  if (resetIconColor) {
+    resetIconColor.addEventListener('click', () => {
+      iconColorInput.value = '#000000';
+      selectedIcon.style.color = '#000000';
+      console.log('[caiz] Icon color reset to default');
+    });
+  }
+  
+  // Reset background color
+  if (resetBgColor) {
+    resetBgColor.addEventListener('click', () => {
+      bgColorInput.value = '#f8f9fa';
+      iconPreview.style.background = '#f8f9fa';
+      console.log('[caiz] Background color reset to default');
+    });
+  }
+};
+
+// Setup icon selector using NodeBB's iconSelect module
+const setupIconSelector = () => {
+  const selectBtn = document.getElementById('icon-select-btn');
+  const selectedIcon = document.getElementById('selected-icon');
+  const iconInput = document.getElementById('community-icon');
+  
+  if (!selectBtn || !selectedIcon || !iconInput) {
+    console.error('[caiz] Icon selector elements not found');
+    return;
+  }
+  
+  selectBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    console.log('[caiz] Opening icon selector');
+    
+    // Use NodeBB's iconSelect module if available
+    if (typeof require !== 'undefined') {
+      require(['iconSelect'], function(iconSelect) {
+        // onModified callback receives: (element, icon, styles)
+        iconSelect.init($(selectedIcon), function(element, icon, styles) {
+          console.log('[caiz] Icon selected:', icon, 'Styles:', styles);
+          
+          if (!icon) {
+            console.log('[caiz] No icon selected');
+            return;
+          }
+          
+          // Update the icon preview
+          selectedIcon.className = '';
+          // Build the full class string
+          let fullClass = 'fa fa-2x';
+          if (icon) {
+            fullClass += ' ' + icon;
+          }
+          if (styles && styles.length > 0) {
+            fullClass += ' ' + styles.join(' ');
+          }
+          selectedIcon.className = fullClass;
+          
+          // Store just the icon name without "fa-" prefix for database
+          iconInput.value = icon;
+          
+          console.log('[caiz] Icon value set to:', icon);
+          console.log('[caiz] Full class:', fullClass);
+        });
+      });
+    } else {
+      console.error('[caiz] NodeBB require not available, cannot load iconSelect module');
+      // Fallback: show a simple alert
+      if (typeof alerts !== 'undefined') {
+        alerts.error('Icon selector not available');
+      }
+    }
+  });
+};
+
+// Community Edit Form Functions
+const loadCommunityEditData = async (cid) => {
+  return new Promise((resolve, reject) => {
+    socket.emit('plugins.caiz.getCommunityData', { cid }, function(err, data) {
+      if (err) {
+        console.error('[caiz] Error loading community data:', err);
+        reject(err);
+        return;
+      }
+      resolve(data);
+    });
+  });
+};
+
+const saveCommunityData = async (cid, formData) => {
+  return new Promise((resolve, reject) => {
+    const data = {
+      cid: cid,
+      name: formData.name,
+      description: formData.description
+    };
+    
+    // Include backgroundImage if provided
+    if (formData.backgroundImage !== undefined) {
+      data.backgroundImage = formData.backgroundImage;
+    }
+    
+    // Include icon if provided
+    if (formData.icon !== undefined) {
+      data.icon = formData.icon;
+    }
+    
+    // Include colors if provided
+    if (formData.color !== undefined) {
+      data.color = formData.color;
+    }
+    
+    if (formData.bgColor !== undefined) {
+      data.bgColor = formData.bgColor;
+    }
+    
+    console.log('[caiz] Sending data to server:', data);
+    
+    socket.emit('plugins.caiz.updateCommunityData', data, function(err, result) {
+      if (err) {
+        console.error('[caiz] Error saving community data:', err);
+        reject(err);
+        return;
+      }
+      console.log('[caiz] Save result:', result);
+      resolve(result);
+    });
+  });
+};
+
+const initializeCommunityEditForm = (cid) => {
+  console.log('[caiz] Initializing community edit form for cid:', cid);
+  
+  // Wait for form to be available in DOM
+  const waitForForm = (callback, attempts = 0) => {
+    const form = document.getElementById('community-edit-form');
+    if (form) {
+      callback();
+    } else if (attempts < 20) {
+      setTimeout(() => waitForForm(callback, attempts + 1), 100);
+    } else {
+      console.error('[caiz] Community edit form not found after waiting');
+    }
+  };
+  
+  waitForForm(() => {
+    const form = document.getElementById('community-edit-form');
+    console.log('[caiz] Form found, loading data');
+    
+    // Setup logo type toggle functionality
+    setupLogoTypeToggle();
+    
+    // Setup icon selector
+    setupIconSelector();
+    
+    // Setup icon color pickers
+    setupIconColorPickers();
+    
+    // Load existing data
+    loadCommunityEditData(cid).then(data => {
+      console.log('[caiz] Loaded community data:', data);
+      
+      // Wait a bit more to ensure form fields are fully rendered
+      setTimeout(() => {
+        // Target elements specifically within the visible bootbox modal
+        const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+        if (!bootboxModal) {
+          console.error('[caiz] No visible bootbox modal found');
+          return;
+        }
+        
+        console.log('[caiz] Found bootbox modal:', bootboxModal);
+        
+        // Find form fields within the bootbox modal only
+        let nameField = bootboxModal.querySelector('#community-name, input[name="name"]');
+        let descField = bootboxModal.querySelector('#community-description, textarea[name="description"]');
+        
+        console.log('[caiz] Bootbox modal class list:', bootboxModal.classList.toString());
+        console.log('[caiz] Bootbox modal HTML preview:', bootboxModal.innerHTML.substring(0, 200) + '...');
+        
+        console.log('[caiz] Name field found:', !!nameField);
+        console.log('[caiz] Desc field found:', !!descField);
+        
+        // Debug DOM structure
+        const allInputs = document.querySelectorAll('input, textarea');
+        console.log('[caiz] All inputs/textareas in DOM:', Array.from(allInputs).map(el => ({
+          id: el.id,
+          name: el.name,
+          type: el.type,
+          tagName: el.tagName
+        })));
+        
+        if (nameField) {
+          nameField.value = data.name || '';
+          console.log('[caiz] Set community name:', data.name, 'Field value:', nameField.value);
+          // Force a change event to make sure it's visible
+          nameField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        
+        if (descField) {
+          descField.value = data.description || '';
+          console.log('[caiz] Set community description:', data.description, 'Field value:', descField.value);
+          // Force a change event to make sure it's visible
+          descField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        
+        // Determine whether to show icon or image
+        if (data.backgroundImage) {
+          // Switch to image mode
+          const imageRadio = bootboxModal.querySelector('#logo-type-image');
+          if (imageRadio) {
+            imageRadio.checked = true;
+            imageRadio.dispatchEvent(new Event('change'));
+          }
+          
+          const currentLogoPreview = bootboxModal.querySelector('#current-logo-preview');
+          const currentLogoImg = bootboxModal.querySelector('#current-logo-img');
+          if (currentLogoImg && currentLogoPreview) {
+            // Decode HTML entities in URL
+            const decodedUrl = decodeHTMLEntities(data.backgroundImage);
+            currentLogoImg.src = decodedUrl;
+            currentLogoPreview.style.display = 'block';
+            console.log('[caiz] Set current logo:', decodedUrl);
+          }
+        } else if (data.icon) {
+          // Switch to icon mode (already default)
+          const selectedIcon = bootboxModal.querySelector('#selected-icon');
+          const iconInput = bootboxModal.querySelector('#community-icon');
+          const iconColorInput = bootboxModal.querySelector('#icon-color');
+          const bgColorInput = bootboxModal.querySelector('#icon-bg-color');
+          const iconPreview = bootboxModal.querySelector('#selected-icon-preview');
+          
+          if (selectedIcon && iconInput) {
+            // Set the current icon
+            selectedIcon.className = '';
+            selectedIcon.className = `fa ${data.icon} fa-2x`;
+            iconInput.value = data.icon;
+            console.log('[caiz] Set current icon:', data.icon);
+            
+            // Set colors if available
+            if (data.color && iconColorInput) {
+              iconColorInput.value = data.color;
+              selectedIcon.style.color = data.color;
+              console.log('[caiz] Set icon color:', data.color);
+            }
+            
+            if (data.bgColor && bgColorInput && iconPreview) {
+              bgColorInput.value = data.bgColor;
+              iconPreview.style.background = data.bgColor;
+              console.log('[caiz] Set background color:', data.bgColor);
+            }
+          }
+        }
+      }, 200);
+    }).catch(err => {
+      console.error('[caiz] Failed to load community data:', err);
+      // Show error notification if available
+      if (typeof alerts !== 'undefined') {
+        alerts.error('Failed to load community data');
+      }
+    });
+    
+    // Setup file input change handler for logo preview
+    setTimeout(() => {
+      const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+      if (!bootboxModal) {
+        console.error('[caiz] No bootbox modal found for event handlers');
+        return;
+      }
+      
+      const logoInput = bootboxModal.querySelector('#community-logo, input[type="file"]');
+      if (logoInput) {
+        logoInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const newLogoPreview = bootboxModal.querySelector('#new-logo-preview');
+              const newLogoImg = bootboxModal.querySelector('#new-logo-img');
+              if (newLogoPreview && newLogoImg) {
+                newLogoImg.src = e.target.result;
+                newLogoPreview.style.display = 'block';
+              }
+            };
+            reader.readAsDataURL(file);
+          } else {
+            const newLogoPreview = bootboxModal.querySelector('#new-logo-preview');
+            if (newLogoPreview) {
+              newLogoPreview.style.display = 'none';
+            }
+          }
+        });
+      }
+      
+      // Form validation on input
+      const form = bootboxModal.querySelector('#community-edit-form, form');
+      if (form) {
+        form.addEventListener('input', () => validateForm());
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          console.log('[caiz] Form submitted');
+          
+          if (!validateForm()) {
+            console.log('[caiz] Form validation failed');
+            return;
+          }
+          
+          // Show loading state
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const btnText = submitBtn.querySelector('.btn-text');
+          const btnSpinner = submitBtn.querySelector('.btn-spinner');
+          
+          btnText.style.display = 'none';
+          btnSpinner.style.display = 'inline';
+          submitBtn.disabled = true;
+          
+          try {
+            let backgroundImage = null;
+            let icon = null;
+            
+            // Check which mode is selected
+            const imageRadio = bootboxModal.querySelector('#logo-type-image');
+            const isImageMode = imageRadio && imageRadio.checked;
+            
+            if (isImageMode) {
+              // Handle file upload if a file was selected
+              const logoFileInput = bootboxModal.querySelector('#community-logo, input[type="file"]');
+              const logoFile = logoFileInput ? logoFileInput.files[0] : null;
+              if (logoFile) {
+              try {
+                console.log('[caiz] Uploading logo file:', logoFile.name);
+                backgroundImage = await uploadFile(logoFile);
+                console.log('[caiz] Logo uploaded successfully:', backgroundImage);
+              } catch (uploadError) {
+                console.error('[caiz] Logo upload failed:', uploadError);
+                console.error('[caiz] Logo upload error details:', uploadError.stack);
+                
+                if (typeof alerts !== 'undefined') {
+                  alerts.error(`Logo upload failed: ${uploadError.message}. Please check console for details.`);
+                }
+                
+                // For debugging purposes, throw the error instead of continuing
+                // This will keep the modal open and show detailed error information
+                throw new Error(`Logo upload failed: ${uploadError.message}`);
+              }
+              }
+            } else {
+              // Get selected icon and colors
+              const iconInput = bootboxModal.querySelector('#community-icon');
+              icon = iconInput ? iconInput.value : null;
+              console.log('[caiz] Using icon:', icon);
+            }
+            
+            const nameFieldSubmit = bootboxModal.querySelector('#community-name, input[name="name"]');
+            const descFieldSubmit = bootboxModal.querySelector('#community-description, textarea[name="description"]');
+            
+            const data = {
+              name: nameFieldSubmit ? nameFieldSubmit.value : '',
+              description: descFieldSubmit ? descFieldSubmit.value : ''
+            };
+            
+            // Include either backgroundImage or icon based on selection
+            if (isImageMode && backgroundImage) {
+              data.backgroundImage = backgroundImage;
+              data.icon = ''; // Clear icon when using image
+              data.color = ''; // Clear color when using image
+              data.bgColor = ''; // Clear bgColor when using image
+            } else if (!isImageMode && icon) {
+              data.icon = icon;
+              data.backgroundImage = ''; // Clear image when using icon
+              
+              // Get icon colors
+              const iconColorInput = bootboxModal.querySelector('#icon-color');
+              const bgColorInput = bootboxModal.querySelector('#icon-bg-color');
+              
+              if (iconColorInput && iconColorInput.value !== '#000000') {
+                data.color = iconColorInput.value;
+              }
+              
+              if (bgColorInput && bgColorInput.value !== '#f8f9fa') {
+                data.bgColor = bgColorInput.value;
+              }
+              
+              console.log('[caiz] Icon colors - color:', data.color, 'bgColor:', data.bgColor);
+            }
+            
+            console.log('[caiz] Saving community data:', data);
+            await saveCommunityData(cid, data);
+            
+            // Success notification
+            if (typeof alerts !== 'undefined') {
+              alerts.success('Community information updated successfully');
+            }
+            
+            // Close modal and refresh page only on success
+            if (typeof bootbox !== 'undefined') {
+              $('.bootbox').modal('hide');
+            } else {
+              closeCommunityEditModal();
+            }
+            
+            setTimeout(() => window.location.reload(), 500);
+            
+          } catch (error) {
+            console.error('[caiz] Error saving community data:', error);
+            console.error('[caiz] Full error details:', error.stack);
+            
+            // Error notification - DO NOT RELOAD on error
+            if (typeof alerts !== 'undefined') {
+              alerts.error(error.message || 'An error occurred while saving');
+            }
+            
+            // Keep modal open for debugging
+            console.log('[caiz] Error occurred - modal kept open for debugging');
+          } finally {
+            // Reset loading state
+            btnText.style.display = 'inline';
+            btnSpinner.style.display = 'none';
+            submitBtn.disabled = false;
+          }
+        });
+      }
+    }, 300);
+  });
+};
+
+const uploadFile = async (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      console.log('[caiz] No file provided to uploadFile');
+      resolve(null);
+      return;
+    }
+    
+    console.log('[caiz] Starting file upload for:', file.name, 'Size:', file.size, 'Type:', file.type);
+    
+    const formData = new FormData();
+    formData.append('files[]', file);
+    
+    // Use NodeBB's file upload endpoint
+    console.log('[caiz] Sending request to /api/post/upload');
+    
+    // Get CSRF token if available
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                     document.querySelector('input[name="_csrf"]')?.value ||
+                     window.config?.csrf_token;
+    
+    const headers = {
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    
+    // Add CSRF token if available
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+      console.log('[caiz] Adding CSRF token to upload request');
+    } else {
+      console.warn('[caiz] No CSRF token found - upload might fail');
+    }
+    
+    fetch('/api/post/upload', {
+      method: 'POST',
+      body: formData,
+      headers: headers
+    })
+    .then(response => {
+      console.log('[caiz] Upload response status:', response.status);
+      console.log('[caiz] Upload response headers:', response.headers);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('[caiz] Upload response data:', data);
+      
+      // Handle NodeBB's response format: { response: { images: [...] } } or direct array
+      let imageUrl = null;
+      
+      if (data && data.response && data.response.images && data.response.images.length > 0) {
+        // NodeBB format: { response: { images: [{url: "..."}] } }
+        imageUrl = data.response.images[0].url;
+        console.log('[caiz] Found URL in response.images:', imageUrl);
+      } else if (data && Array.isArray(data) && data.length > 0 && data[0].url) {
+        // Direct array format: [{url: "..."}]
+        imageUrl = data[0].url;
+        console.log('[caiz] Found URL in direct array:', imageUrl);
+      } else {
+        console.error('[caiz] Upload failed - no URL in response:', data);
+        reject(new Error('File upload failed - no URL returned'));
+        return;
+      }
+      
+      console.log('[caiz] Upload successful, URL:', imageUrl);
+      resolve(imageUrl);
+    })
+    .catch(error => {
+      console.error('[caiz] File upload error:', error);
+      console.error('[caiz] Error stack:', error.stack);
+      reject(new Error(`File upload failed: ${error.message}`));
+    });
+  });
+};
+
+const validateForm = () => {
+  const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
+  if (!bootboxModal) {
+    console.error('[caiz] No bootbox modal found for validation');
+    return false;
+  }
+  
+  const form = bootboxModal.querySelector('#community-edit-form, form');
+  if (!form) {
+    console.error('[caiz] No form found in bootbox modal');
+    return false;
+  }
+  
+  let isValid = true;
+  
+  // Name validation
+  const nameField = bootboxModal.querySelector('#community-name, input[name="name"]');
+  console.log('[caiz] Validating name field:', nameField);
+  console.log('[caiz] Name field value:', nameField ? nameField.value : 'field not found');
+  
+  if (!nameField) {
+    console.error('[caiz] Name field not found during validation');
+    isValid = false;
+  } else if (!nameField.value.trim()) {
+    showFieldError(nameField, 'Community name is required');
+    console.log('[caiz] Name validation failed: empty value');
+    isValid = false;
+  } else {
+    clearFieldError(nameField);
+    console.log('[caiz] Name validation passed');
+  }
+  
+  console.log('[caiz] Form validation result:', isValid);
+  return isValid;
+};
+
+const showFieldError = (field, message) => {
+  field.classList.add('is-invalid');
+  const feedback = field.parentNode.querySelector('.invalid-feedback');
+  if (feedback) {
+    feedback.textContent = message;
+  }
+};
+
+const clearFieldError = (field) => {
+  field.classList.remove('is-invalid');
 };

@@ -42,4 +42,6 @@ sockets.caiz.unfollowCommunity = Community.Unfollow;
 sockets.caiz.isFollowed = Community.IsFollowed;
 sockets.caiz.getCommunities = Community.User;
 sockets.caiz.isCommunityOwner = Community.IsCommunityOwner;
+sockets.caiz.getCommunityData = Community.GetCommunityData;
+sockets.caiz.updateCommunityData = Community.UpdateCommunityData;
 module.exports = plugin;

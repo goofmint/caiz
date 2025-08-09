@@ -11,13 +11,13 @@
           <div class="col-md-4 sidebar-menu border-end">
             <div class="list-group list-group-flush">
               <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-                <i class="fa fa-edit me-2"></i>編集
+                <i class="fa fa-edit me-2"></i>Edit
               </a>
               <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-                <i class="fa fa-folder me-2"></i>カテゴリー
+                <i class="fa fa-folder me-2"></i>Categories
               </a>
               <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-                <i class="fa fa-users me-2"></i>メンバー
+                <i class="fa fa-users me-2"></i>Members
               </a>
             </div>
           </div>
@@ -25,27 +25,27 @@
           <div class="col-md-8 content-area">
             <div class="tab-content p-4">
               <div class="tab-pane fade show active" id="general-tab">
-                <h6 class="mb-3">コミュニティ情報編集</h6>
-                <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                <h6 class="mb-3">Edit Community Information</h6>
+                <p class="text-muted">Edit basic community information including name, slug, description, and logo.</p>
                 <div class="alert alert-info">
                   <i class="fa fa-info-circle me-2"></i>
-                  コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
+                  This form will be dynamically loaded when the modal opens.
                 </div>
               </div>
               <div class="tab-pane fade" id="categories-tab">
-                <h6 class="mb-3">カテゴリー管理</h6>
-                <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                <h6 class="mb-3">Category Management</h6>
+                <p class="text-muted">This feature will be implemented in future tasks.</p>
                 <div class="alert alert-info">
                   <i class="fa fa-info-circle me-2"></i>
-                  コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+                  Functionality for adding, editing, and deleting subcategories within the community will be added here.
                 </div>
               </div>
               <div class="tab-pane fade" id="members-tab">
-                <h6 class="mb-3">メンバー管理</h6>
-                <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                <h6 class="mb-3">Member Management</h6>
+                <p class="text-muted">This feature will be implemented in future tasks.</p>
                 <div class="alert alert-info">
                   <i class="fa fa-info-circle me-2"></i>
-                  メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+                  Member role management functionality (Owner, Manager, Member, Ban) will be added here.
                 </div>
               </div>
             </div>
