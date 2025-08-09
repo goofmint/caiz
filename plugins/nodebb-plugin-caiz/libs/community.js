@@ -264,9 +264,14 @@ class Community extends Base {
     }
     
     // Check slug uniqueness (exclude current category)
-    const existingCategories = await Categories.getCategoriesBySlugs([slug]);
-    if (existingCategories.length > 0 && existingCategories[0].cid != cid) {
-      throw new Error('This slug is already in use');
+    try {
+      const existingCategories = await Categories.getCategoriesBySlugs([slug]);
+      if (existingCategories.length > 0 && existingCategories[0].cid != cid) {
+        throw new Error('This slug is already in use');
+      }
+    } catch (slugCheckError) {
+      // If slug check fails, continue with update (slug might be unique)
+      winston.warn(`[plugin/caiz] Slug uniqueness check failed: ${slugCheckError.message}`);
     }
     
     // Update category

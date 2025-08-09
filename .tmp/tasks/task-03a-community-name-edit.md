@@ -8,10 +8,14 @@
 
 - コミュニティオーナーのみがコミュニティ情報を編集可能
 - モーダルの「編集」タブに編集フォームを表示
-- 名前、スラグ、詳細、ロゴURLの編集が可能
+- 名前、スラグ、詳細、ロゴの編集が可能
+- ロゴファイルのアップロード
+  - NodeBBの画像アップロード機能を利用
+  - そのファイルのURLを取得して、ロゴURLとして利用
 - 保存ボタンクリックでサーバーにデータ送信
 - リアルタイムでの入力バリデーション
 - 保存成功時にモーダルを閉じて表示を更新
+- テキストはすべて英語（NodeBBの国際化機能を利用）
 
 ## 技術仕様
 
@@ -45,8 +49,8 @@
     
     <div class="mb-3">
       <label for="community-logo" class="form-label">ロゴURL</label>
-      <input type="url" class="form-control" id="community-logo" name="backgroundImage">
-      <div class="form-text">画像のURLを入力してください</div>
+      <input type="file" class="form-control" id="community-logo" name="backgroundImage" accept="image/*">
+      <div class="form-text">画像を指定してください</div>
       <div class="invalid-feedback"></div>
     </div>
     

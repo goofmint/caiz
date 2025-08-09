@@ -396,13 +396,13 @@ const getModalHtml = async (cid) => {
       <div class="col-md-4 sidebar-menu border-end" style="background-color: #f8f9fa; min-height: 100%;">
         <div class="list-group list-group-flush">
           <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-            <i class="fa fa-edit me-2"></i>編集
+            <i class="fa fa-edit me-2"></i>Edit
           </a>
           <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-            <i class="fa fa-folder me-2"></i>カテゴリー
+            <i class="fa fa-folder me-2"></i>Categories
           </a>
           <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-            <i class="fa fa-users me-2"></i>メンバー
+            <i class="fa fa-users me-2"></i>Members
           </a>
         </div>
       </div>
@@ -410,54 +410,69 @@ const getModalHtml = async (cid) => {
       <div class="col-md-8 content-area" style="min-height: 100%; background-color: #ffffff;">
         <div class="tab-content p-4">
           <div class="tab-pane fade show active" id="general-tab">
-            <h6 class="mb-3">コミュニティ情報編集</h6>
+            <h6 class="mb-3">Edit Community Information</h6>
             
             <form id="community-edit-form">
               <div class="mb-3">
-                <label for="community-name" class="form-label">コミュニティ名 *</label>
+                <label for="community-name" class="form-label">Community Name *</label>
                 <input type="text" class="form-control" id="community-name" name="name" required>
                 <div class="invalid-feedback"></div>
               </div>
               
               <div class="mb-3">
-                <label for="community-slug" class="form-label">スラグ *</label>
+                <label for="community-slug" class="form-label">Slug *</label>
                 <input type="text" class="form-control" id="community-slug" name="slug" required pattern="^[a-z0-9-]+$">
-                <div class="form-text">英小文字、数字、ハイフンのみ使用可能</div>
+                <div class="form-text">Only lowercase letters, numbers, and hyphens allowed</div>
                 <div class="invalid-feedback"></div>
               </div>
               
               <div class="mb-3">
-                <label for="community-description" class="form-label">詳細</label>
+                <label for="community-description" class="form-label">Description</label>
                 <textarea class="form-control" id="community-description" name="description" rows="4"></textarea>
                 <div class="invalid-feedback"></div>
               </div>
               
               <div class="mb-3">
-                <label for="community-logo" class="form-label">ロゴURL</label>
-                <input type="url" class="form-control" id="community-logo" name="backgroundImage">
-                <div class="form-text">画像のURLを入力してください</div>
+                <label for="community-logo" class="form-label">Logo Image</label>
+                <input type="file" class="form-control" id="community-logo" name="logoFile" accept="image/*">
+                <div class="form-text">Select an image file for the community logo</div>
                 <div class="invalid-feedback"></div>
+                <div class="mt-2" id="current-logo-preview" style="display: none;">
+                  <small class="text-muted">Current logo:</small>
+                  <br>
+                  <img id="current-logo-img" src="" alt="Current logo" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                </div>
+                <div class="mt-2" id="new-logo-preview" style="display: none;">
+                  <small class="text-muted">New logo preview:</small>
+                  <br>
+                  <img id="new-logo-img" src="" alt="New logo preview" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                </div>
               </div>
               
               <div class="d-flex justify-content-end">
-                <button type="submit" class="btn btn-primary">保存</button>
+                <button type="submit" class="btn btn-primary">
+                  <span class="btn-text">Save Changes</span>
+                  <span class="btn-spinner" style="display: none;">
+                    <i class="fa fa-spinner fa-spin"></i> Saving...
+                  </span>
+                </button>
               </div>
             </form>
           </div>
           <div class="tab-pane fade" id="categories-tab">
-            <h6 class="mb-3">カテゴリー管理</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <h6 class="mb-3">Category Management</h6>
+            <p class="text-muted">This feature will be implemented in future tasks.</p>
             <div class="alert alert-info">
               <i class="fa fa-info-circle me-2"></i>
-              コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+              Functionality for adding, editing, and deleting subcategories within the community will be added here.
             </div>
           </div>
           <div class="tab-pane fade" id="members-tab">
-            <h6 class="mb-3">メンバー管理</h6>
-            <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+            <h6 class="mb-3">Member Management</h6>
+            <p class="text-muted">This feature will be implemented in future tasks.</p>
             <div class="alert alert-info">
               <i class="fa fa-info-circle me-2"></i>
-              メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+              Member role management functionality (Owner, Manager, Member, Ban) will be added here.
             </div>
           </div>
         </div>
@@ -582,13 +597,13 @@ const injectModalTemplate = () => {
               <div class="col-md-4 sidebar-menu border-end">
                 <div class="list-group list-group-flush">
                   <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-                    <i class="fa fa-edit me-2"></i>編集
+                    <i class="fa fa-edit me-2"></i>Edit
                   </a>
                   <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-                    <i class="fa fa-folder me-2"></i>カテゴリー
+                    <i class="fa fa-folder me-2"></i>Categories
                   </a>
                   <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-                    <i class="fa fa-users me-2"></i>メンバー
+                    <i class="fa fa-users me-2"></i>Members
                   </a>
                 </div>
               </div>
@@ -596,27 +611,27 @@ const injectModalTemplate = () => {
               <div class="col-md-8 content-area">
                 <div class="tab-content p-4">
                   <div class="tab-pane fade show active" id="general-tab">
-                    <h6 class="mb-3">コミュニティ情報編集</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Edit Community Information</h6>
+                    <p class="text-muted">Edit basic community information including name, slug, description, and logo.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      コミュニティ名、説明、ロゴなどの基本情報を編集する機能がここに追加されます。
+                      This form will be dynamically loaded when the modal opens.
                     </div>
                   </div>
                   <div class="tab-pane fade" id="categories-tab">
-                    <h6 class="mb-3">カテゴリー管理</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Category Management</h6>
+                    <p class="text-muted">This feature will be implemented in future tasks.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      コミュニティ内のサブカテゴリの追加、編集、削除機能がここに追加されます。
+                      Functionality for adding, editing, and deleting subcategories within the community will be added here.
                     </div>
                   </div>
                   <div class="tab-pane fade" id="members-tab">
-                    <h6 class="mb-3">メンバー管理</h6>
-                    <p class="text-muted">この機能は後続のタスクで実装予定です。</p>
+                    <h6 class="mb-3">Member Management</h6>
+                    <p class="text-muted">This feature will be implemented in future tasks.</p>
                     <div class="alert alert-info">
                       <i class="fa fa-info-circle me-2"></i>
-                      メンバーのロール管理（オーナー、マネージャー、メンバー、バン）機能がここに追加されます。
+                      Member role management functionality (Owner, Manager, Member, Ban) will be added here.
                     </div>
                   </div>
                 </div>
@@ -684,12 +699,37 @@ const initializeCommunityEditForm = (cid) => {
     document.getElementById('community-name').value = data.name || '';
     document.getElementById('community-slug').value = data.slug || '';
     document.getElementById('community-description').value = data.description || '';
-    document.getElementById('community-logo').value = data.backgroundImage || '';
+    
+    // Show current logo if exists
+    if (data.backgroundImage) {
+      const currentLogoPreview = document.getElementById('current-logo-preview');
+      const currentLogoImg = document.getElementById('current-logo-img');
+      currentLogoImg.src = data.backgroundImage;
+      currentLogoPreview.style.display = 'block';
+    }
   }).catch(err => {
     console.error('[caiz] Failed to load community data:', err);
     // Show error notification if available
     if (typeof alerts !== 'undefined') {
-      alerts.error('コミュニティデータの読み込みに失敗しました');
+      alerts.error('Failed to load community data');
+    }
+  });
+  
+  // File input change handler for logo preview
+  const logoInput = document.getElementById('community-logo');
+  logoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newLogoPreview = document.getElementById('new-logo-preview');
+        const newLogoImg = document.getElementById('new-logo-img');
+        newLogoImg.src = e.target.result;
+        newLogoPreview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    } else {
+      document.getElementById('new-logo-preview').style.display = 'none';
     }
   });
   
@@ -706,16 +746,42 @@ const initializeCommunityEditForm = (cid) => {
       return;
     }
     
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+    // Show loading state
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnSpinner = submitBtn.querySelector('.btn-spinner');
+    
+    btnText.style.display = 'none';
+    btnSpinner.style.display = 'inline';
+    submitBtn.disabled = true;
     
     try {
+      let backgroundImage = null;
+      
+      // Handle file upload if a file was selected
+      const logoFile = document.getElementById('community-logo').files[0];
+      if (logoFile) {
+        console.log('[caiz] Uploading logo file:', logoFile.name);
+        backgroundImage = await uploadFile(logoFile);
+        console.log('[caiz] Logo uploaded successfully:', backgroundImage);
+      }
+      
+      const data = {
+        name: document.getElementById('community-name').value,
+        slug: document.getElementById('community-slug').value,
+        description: document.getElementById('community-description').value
+      };
+      
+      if (backgroundImage) {
+        data.backgroundImage = backgroundImage;
+      }
+      
       console.log('[caiz] Saving community data:', data);
       await saveCommunityData(cid, data);
       
       // Success notification
       if (typeof alerts !== 'undefined') {
-        alerts.success('コミュニティ情報を更新しました');
+        alerts.success('Community information updated successfully');
       }
       
       // Close modal and refresh page
@@ -731,9 +797,47 @@ const initializeCommunityEditForm = (cid) => {
       console.error('[caiz] Error saving community data:', error);
       // Error notification
       if (typeof alerts !== 'undefined') {
-        alerts.error(error.message || 'エラーが発生しました');
+        alerts.error(error.message || 'An error occurred while saving');
       }
+    } finally {
+      // Reset loading state
+      btnText.style.display = 'inline';
+      btnSpinner.style.display = 'none';
+      submitBtn.disabled = false;
     }
+  });
+};
+
+const uploadFile = async (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('files[]', file);
+    
+    // Use NodeBB's file upload endpoint
+    fetch('/api/post/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data && data.length > 0 && data[0].url) {
+        resolve(data[0].url);
+      } else {
+        reject(new Error('File upload failed'));
+      }
+    })
+    .catch(error => {
+      console.error('[caiz] File upload error:', error);
+      reject(new Error('File upload failed'));
+    });
   });
 };
 
@@ -746,7 +850,7 @@ const validateForm = () => {
   // Name validation
   const nameField = document.getElementById('community-name');
   if (!nameField.value.trim()) {
-    showFieldError(nameField, 'コミュニティ名は必須です');
+    showFieldError(nameField, 'Community name is required');
     isValid = false;
   } else {
     clearFieldError(nameField);
@@ -756,10 +860,10 @@ const validateForm = () => {
   const slugField = document.getElementById('community-slug');
   const slugPattern = /^[a-z0-9-]+$/;
   if (!slugField.value.trim()) {
-    showFieldError(slugField, 'スラグは必須です');
+    showFieldError(slugField, 'Slug is required');
     isValid = false;
   } else if (!slugPattern.test(slugField.value)) {
-    showFieldError(slugField, '英小文字、数字、ハイフンのみ使用可能です');
+    showFieldError(slugField, 'Only lowercase letters, numbers, and hyphens are allowed');
     isValid = false;
   } else {
     clearFieldError(slugField);
