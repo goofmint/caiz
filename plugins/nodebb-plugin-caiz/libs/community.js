@@ -66,7 +66,11 @@ class Community extends Base {
 
   static async createCommunityGroup(name, description, ownerUid, privateFlag = 0, hidden = 0) {
     const group = await Groups.getGroupData(name);
-    if (group) return group;
+    if (group) {
+      winston.info(`[plugin/caiz] Group ${name} already exists`);
+      return group;
+    }
+    winston.info(`[plugin/caiz] Creating new group ${name} with owner ${ownerUid}`);
     return Groups.create({
       name,
       description,
@@ -101,6 +105,7 @@ class Community extends Base {
     const ownerGroupDesc = `Owners of Community: ${name}`;
     await Community.createCommunityGroup(ownerGroupName, ownerGroupDesc, uid, 1, 1);
     await Groups.join(ownerGroupName, uid);
+    winston.info(`[plugin/caiz] Added user ${uid} to owner group ${ownerGroupName}`);
 
     // Create a community managers group (example: community-{cid}-managers)
     const managerGroupName = `community-${cid}-managers`;
@@ -625,6 +630,8 @@ class Community extends Base {
     const isOwner = await Groups.isMember(uid, ownerGroup);
     const isManager = await Groups.isMember(uid, managerGroup);
     
+    winston.info(`[plugin/caiz] User ${uid} isOwner: ${isOwner}, isManager: ${isManager}, ownerGroup: ${ownerGroup}, managerGroup: ${managerGroup}`);
+    
     if (!isOwner && !isManager) {
       winston.info(`[plugin/caiz] User ${uid} does not have permission to view members`);
       throw new Error('Permission denied');
@@ -657,6 +664,7 @@ class Community extends Base {
           
           userData.forEach(user => {
             if (user && user.uid) {
+              winston.info(`[plugin/caiz] Adding user ${user.uid} (${user.username}) with role ${group.role} to members list`);
               members.push({
                 ...user,
                 role: group.role,
