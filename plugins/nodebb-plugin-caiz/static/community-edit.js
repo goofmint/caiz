@@ -14,30 +14,56 @@ const addEditButton = (cid) => {
     .attr('data-cid', cid)
     .html('<i class="fa fa-edit"></i> <span>Edit Community</span>');
   
-  // Find existing buttons container first
-  let buttonContainer = $('.category-tools, .topic-header .btn-toolbar, .btn-group').first();
+  // Check screen size first
+  const isMobile = window.innerWidth <= 768;
   
-  if (buttonContainer.length) {
-    // Add to existing button container
-    buttonContainer.prepend(editBtn);
-    editBtn.css({ position: 'relative', top: 'auto', right: 'auto', marginRight: '10px' });
-    console.log('[caiz] Edit button added to existing button container');
+  if (isMobile) {
+    // On mobile, always use fixed position with proper spacing
+    $('body').append(editBtn);
+    editBtn.addClass('fixed-position');
+    console.log('[caiz] Edit button added as mobile FAB');
   } else {
-    // Look for category header
-    let headerContainer = $('.category-header, [component="category"] .row').first();
-    if (!headerContainer.length) {
-      headerContainer = $('[component="category"]').first();
+    // On desktop, look for the follow button's container
+    const followBtn = $('#community-follow-button, [data-cid]').filter('.btn').first();
+    let insertLocation = null;
+    
+    if (followBtn.length) {
+      // Get the parent container of the follow button
+      const followContainer = followBtn.parent();
+      
+      // Add edit button to the same container with proper spacing
+      editBtn.css({ marginRight: '10px' });
+      followContainer.prepend(editBtn);
+      insertLocation = 'in follow button container';
+    } else {
+      // Look for the right side container in category header
+      const rightContainer = $('.category-header .d-flex.justify-content-between > div:last-child').first();
+      if (rightContainer.length) {
+        editBtn.css({ marginRight: '10px' });
+        rightContainer.prepend(editBtn);
+        insertLocation = 'in right container';
+      } else {
+        // Create a new container in the header
+        const headerTopRow = $('.category-header .d-flex.justify-content-between').first();
+        if (headerTopRow.length) {
+          let rightDiv = headerTopRow.find('> div:last-child');
+          if (!rightDiv.length) {
+            rightDiv = $('<div></div>');
+            headerTopRow.append(rightDiv);
+          }
+          editBtn.css({ marginRight: '10px' });
+          rightDiv.prepend(editBtn);
+          insertLocation = 'in created right container';
+        } else {
+          // Ultimate fallback
+          $('body').append(editBtn);
+          editBtn.addClass('fixed-position');
+          insertLocation = 'fixed fallback';
+        }
+      }
     }
     
-    if (headerContainer.length) {
-      headerContainer.css('position', 'relative').append(editBtn);
-      console.log('[caiz] Edit button added to category header');
-    } else {
-      // Fallback: add to body as fixed position
-      $('body').append(editBtn);
-      editBtn.addClass('fixed-position');
-      console.log('[caiz] Edit button added as fixed position');
-    }
+    console.log('[caiz] Edit button added:', insertLocation);
   }
   
   // Add click event (placeholder for now - will connect to modal in task 03)

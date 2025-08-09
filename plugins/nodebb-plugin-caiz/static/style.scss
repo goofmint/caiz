@@ -193,11 +193,7 @@
 
 /* Community Edit Button Styles */
 .community-edit-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
   z-index: 15;
-  margin-left: 10px;
   transition: all 0.3s ease;
   
   &:hover {
@@ -210,6 +206,11 @@
     bottom: 80px; /* Move up to avoid overlap with other FABs */
     right: 20px;
   }
+}
+
+/* Category edit container */
+.category-edit-container {
+  align-items: center;
 }
 
 /* Adjust category header layout to accommodate edit button */
