@@ -2123,7 +2123,7 @@ const loadMembers = async () => {
   }
 };
 
-const showMembersLoading = () => {
+function showMembersLoading() {
   const loadingEl = document.getElementById('members-loading');
   const emptyEl = document.getElementById('members-empty');
   const contentEl = document.getElementById('members-content');
@@ -2131,9 +2131,9 @@ const showMembersLoading = () => {
   if (loadingEl) loadingEl.style.display = 'block';
   if (emptyEl) emptyEl.style.display = 'none';
   if (contentEl) contentEl.style.display = 'none';
-};
+}
 
-const showMembersError = (message) => {
+function showMembersError(message) {
   const loadingEl = document.getElementById('members-loading');
   const emptyEl = document.getElementById('members-empty');
   const contentEl = document.getElementById('members-content');
@@ -2146,9 +2146,9 @@ const showMembersError = (message) => {
   if (typeof alerts !== 'undefined') {
     alerts.error(`Failed to load members: ${message}`);
   }
-};
+}
 
-const renderMembers = () => {
+function renderMembers() {
   const loadingEl = document.getElementById('members-loading');
   const emptyEl = document.getElementById('members-empty');
   const contentEl = document.getElementById('members-content');
@@ -2213,9 +2213,9 @@ const renderMembers = () => {
       `;
     }).join('');
   }
-};
+}
 
-const filterMembers = (searchTerm) => {
+function filterMembers(searchTerm) {
   const tableBody = document.getElementById('members-table-body');
   if (!tableBody) return;
   
@@ -2232,7 +2232,7 @@ const filterMembers = (searchTerm) => {
       row.style.display = 'none';
     }
   });
-};
+}
 
 const getRoleClass = (role) => {
   const classes = {
@@ -2292,7 +2292,7 @@ const formatDate = (timestamp) => {
   return date.toLocaleDateString();
 };
 
-const showAddMemberForm = () => {
+function showAddMemberForm() {
   const container = document.getElementById('add-member-form-container');
   const input = document.getElementById('add-member-username');
   
@@ -2302,9 +2302,9 @@ const showAddMemberForm = () => {
   if (input) {
     input.focus();
   }
-};
+}
 
-const hideAddMemberForm = () => {
+function hideAddMemberForm() {
   const container = document.getElementById('add-member-form-container');
   const form = document.getElementById('add-member-form');
   
@@ -2316,9 +2316,9 @@ const hideAddMemberForm = () => {
     form.classList.remove('was-validated');
     form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
   }
-};
+}
 
-const handleAddMemberSubmit = async (e) => {
+async function handleAddMemberSubmit(e) {
   e.preventDefault();
   
   const form = e.target;
@@ -2376,7 +2376,7 @@ const handleAddMemberSubmit = async (e) => {
     if (btnSpinner) btnSpinner.style.display = 'none';
     submitBtn.disabled = false;
   }
-};
+}
 
 const changeMemberRole = (targetUid, newRole) => {
   if (!newRole) return;
@@ -2413,7 +2413,7 @@ const changeMemberRole = (targetUid, newRole) => {
   }
 };
 
-const performRoleChange = (targetUid, newRole) => {
+function performRoleChange(targetUid, newRole) {
   socket.emit('plugins.caiz.changeMemberRole', {
     cid: currentCommunityId,
     targetUid: targetUid,
@@ -2435,7 +2435,7 @@ const performRoleChange = (targetUid, newRole) => {
     
     loadMembers(); // Reload the list
   });
-};
+}
 
 const removeMember = (targetUid, username) => {
   const decodedUsername = decodeHTMLEntities(username || '');
@@ -2467,7 +2467,7 @@ const removeMember = (targetUid, username) => {
   }
 };
 
-const performRemoveMember = (targetUid) => {
+function performRemoveMember(targetUid) {
   socket.emit('plugins.caiz.removeMember', {
     cid: currentCommunityId,
     targetUid: targetUid
@@ -2488,4 +2488,4 @@ const performRemoveMember = (targetUid) => {
     
     loadMembers(); // Reload the list
   });
-};
+}
