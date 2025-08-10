@@ -167,14 +167,70 @@ class Community extends Base {
   static async Follow(socket, { cid }) {
     const { uid } = socket;
     if (!uid) throw new Error('Not logged in');
+    
+    winston.info(`[plugin/caiz] User ${uid} following community ${cid}`);
+    
+    // Add to followed categories
     await db.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
+    
+    // Check if user is already a member of any community group
+    const memberGroups = [
+      await db.getObjectField(`category:${cid}`, 'ownerGroup'),
+      `community-${cid}-managers`,
+      `community-${cid}-members`,
+      `community-${cid}-banned`
+    ];
+    
+    let isAlreadyMember = false;
+    for (const groupName of memberGroups) {
+      if (groupName && await Groups.exists(groupName) && await Groups.isMember(uid, groupName)) {
+        winston.info(`[plugin/caiz] User ${uid} is already member of group ${groupName}`);
+        isAlreadyMember = true;
+        break;
+      }
+    }
+    
+    // If not already a member, add to members group
+    if (!isAlreadyMember) {
+      const memberGroupName = `community-${cid}-members`;
+      if (await Groups.exists(memberGroupName)) {
+        await Groups.join(memberGroupName, uid);
+        winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
+      } else {
+        winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${cid}`);
+      }
+    }
+    
     return { isFollowed: true };
   }
 
   static async Unfollow(socket, { cid }) {
     const { uid } = socket;
     if (!uid) throw new Error('Not logged in');
+    
+    winston.info(`[plugin/caiz] User ${uid} unfollowing community ${cid}`);
+    
+    // Remove from followed categories
     await db.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
+    
+    // Check if user is just a regular member (not owner/manager) and remove them
+    const ownerGroup = await db.getObjectField(`category:${cid}`, 'ownerGroup');
+    const managerGroup = `community-${cid}-managers`;
+    const memberGroup = `community-${cid}-members`;
+    
+    const isOwner = ownerGroup && await Groups.exists(ownerGroup) && await Groups.isMember(uid, ownerGroup);
+    const isManager = await Groups.exists(managerGroup) && await Groups.isMember(uid, managerGroup);
+    
+    // Only remove regular members, not owners or managers
+    if (!isOwner && !isManager) {
+      if (await Groups.exists(memberGroup) && await Groups.isMember(uid, memberGroup)) {
+        await Groups.leave(memberGroup, uid);
+        winston.info(`[plugin/caiz] Removed user ${uid} from member group ${memberGroup}`);
+      }
+    } else {
+      winston.info(`[plugin/caiz] User ${uid} is owner/manager, not removing from member groups`);
+    }
+    
     return { isFollowed: false };
   }
 
