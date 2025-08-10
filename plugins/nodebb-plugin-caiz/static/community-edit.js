@@ -1,5 +1,13 @@
 // Community Edit Button Management
 
+// Global variables
+let currentCommunityId = null;
+let subcategories = [];
+let draggedElement = null;
+let draggedIndex = -1;
+let currentMembers = [];
+let currentUserRole = null;
+
 const addEditButton = (cid) => {
   console.log('[caiz] Adding edit button for community', cid);
   
@@ -634,10 +642,83 @@ const getModalHtml = async (cid) => {
           </div>
           <div class="tab-pane fade" id="members-tab">
             <h6 class="mb-3">Member Management</h6>
-            <p class="text-muted">This feature will be implemented in future tasks.</p>
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle me-2"></i>
-              Member role management functionality (Owner, Manager, Member, Ban) will be added here.
+            
+            <!-- Add Member Button and Search -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="input-group" style="max-width: 80%;">
+                <span class="input-group-text"
+                  style="background-color: var(--bs-body-bg, #000); border: 1px solid var(--bs-border-color, #dee2e6); border-right: var(--bs-body-bg, #000);"
+                ><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" style="border: 1px solid var(--bs-border-color, #dee2e6);max-width:100%;border-left: var(--bs-body-bg, #000);" id="member-search" placeholder="Search members...">
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="add-member-btn">
+                <i class="fa fa-plus me-1"></i>Add Member
+              </button>
+            </div>
+            
+            <!-- Members List -->
+            <div id="members-list">
+              <div class="text-center py-4" id="members-loading">
+                <i class="fa fa-spinner fa-spin fa-2x text-muted"></i>
+                <p class="text-muted mt-2">Loading members...</p>
+              </div>
+              
+              <div id="members-empty" style="display: none;">
+                <div class="text-center py-4">
+                  <i class="fa fa-users fa-3x text-muted mb-3"></i>
+                  <p class="text-muted">No members found. Click "Add Member" to invite your first member.</p>
+                </div>
+              </div>
+              
+              <div id="members-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Member</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                        <th>Last Online</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="members-table-body">
+                      <!-- Members will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Add Member Form (inline) -->
+            <div id="add-member-form-container" style="display: none;" class="mt-4">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">Add Member</h6>
+                  <button type="button" class="btn-close" id="cancel-add-member"></button>
+                </div>
+                <div class="card-body">
+                  <form id="add-member-form">
+                    <div class="mb-3 position-relative">
+                      <label for="add-member-username" class="form-label">Username *</label>
+                      <input type="text" class="form-control" id="add-member-username" name="username" required maxlength="50" placeholder="Enter username" autocomplete="off">
+                      <div id="username-suggestions" class="dropdown-menu" style="display: none; position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%;"></div>
+                      <div class="invalid-feedback"></div>
+                      <div class="form-text">Start typing to see suggestions</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                      <button type="button" class="btn btn-secondary" id="cancel-add-member-btn">Cancel</button>
+                      <button type="submit" class="btn btn-primary">
+                        <span class="add-member-btn-text">Add Member</span>
+                        <span class="add-member-btn-spinner" style="display: none;">
+                          <i class="fa fa-spinner fa-spin"></i> Adding...
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -646,7 +727,7 @@ const getModalHtml = async (cid) => {
   `;
 };
 
-const resetModalToFirstTab = () => {
+function resetModalToFirstTab() {
   console.log('[caiz] Resetting modal to first tab');
   
   // Reset sidebar menu
@@ -666,9 +747,9 @@ const resetModalToFirstTab = () => {
   if (firstTab) {
     firstTab.classList.add('active', 'show');
   }
-};
+}
 
-const initializeModalNavigation = () => {
+function initializeModalNavigation() {
   console.log('[caiz] Initializing modal navigation');
   
   // Remove existing event listeners to prevent duplicates
@@ -704,7 +785,7 @@ const initializeModalNavigation = () => {
       console.log('[caiz] Switched to tab:', tabName);
     });
   });
-};
+}
 
 const ensureModalTemplate = async () => {
   console.log('[caiz] Ensuring modal template is loaded');
@@ -824,7 +905,7 @@ const decodeHTMLEntities = (text) => {
 };
 
 // Setup logo type toggle (icon vs image)
-const setupLogoTypeToggle = () => {
+function setupLogoTypeToggle() {
   const iconRadio = document.getElementById('logo-type-icon');
   const imageRadio = document.getElementById('logo-type-image');
   const iconGroup = document.getElementById('icon-selector-group');
@@ -850,10 +931,10 @@ const setupLogoTypeToggle = () => {
       console.log('[caiz] Switched to image mode');
     }
   });
-};
+}
 
 // Setup icon color pickers
-const setupIconColorPickers = () => {
+function setupIconColorPickers() {
   const iconColorInput = document.getElementById('icon-color');
   const bgColorInput = document.getElementById('icon-bg-color');
   const selectedIcon = document.getElementById('selected-icon');
@@ -895,21 +976,18 @@ const setupIconColorPickers = () => {
       console.log('[caiz] Background color reset to default');
     });
   }
-};
+}
 
 // Category Management Functions
-let currentCommunityId = null;
-let subcategories = [];
-
-const initializeCategoryManagement = (cid) => {
+function initializeCategoryManagement(cid) {
   console.log('[caiz] Initializing category management for cid:', cid);
   currentCommunityId = cid;
   
   setupCategoryEventHandlers();
   loadSubCategories();
-};
+}
 
-const setupCategoryEventHandlers = () => {
+function setupCategoryEventHandlers() {
   // Add category button
   const addBtn = document.getElementById('add-category-btn');
   if (addBtn) {
@@ -953,9 +1031,9 @@ const setupCategoryEventHandlers = () => {
       iconElement.style.backgroundColor = e.target.value;
     });
   }
-};
+}
 
-const loadSubCategories = async () => {
+async function loadSubCategories() {
   if (!currentCommunityId) return;
   
   try {
@@ -963,6 +1041,10 @@ const loadSubCategories = async () => {
     showCategoriesLoading();
     
     socket.emit('plugins.caiz.getSubCategories', { cid: currentCommunityId }, function(err, data) {
+      // Always hide loading state
+      const loadingEl = document.getElementById('categories-loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+      
       if (err) {
         console.error('[caiz] Error loading subcategories:', err);
         showCategoriesError(err.message);
@@ -975,17 +1057,20 @@ const loadSubCategories = async () => {
     });
   } catch (error) {
     console.error('[caiz] Error in loadSubCategories:', error);
+    // Hide loading state on error
+    const loadingEl = document.getElementById('categories-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
     showCategoriesError(error.message);
   }
-};
+}
 
-const showCategoriesLoading = () => {
+function showCategoriesLoading() {
   document.getElementById('categories-loading').style.display = 'block';
   document.getElementById('categories-empty').style.display = 'none';
   document.getElementById('categories-content').style.display = 'none';
-};
+}
 
-const showCategoriesError = (message) => {
+function showCategoriesError(message) {
   document.getElementById('categories-loading').style.display = 'none';
   document.getElementById('categories-empty').style.display = 'none';
   document.getElementById('categories-content').style.display = 'none';
@@ -994,7 +1079,7 @@ const showCategoriesError = (message) => {
   if (typeof alerts !== 'undefined') {
     alerts.error(`Failed to load categories: ${message}`);
   }
-};
+}
 
 const renderSubCategories = () => {
   const loadingEl = document.getElementById('categories-loading');
@@ -1186,14 +1271,14 @@ const handleCategoryFormSubmit = async (e) => {
   }
 };
 
-const editCategory = (cid) => {
+function editCategory(cid) {
   const category = subcategories.find(cat => cat.cid == cid);
   if (category) {
     showCategoryForm(category);
   }
-};
+}
 
-const deleteCategory = (cid, name) => {
+function deleteCategory(cid, name) {
   const decodedName = decodeHTMLEntities(name || '');
   
   if (typeof bootbox !== 'undefined') {
@@ -1221,7 +1306,7 @@ const deleteCategory = (cid, name) => {
       performDeleteCategory(cid);
     }
   }
-};
+}
 
 const performDeleteCategory = (cid) => {
   socket.emit('plugins.caiz.deleteSubCategory', {
@@ -1271,7 +1356,7 @@ const openCategoryIconSelector = () => {
   }
 };
 
-const escapeHtml = (text) => {
+function escapeHtml(text) {
   if (!text) return '';
   // First decode any existing HTML entities, then escape properly
   const div = document.createElement('div');
@@ -1279,13 +1364,10 @@ const escapeHtml = (text) => {
   const decodedText = div.textContent || div.innerText || '';
   div.textContent = decodedText;
   return div.innerHTML;
-};
+}
 
 // Drag and Drop functionality
-let draggedElement = null;
-let draggedIndex = -1;
-
-const initializeDragAndDrop = () => {
+function initializeDragAndDrop() {
   const tableBody = document.getElementById('categories-table-body');
   if (!tableBody) return;
   
@@ -1299,7 +1381,7 @@ const initializeDragAndDrop = () => {
     row.addEventListener('drop', handleDrop);
     row.addEventListener('dragend', handleDragEnd);
   });
-};
+}
 
 const handleDragStart = (e) => {
   draggedElement = e.target.closest('tr');
@@ -1421,9 +1503,11 @@ const updateCategoryOrder = () => {
 // Make functions globally available for onclick handlers
 window.editCategory = editCategory;
 window.deleteCategory = deleteCategory;
+window.changeMemberRole = changeMemberRole;
+window.removeMember = removeMember;
 
 // Setup icon selector using NodeBB's iconSelect module
-const setupIconSelector = () => {
+function setupIconSelector() {
   const selectBtn = document.getElementById('icon-select-btn');
   const selectedIcon = document.getElementById('selected-icon');
   const iconInput = document.getElementById('community-icon');
@@ -1476,10 +1560,10 @@ const setupIconSelector = () => {
       }
     }
   });
-};
+}
 
 // Community Edit Form Functions
-const loadCommunityEditData = async (cid) => {
+async function loadCommunityEditData(cid) {
   return new Promise((resolve, reject) => {
     socket.emit('plugins.caiz.getCommunityData', { cid }, function(err, data) {
       if (err) {
@@ -1490,9 +1574,9 @@ const loadCommunityEditData = async (cid) => {
       resolve(data);
     });
   });
-};
+}
 
-const saveCommunityData = async (cid, formData) => {
+async function saveCommunityData(cid, formData) {
   return new Promise((resolve, reject) => {
     const data = {
       cid: cid,
@@ -1531,9 +1615,9 @@ const saveCommunityData = async (cid, formData) => {
       resolve(result);
     });
   });
-};
+}
 
-const initializeCommunityEditForm = (cid) => {
+function initializeCommunityEditForm(cid) {
   console.log('[caiz] Initializing community edit form for cid:', cid);
   
   // Wait for form to be available in DOM
@@ -1563,6 +1647,9 @@ const initializeCommunityEditForm = (cid) => {
     
     // Initialize category management
     initializeCategoryManagement(cid);
+    
+    // Initialize member management
+    initializeMemberManagement(cid);
     
     // Load existing data
     loadCommunityEditData(cid).then(data => {
@@ -1832,7 +1919,7 @@ const initializeCommunityEditForm = (cid) => {
       }
     }, 300);
   });
-};
+}
 
 const uploadFile = async (file) => {
   return new Promise((resolve, reject) => {
@@ -1911,7 +1998,7 @@ const uploadFile = async (file) => {
   });
 };
 
-const validateForm = () => {
+function validateForm() {
   const bootboxModal = document.querySelector('.bootbox.show, .bootbox.in, .modal.show');
   if (!bootboxModal) {
     console.error('[caiz] No bootbox modal found for validation');
@@ -1945,16 +2032,652 @@ const validateForm = () => {
   
   console.log('[caiz] Form validation result:', isValid);
   return isValid;
-};
+}
 
-const showFieldError = (field, message) => {
+function showFieldError(field, message) {
   field.classList.add('is-invalid');
   const feedback = field.parentNode.querySelector('.invalid-feedback');
   if (feedback) {
     feedback.textContent = message;
   }
-};
+}
 
-const clearFieldError = (field) => {
+function clearFieldError(field) {
   field.classList.remove('is-invalid');
-};
+}
+
+// Member Management Functions
+function initializeMemberManagement(cid) {
+  console.log('[caiz] DEBUG: Initializing member management for cid:', cid);
+  currentCommunityId = cid;
+  
+  console.log('[caiz] DEBUG: Setting up member event handlers');
+  setupMemberEventHandlers();
+  console.log('[caiz] DEBUG: Loading members');
+  loadMembers();
+}
+
+function setupMemberEventHandlers() {
+  // Add member button
+  const addBtn = document.getElementById('add-member-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => showAddMemberForm());
+  }
+  
+  // Cancel add member form
+  const cancelBtns = document.querySelectorAll('#cancel-add-member, #cancel-add-member-btn');
+  cancelBtns.forEach(btn => {
+    btn.addEventListener('click', () => hideAddMemberForm());
+  });
+  
+  // Add member form submit
+  const form = document.getElementById('add-member-form');
+  if (form) {
+    form.addEventListener('submit', handleAddMemberSubmit);
+  }
+  
+  // Member search input
+  const searchInput = document.getElementById('member-search');
+  if (searchInput) {
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        filterMembers(e.target.value);
+      }, 300);
+    });
+  }
+  
+  // Username autocomplete for add member
+  const usernameInput = document.getElementById('add-member-username');
+  if (usernameInput) {
+    initializeUsernameAutocomplete(usernameInput);
+  }
+}
+
+async function loadMembers() {
+  if (!currentCommunityId) return;
+  
+  try {
+    console.log('[caiz] Loading members for cid:', currentCommunityId);
+    showMembersLoading();
+    
+    console.log('[caiz] DEBUG: Emitting plugins.caiz.getMembers with cid:', currentCommunityId);
+    socket.emit('plugins.caiz.getMembers', { cid: currentCommunityId }, function(err, data) {
+      console.log('[caiz] DEBUG: getMembers callback received, err:', err, 'data:', data);
+      
+      // Always hide loading state
+      const loadingEl = document.getElementById('members-loading');
+      if (loadingEl) {
+        console.log('[caiz] DEBUG: Hiding loading element');
+        loadingEl.style.display = 'none';
+      } else {
+        console.log('[caiz] DEBUG: Loading element not found');
+      }
+      
+      if (err) {
+        console.error('[caiz] Error loading members:', err);
+        showMembersError(err.message);
+        return;
+      }
+      
+      currentMembers = data || [];
+      console.log('[caiz] DEBUG: currentMembers set to:', currentMembers);
+      console.log('[caiz] DEBUG: currentMembers length:', currentMembers.length);
+      console.log('[caiz] DEBUG: currentMembers type:', typeof currentMembers);
+      console.log('[caiz] DEBUG: Is array?', Array.isArray(currentMembers));
+      
+      // Get current user's role
+      console.log('[caiz] DEBUG: app.user:', app.user);
+      if (app.user && app.user.uid) {
+        const currentUser = currentMembers.find(m => m.uid == app.user.uid);
+        currentUserRole = currentUser ? currentUser.role : null;
+        console.log('[caiz] DEBUG: Current user role:', currentUserRole, 'currentUser:', currentUser);
+      }
+      
+      console.log('[caiz] DEBUG: Calling renderMembers()');
+      renderMembers();
+    });
+  } catch (error) {
+    console.error('[caiz] Error in loadMembers:', error);
+    // Hide loading state on error
+    const loadingEl = document.getElementById('members-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+    showMembersError(error.message);
+  }
+}
+
+function showMembersLoading() {
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
+}
+
+function showMembersError(message) {
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'none';
+  
+  // Show error message
+  if (typeof alerts !== 'undefined') {
+    alerts.error(`Failed to load members: ${message}`);
+  }
+}
+
+function renderMembers() {
+  console.log('[caiz] DEBUG: renderMembers() called');
+  
+  const loadingEl = document.getElementById('members-loading');
+  const emptyEl = document.getElementById('members-empty');
+  const contentEl = document.getElementById('members-content');
+  const tableBody = document.getElementById('members-table-body');
+  
+  console.log('[caiz] DEBUG: renderMembers DOM elements:');
+  console.log('  loadingEl:', !!loadingEl);
+  console.log('  emptyEl:', !!emptyEl);
+  console.log('  contentEl:', !!contentEl);
+  console.log('  tableBody:', !!tableBody);
+  
+  if (loadingEl) loadingEl.style.display = 'none';
+  
+  console.log('[caiz] DEBUG: currentMembers.length:', currentMembers.length);
+  
+  if (!currentMembers.length) {
+    console.log('[caiz] DEBUG: No members, showing empty state');
+    if (emptyEl) emptyEl.style.display = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+    return;
+  }
+  
+  console.log('[caiz] DEBUG: Members found, showing content');
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (contentEl) contentEl.style.display = 'block';
+  
+  // Render table rows
+  if (tableBody) {
+    console.log('[caiz] DEBUG: Rendering table rows for', currentMembers.length, 'members');
+    console.log('[caiz] DEBUG: First member data:', currentMembers[0]);
+    
+    const renderedHTML = currentMembers.map(member => {
+      console.log('[caiz] DEBUG: Rendering member:', member.uid, member.username, member.role);
+      const decodedUsername = decodeHTMLEntities(member.username || '');
+      const roleClass = getRoleClass(member.role);
+      const canManage = canManageMember(member);
+      
+      return `
+        <tr data-uid="${member.uid}" class="member-row">
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              ${member.picture ? 
+                `<img src="${member.picture}" alt="${escapeHtml(decodedUsername)}" class="rounded-circle" style="width: 32px; height: 32px;">` : 
+                `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; color: white; font-size: 14px;">${decodedUsername.charAt(0).toUpperCase()}</div>`
+              }
+              <div>
+                <strong>${escapeHtml(decodedUsername)}</strong>
+                <br>
+                <small class="text-muted">@${member.userslug || member.username}</small>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge ${roleClass}">${getRoleDisplayName(member.role)}</span>
+          </td>
+          <td>
+            <small class="text-muted">${formatDate(member.joindate)}</small>
+          </td>
+          <td>
+            <small class="text-muted">${formatDate(member.lastonline)}</small>
+          </td>
+          <td class="text-end">
+            ${canManage ? `
+              <div class="btn-group btn-group-sm">
+                <select class="form-select form-select-sm" onchange="changeMemberRole(${member.uid}, this.value)" style="width: auto;">
+                  <option value="">Change Role</option>
+                  ${getRoleOptions(member.role, member.uid).join('')}
+                </select>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeMember(${member.uid}, '${escapeHtml(decodedUsername)}')" title="Remove">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
+            ` : '-'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+    
+    console.log('[caiz] DEBUG: Generated HTML length:', renderedHTML.length);
+    console.log('[caiz] DEBUG: Setting tableBody.innerHTML');
+    tableBody.innerHTML = renderedHTML;
+    console.log('[caiz] DEBUG: tableBody.innerHTML set, rows count:', tableBody.querySelectorAll('tr').length);
+  } else {
+    console.log('[caiz] DEBUG: tableBody not found');
+  }
+}
+
+function filterMembers(searchTerm) {
+  const tableBody = document.getElementById('members-table-body');
+  if (!tableBody) return;
+  
+  const rows = tableBody.querySelectorAll('.member-row');
+  const term = searchTerm.toLowerCase();
+  
+  rows.forEach(row => {
+    const username = row.querySelector('strong').textContent.toLowerCase();
+    const userslug = row.querySelector('small').textContent.toLowerCase();
+    
+    if (username.includes(term) || userslug.includes(term)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function getRoleClass(role) {
+  const classes = {
+    owner: 'bg-danger',
+    manager: 'bg-warning text-dark',
+    member: 'bg-primary',
+    banned: 'bg-dark'
+  };
+  return classes[role] || 'bg-secondary';
+}
+
+function getRoleDisplayName(role) {
+  const names = {
+    owner: 'Owner',
+    manager: 'Manager',
+    member: 'Member',
+    banned: 'Banned'
+  };
+  return names[role] || role;
+}
+
+function canManageMember(member) {
+  if (!currentUserRole) return false;
+  
+  // Special case: owners can demote themselves if there are other owners
+  if (member.uid == app.user.uid && currentUserRole === 'owner' && member.role === 'owner') {
+    return true; // Allow self-management for owners (backend will validate multiple owners exist)
+  }
+  
+  // Generally can't manage yourself
+  if (member.uid == app.user.uid) return false;
+  
+  // Owners can manage everyone
+  if (currentUserRole === 'owner') return true;
+  
+  // Managers can manage members and banned users
+  if (currentUserRole === 'manager') {
+    return member.role === 'member' || member.role === 'banned';
+  }
+  
+  return false;
+}
+
+function getRoleOptions(currentRole, memberUid) {
+  const options = [];
+  const isCurrentUser = memberUid == app.user.uid;
+  
+  if (currentUserRole === 'owner') {
+    if (isCurrentUser && currentRole === 'owner') {
+      // Special case: if current user is owner, only show demote options
+      // (backend will check if there are other owners before allowing this)
+      options.push('<option value="manager">Demote to Manager</option>');
+      options.push('<option value="member">Demote to Member</option>');
+    } else {
+      // For other users
+      if (currentRole !== 'owner') options.push('<option value="owner">Owner</option>');
+      if (currentRole !== 'manager') options.push('<option value="manager">Manager</option>');
+      if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+      
+      // For banned role, exclude current user (owners cannot ban themselves)
+      if (currentRole !== 'banned') options.push('<option value="banned">Banned</option>');
+    }
+  } else if (currentUserRole === 'manager') {
+    if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+    if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
+  }
+  
+  return options;
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return 'Never';
+  const date = new Date(parseInt(timestamp));
+  return date.toLocaleDateString();
+}
+
+// Username autocomplete functionality
+function initializeUsernameAutocomplete(input) {
+  const suggestionsContainer = document.getElementById('username-suggestions');
+  let searchTimeout;
+  let selectedIndex = -1;
+  
+  input.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+      hideSuggestions();
+      return;
+    }
+    
+    searchTimeout = setTimeout(async () => {
+      try {
+        await searchUsers(query, suggestionsContainer);
+        selectedIndex = -1;
+      } catch (error) {
+        console.error('[caiz] Error searching users:', error);
+        hideSuggestions();
+      }
+    }, 300);
+  });
+  
+  input.addEventListener('keydown', function(e) {
+    const suggestions = suggestionsContainer.querySelectorAll('.dropdown-item');
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+      updateSelection(suggestions);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      updateSelection(suggestions);
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      suggestions[selectedIndex].click();
+    } else if (e.key === 'Escape') {
+      hideSuggestions();
+    }
+  });
+  
+  input.addEventListener('blur', function() {
+    // Delay hiding to allow clicking on suggestions
+    setTimeout(() => hideSuggestions(), 150);
+  });
+  
+  function updateSelection(suggestions) {
+    suggestions.forEach((item, index) => {
+      item.classList.toggle('active', index === selectedIndex);
+    });
+  }
+  
+  function hideSuggestions() {
+    suggestionsContainer.style.display = 'none';
+    suggestionsContainer.innerHTML = '';
+    selectedIndex = -1;
+  }
+}
+
+async function searchUsers(query, container) {
+  try {
+    // Use NodeBB's user search API
+    const response = await fetch(`/api/users?query=${encodeURIComponent(query)}&limit=10`);
+    const data = await response.json();
+    
+    if (!data.users || data.users.length === 0) {
+      container.innerHTML = '<div class="dropdown-item-text text-muted">No users found</div>';
+      container.style.display = 'block';
+      return;
+    }
+    
+    container.innerHTML = data.users.map(user => {
+      // Handle avatar image properly
+      let avatarElement;
+      if (user.picture && user.picture !== '') {
+        avatarElement = `<img src="${user.picture}" 
+                             alt="${user.username}" 
+                             class="avatar-sm me-2" 
+                             style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div class="avatar-sm me-2 d-flex align-items-center justify-content-center bg-primary text-white" 
+                              style="width: 24px; height: 24px; border-radius: 50%; font-size: 10px; display: none;">
+                           ${user.username.charAt(0).toUpperCase()}
+                         </div>`;
+      } else {
+        avatarElement = `<div class="avatar-sm me-2 d-flex align-items-center justify-content-center bg-primary text-white" 
+                             style="width: 24px; height: 24px; border-radius: 50%; font-size: 10px;">
+                           ${user.username.charAt(0).toUpperCase()}
+                         </div>`;
+      }
+      
+      return `
+        <a class="dropdown-item d-flex align-items-center" href="#" data-username="${user.username}">
+          ${avatarElement}
+          <div>
+            <div class="fw-medium">${user.displayname || user.username}</div>
+            <small class="text-muted">@${user.username}</small>
+          </div>
+        </a>
+      `;
+    }).join('');
+    
+    container.style.display = 'block';
+    
+    // Add click handlers for suggestions
+    container.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const username = this.dataset.username;
+        const input = document.getElementById('add-member-username');
+        input.value = username;
+        container.style.display = 'none';
+        input.focus();
+      });
+    });
+    
+  } catch (error) {
+    console.error('[caiz] Error fetching user suggestions:', error);
+    container.innerHTML = '<div class="dropdown-item-text text-muted">Error loading suggestions</div>';
+    container.style.display = 'block';
+  }
+}
+
+function showAddMemberForm() {
+  const container = document.getElementById('add-member-form-container');
+  const input = document.getElementById('add-member-username');
+  
+  if (container) {
+    container.style.display = 'block';
+  }
+  if (input) {
+    input.focus();
+  }
+}
+
+function hideAddMemberForm() {
+  const container = document.getElementById('add-member-form-container');
+  const form = document.getElementById('add-member-form');
+  
+  if (container) {
+    container.style.display = 'none';
+  }
+  if (form) {
+    form.reset();
+    form.classList.remove('was-validated');
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  }
+}
+
+async function handleAddMemberSubmit(e) {
+  e.preventDefault();
+  
+  const form = e.target;
+  const formData = new FormData(form);
+  const username = formData.get('username');
+  
+  // Validate
+  if (!username || !username.trim()) {
+    showFieldError(form.querySelector('#add-member-username'), 'Username is required');
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const btnText = submitBtn.querySelector('.add-member-btn-text');
+  const btnSpinner = submitBtn.querySelector('.add-member-btn-spinner');
+  
+  // Show loading
+  if (btnText) btnText.style.display = 'none';
+  if (btnSpinner) btnSpinner.style.display = 'inline';
+  submitBtn.disabled = true;
+  
+  try {
+    console.log('[caiz] Adding member:', username.trim());
+    
+    socket.emit('plugins.caiz.addMember', {
+      cid: currentCommunityId,
+      username: username.trim()
+    }, function(err, result) {
+      if (err) {
+        console.error('[caiz] Error adding member:', err);
+        if (typeof alerts !== 'undefined') {
+          alerts.error(err.message || 'Failed to add member');
+        }
+        return;
+      }
+      
+      console.log('[caiz] Member added successfully:', result);
+      
+      if (typeof alerts !== 'undefined') {
+        alerts.success('Member added successfully');
+      }
+      
+      hideAddMemberForm();
+      loadMembers(); // Reload the list
+    });
+    
+  } catch (error) {
+    console.error('[caiz] Error in add member submit:', error);
+    if (typeof alerts !== 'undefined') {
+      alerts.error(error.message || 'An error occurred');
+    }
+  } finally {
+    // Reset loading state
+    if (btnText) btnText.style.display = 'inline';
+    if (btnSpinner) btnSpinner.style.display = 'none';
+    submitBtn.disabled = false;
+  }
+}
+
+function changeMemberRole(targetUid, newRole) {
+  if (!newRole) return;
+  
+  const member = currentMembers.find(m => m.uid == targetUid);
+  if (!member) return;
+  
+  const confirmMessage = `Are you sure you want to change ${member.username}'s role to ${getRoleDisplayName(newRole)}?`;
+  
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: 'Change Member Role',
+      message: confirmMessage,
+      buttons: {
+        confirm: {
+          label: '<i class="fa fa-check"></i> Confirm',
+          className: 'btn-primary'
+        },
+        cancel: {
+          label: 'Cancel',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (result) {
+          performRoleChange(targetUid, newRole);
+        }
+      }
+    });
+  } else {
+    if (confirm(confirmMessage)) {
+      performRoleChange(targetUid, newRole);
+    }
+  }
+}
+
+function performRoleChange(targetUid, newRole) {
+  socket.emit('plugins.caiz.changeMemberRole', {
+    cid: currentCommunityId,
+    targetUid: targetUid,
+    newRole: newRole
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error changing member role:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to change member role');
+      }
+      return;
+    }
+    
+    console.log('[caiz] Member role changed successfully');
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Member role updated successfully');
+    }
+    
+    loadMembers(); // Reload the list
+  });
+}
+
+function removeMember(targetUid, username) {
+  const decodedUsername = decodeHTMLEntities(username || '');
+  
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: 'Remove Member',
+      message: `Are you sure you want to remove "${escapeHtml(decodedUsername)}" from this community? This action cannot be undone.`,
+      buttons: {
+        confirm: {
+          label: '<i class="fa fa-trash"></i> Remove',
+          className: 'btn-danger'
+        },
+        cancel: {
+          label: 'Cancel',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (result) {
+          performRemoveMember(targetUid);
+        }
+      }
+    });
+  } else {
+    if (confirm(`Are you sure you want to remove "${decodedUsername}" from this community?`)) {
+      performRemoveMember(targetUid);
+    }
+  }
+}
+
+function performRemoveMember(targetUid) {
+  socket.emit('plugins.caiz.removeMember', {
+    cid: currentCommunityId,
+    targetUid: targetUid
+  }, function(err, result) {
+    if (err) {
+      console.error('[caiz] Error removing member:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || 'Failed to remove member');
+      }
+      return;
+    }
+    
+    console.log('[caiz] Member removed successfully');
+    
+    if (typeof alerts !== 'undefined') {
+      alerts.success('Member removed successfully');
+    }
+    
+    loadMembers(); // Reload the list
+  });
+}
