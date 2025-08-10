@@ -9,7 +9,8 @@
     "static/modal.js",
     "static/follow.js",
     "static/communities.js",
-    "static/community-edit.js"
+    "static/community-edit.js",
+    "static/moderation.js"
   ],
   "scss": [
     "static/style.scss"
@@ -38,6 +39,21 @@
     {
       "hook": "filter:middleware.renderHeader",
       "method": "loadCommunityEditModal"
+    },
+    {
+      "hook": "filter:topic.create",
+      "method": "moderateNewTopic",
+      "priority": 10
+    },
+    {
+      "hook": "filter:posts.create",
+      "method": "moderateNewPost",
+      "priority": 10
+    },
+    {
+      "hook": "filter:posts.edit",
+      "method": "moderateEditedPost",
+      "priority": 10
     }
   ]
 }
