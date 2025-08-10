@@ -2294,7 +2294,14 @@ function getRoleDisplayName(role) {
 
 function canManageMember(member) {
   if (!currentUserRole) return false;
-  if (member.uid == app.user.uid) return false; // Can't manage yourself
+  
+  // Special case: owners can demote themselves if there are other owners
+  if (member.uid == app.user.uid && currentUserRole === 'owner' && member.role === 'owner') {
+    return true; // Allow self-management for owners (backend will validate multiple owners exist)
+  }
+  
+  // Generally can't manage yourself
+  if (member.uid == app.user.uid) return false;
   
   // Owners can manage everyone
   if (currentUserRole === 'owner') return true;
@@ -2312,10 +2319,20 @@ function getRoleOptions(currentRole, memberUid) {
   const isCurrentUser = memberUid == app.user.uid;
   
   if (currentUserRole === 'owner') {
+    // For other users or non-owner roles
     if (currentRole !== 'owner') options.push('<option value="owner">Owner</option>');
     if (currentRole !== 'manager') options.push('<option value="manager">Manager</option>');
     if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+    
+    // For banned role, exclude current user (owners cannot ban themselves)
     if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
+    
+    // Special case: if current user is owner, allow them to demote themselves
+    // (backend will check if there are other owners before allowing this)
+    if (isCurrentUser && currentRole === 'owner') {
+      options.push('<option value="manager">Demote to Manager</option>');
+      options.push('<option value="member">Demote to Member</option>');
+    }
   } else if (currentUserRole === 'manager') {
     if (currentRole !== 'member') options.push('<option value="member">Member</option>');
     if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
