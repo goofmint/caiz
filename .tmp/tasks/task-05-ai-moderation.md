@@ -13,7 +13,7 @@
    - カテゴリ別リスクレベルの判定
 
 2. **しきい値による自動判定**
-   - コミュニティ毎に設定可能なしきい値
+   - コミュニティ毎に設定可能なしきい値（デフォルトあり）
    - しきい値を超える投稿の自動フラグ付け
    - 投稿状態の管理（公開/要モデレーション/拒否）
 
@@ -29,6 +29,7 @@
 - **不適切な性的内容**: 成人向けコンテンツ
 - **スパム/宣伝**: 過度な宣伝、スパム行為
 - **誤情報/デマ**: 明らかに虚偽の情報
+- **過度に攻撃的**: 攻撃的な言葉遣い、挑発的な表現
 
 ## 技術設計
 
@@ -47,6 +48,8 @@ AI分析サービス
 ```
 
 ### データベース設計
+
+NodeBBの既存データベース（PostgreSQL）に以下のテーブルを追加
 
 #### テーブル: moderation_queue
 ```sql
@@ -83,7 +86,13 @@ CREATE TABLE community_moderation_settings (
     threshold_reject INT DEFAULT 90,     -- 自動拒否閾值
     auto_approve_trusted TINYINT DEFAULT 0, -- 信頼ユーザー自動承認
     notify_managers TINYINT DEFAULT 1,   -- マネージャーへの通知
-    settings JSON,                       -- その他の設定
+    settings JSON, -- keep for forward-compat, but add structured fields below:
+    harassment_enabled    TINYINT DEFAULT 1,
+    hate_enabled          TINYINT DEFAULT 1,
+    violence_enabled      TINYINT DEFAULT 1,
+    sexual_enabled        TINYINT DEFAULT 1,
+    spam_enabled          TINYINT DEFAULT 1,
+    misinformation_enabled TINYINT DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
@@ -94,30 +103,143 @@ CREATE TABLE community_moderation_settings (
 ### AIサービス統合
 
 #### 使用想定API
+
 - **OpenAI Moderation API**: 基本的な有害コンテンツ検出
-- **Google Cloud Natural Language API**: 感情分析、エンティティ分析
-- **カスタムモデル**: 日本語特化のモデレーション
+
+#### プロバイダー非依存のマッピング層
+
+異なるAIプロバイダーからの多様なラベルとスコアを内部分類法に正規化し、監査用に生のペイロードを保持する設計：
+
+```javascript
+// プロバイダー固有カテゴリから内部カテゴリへのマッピング
+const CATEGORY_MAPPING = {
+  openai: {
+    'harassment': { internal: 'harassment', weight: 1.0 },
+    'hate': { internal: 'hate', weight: 1.0 },
+    'violence': { internal: 'violence', weight: 1.0 },
+    'sexual': { internal: 'sexual', weight: 1.0 }
+  }
+};
+
+// 戻り値の構造
+interface ModerationResult {
+  provider: string;           // プロバイダー名
+  model: string;             // 使用モデル
+  latency: number;           // レスポンス時間
+  requestId: string;         // リクエストID
+  rawResponsePointer: string; // 生レスポンスの参照ID（大きなペイロードを直接埋め込まない）
+  normalizedScore: number;   // 正規化されたスコア (0-100)
+  categories: {
+    harassment: number,
+    hate: number,
+    violence: number,
+    sexual: number,
+    spam: number,
+    misinformation: number
+  }
+}
+```
 
 #### API統合クラス設計
 ```javascript
 class ModerationService {
-  async analyzeContent(content, language = 'ja')
-  async getHarmfulnessScore(content)
-  async detectRiskCategories(content)
-  async isSpam(content, userHistory)
+  constructor() {
+    this.circuitBreaker = new CircuitBreaker();
+  }
+
+  async analyzeContent(content, language = 'ja', options = {}) {
+    const requestId = options.idempotencyKey || `mod_${Date.now()}_${Math.random()}`;
+    
+    try {
+      const result = await this.circuitBreaker.execute(async () => {
+        return await this.callProvider(content, requestId);
+      });
+      
+      return this.normalizeResponse(result, requestId);
+    } catch (error) {
+      // フォールバック戦略
+      return this.getFallbackResult(content, requestId, error);
+    }
+  }
+
+  async getHarmfulnessScore(content) {
+    const result = await this.analyzeContent(content);
+    return result.normalizedScore;
+  }
+  
+  async detectRiskCategories(content) {
+    const result = await this.analyzeContent(content);
+    return Object.entries(result.categories)
+      .filter(([_, score]) => score > 50)
+      .map(([category]) => category);
+  }
+
+  normalizeResponse(providerResponse, requestId) {
+    // プロバイダー固有レスポンスを内部形式に変換
+    // タイムアウト・リトライ・サーキットブレーカーパターンを実装
+  }
 }
 ```
+
+### 通知機能
+
+既存のNodeBB通知システムを利用し、モデレーション待ちの投稿が発生した際に管理者へ通知を送信する。
 
 ### プラグインフック統合
 
 #### NodeBB既存フックの活用
-```javascript
-// 投稿作成前フック
-Plugins.hooks.register('caiz-plugin', 'filter:topic.create', moderateNewTopic);
-Plugins.hooks.register('caiz-plugin', 'filter:posts.create', moderateNewPost);
 
-// 投稿編集時フック
-Plugins.hooks.register('caiz-plugin', 'filter:posts.edit', moderateEditedPost);
+// plugin.json
+```json
+{
+  "hooks": [
+    { "hook": "filter:topic.create", "method": "moderateNewTopic",   "priority": 10 },
+    { "hook": "filter:posts.create", "method": "moderateNewPost",     "priority": 10 },
+    { "hook": "filter:posts.edit",   "method": "moderateEditedPost", "priority": 10 }
+  ]
+}
+```
+
+// library.js
+```javascript
+exports.moderateNewTopic = async (data) => {
+  // 投稿作成前のAIモデレーションロジック
+  if (data.content) {
+    const moderationResult = await moderationService.analyzeContent(data.content);
+    data._moderationResult = moderationResult;
+    
+    if (moderationResult.normalizedScore > getThreshold(data.cid)) {
+      data._requiresModeration = true;
+    }
+  }
+  return data;
+};
+
+exports.moderateNewPost = async (data) => {
+  // 投稿作成後のAIモデレーションロジック
+  if (data.content) {
+    const moderationResult = await moderationService.analyzeContent(data.content);
+    data._moderationResult = moderationResult;
+    
+    if (moderationResult.normalizedScore > getThreshold(data.cid)) {
+      data._requiresModeration = true;
+    }
+  }
+  return data;
+};
+
+exports.moderateEditedPost = async (data) => {
+  // 投稿編集時のAIモデレーションロジック
+  if (data.content) {
+    const moderationResult = await moderationService.analyzeContent(data.content);
+    data._moderationResult = moderationResult;
+    
+    if (moderationResult.normalizedScore > getThreshold(data.cid)) {
+      data._requiresModeration = true;
+    }
+  }
+  return data;
+};
 ```
 
 ### WebSocket API設計
@@ -202,31 +324,4 @@ Plugins.hooks.register('caiz-plugin', 'filter:posts.edit', moderateEditedPost);
 - [ ] 基本的なAI統合（OpenAI Moderation API）
 - [ ] 投稿フック統合
 - [ ] 基本的な管理画面
-
-### Phase 2: 高度な機能
-- [ ] 複数AIサービスの統合
-- [ ] 詳細な統計・分析機能
 - [ ] カスタムしきい値設定
-- [ ] 一括処理機能
-
-### Phase 3: 最適化
-- [ ] パフォーマンス最適化
-- [ ] コスト最適化
-- [ ] 誤検出率の改善
-- [ ] ユーザビリティ向上
-
-## 注意事項
-
-1. **法的コンプライアンス**
-   - 各国の法規制への対応
-   - プライバシーポリシーの更新
-   - ユーザーへの適切な通知
-
-2. **文化的配慮**
-   - 言語・文化による表現の違いへの対応
-   - 地域特有のコンテンツガイドライン
-
-3. **技術的制約**
-   - AIサービスの利用制限
-   - レスポンス時間の影響
-   - 外部API依存のリスク
