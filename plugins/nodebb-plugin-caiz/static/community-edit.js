@@ -1268,14 +1268,14 @@ const handleCategoryFormSubmit = async (e) => {
   }
 };
 
-const editCategory = (cid) => {
+function editCategory(cid) {
   const category = subcategories.find(cat => cat.cid == cid);
   if (category) {
     showCategoryForm(category);
   }
-};
+}
 
-const deleteCategory = (cid, name) => {
+function deleteCategory(cid, name) {
   const decodedName = decodeHTMLEntities(name || '');
   
   if (typeof bootbox !== 'undefined') {
@@ -1303,7 +1303,7 @@ const deleteCategory = (cid, name) => {
       performDeleteCategory(cid);
     }
   }
-};
+}
 
 const performDeleteCategory = (cid) => {
   socket.emit('plugins.caiz.deleteSubCategory', {
@@ -2416,7 +2416,7 @@ async function handleAddMemberSubmit(e) {
   }
 }
 
-const changeMemberRole = (targetUid, newRole) => {
+function changeMemberRole(targetUid, newRole) {
   if (!newRole) return;
   
   const member = currentMembers.find(m => m.uid == targetUid);
@@ -2449,7 +2449,7 @@ const changeMemberRole = (targetUid, newRole) => {
       performRoleChange(targetUid, newRole);
     }
   }
-};
+}
 
 function performRoleChange(targetUid, newRole) {
   socket.emit('plugins.caiz.changeMemberRole', {
@@ -2475,7 +2475,7 @@ function performRoleChange(targetUid, newRole) {
   });
 }
 
-const removeMember = (targetUid, username) => {
+function removeMember(targetUid, username) {
   const decodedUsername = decodeHTMLEntities(username || '');
   
   if (typeof bootbox !== 'undefined') {
@@ -2503,7 +2503,7 @@ const removeMember = (targetUid, username) => {
       performRemoveMember(targetUid);
     }
   }
-};
+}
 
 function performRemoveMember(targetUid) {
   socket.emit('plugins.caiz.removeMember', {
