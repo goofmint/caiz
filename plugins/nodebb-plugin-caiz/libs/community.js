@@ -781,9 +781,9 @@ class Community extends Base {
     try {
       // Get user data
       const Users = require.main.require('./src/user');
-      const targetUser = await Users.getUserDataByUsername(username);
+      const targetUid = await Users.getUidByUsername(username);
       
-      if (!targetUser || !targetUser.uid) {
+      if (!targetUid) {
         throw new Error('User not found');
       }
       
@@ -797,28 +797,31 @@ class Community extends Base {
       
       for (const groupName of memberGroups) {
         const groupExists = await Groups.exists(groupName);
-        if (groupExists && await Groups.isMember(targetUser.uid, groupName)) {
+        if (groupExists && await Groups.isMember(targetUid, groupName)) {
           throw new Error('User is already a member of this community');
         }
       }
       
+      // Get additional user data
+      const userData = await Users.getUserFields(targetUid, ['username', 'userslug', 'picture', 'lastonline', 'status']);
+      
       // Add user to members group
       const memberGroupName = `community-${cid}-members`;
-      await Groups.join(memberGroupName, targetUser.uid);
+      await Groups.join(memberGroupName, targetUid);
       
       winston.info(`[plugin/caiz] User ${username} added to community ${cid}`);
       
       return {
         success: true,
         user: {
-          uid: targetUser.uid,
-          username: targetUser.username,
-          userslug: targetUser.userslug,
-          picture: targetUser.picture,
+          uid: targetUid,
+          username: userData.username,
+          userslug: userData.userslug,
+          picture: userData.picture,
           role: 'member',
           joindate: Date.now(),
-          lastonline: targetUser.lastonline || Date.now(),
-          status: targetUser.status || 'online'
+          lastonline: userData.lastonline || Date.now(),
+          status: userData.status || 'online'
         }
       };
       

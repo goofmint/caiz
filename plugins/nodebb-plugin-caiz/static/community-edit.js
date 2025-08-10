@@ -645,9 +645,11 @@ const getModalHtml = async (cid) => {
             
             <!-- Add Member Button and Search -->
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <div class="input-group" style="width: 250px;">
-                <span class="input-group-text"><i class="fa fa-search"></i></span>
-                <input type="text" class="form-control" id="member-search" placeholder="Search members...">
+              <div class="input-group" style="max-width: 80%;">
+                <span class="input-group-text"
+                  style="background-color: var(--bs-body-bg, #000); border: 1px solid var(--bs-border-color, #dee2e6); border-right: var(--bs-body-bg, #000);"
+                ><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" style="border: 1px solid var(--bs-border-color, #dee2e6);max-width:100%;border-left: var(--bs-body-bg, #000);" id="member-search" placeholder="Search members...">
               </div>
               <button type="button" class="btn btn-primary btn-sm" id="add-member-btn">
                 <i class="fa fa-plus me-1"></i>Add Member
@@ -697,11 +699,12 @@ const getModalHtml = async (cid) => {
                 </div>
                 <div class="card-body">
                   <form id="add-member-form">
-                    <div class="mb-3">
+                    <div class="mb-3 position-relative">
                       <label for="add-member-username" class="form-label">Username *</label>
-                      <input type="text" class="form-control" id="add-member-username" name="username" required maxlength="50" placeholder="Enter username">
+                      <input type="text" class="form-control" id="add-member-username" name="username" required maxlength="50" placeholder="Enter username" autocomplete="off">
+                      <div id="username-suggestions" class="dropdown-menu" style="display: none; position: absolute; z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%;"></div>
                       <div class="invalid-feedback"></div>
-                      <div class="form-text">Enter the exact username of the user you want to add</div>
+                      <div class="form-text">Start typing to see suggestions</div>
                     </div>
                     
                     <div class="d-flex justify-content-end gap-2">
@@ -2084,6 +2087,12 @@ function setupMemberEventHandlers() {
       }, 300);
     });
   }
+  
+  // Username autocomplete for add member
+  const usernameInput = document.getElementById('add-member-username');
+  if (usernameInput) {
+    initializeUsernameAutocomplete(usernameInput);
+  }
 }
 
 async function loadMembers() {
@@ -2319,19 +2328,19 @@ function getRoleOptions(currentRole, memberUid) {
   const isCurrentUser = memberUid == app.user.uid;
   
   if (currentUserRole === 'owner') {
-    // For other users or non-owner roles
-    if (currentRole !== 'owner') options.push('<option value="owner">Owner</option>');
-    if (currentRole !== 'manager') options.push('<option value="manager">Manager</option>');
-    if (currentRole !== 'member') options.push('<option value="member">Member</option>');
-    
-    // For banned role, exclude current user (owners cannot ban themselves)
-    if (currentRole !== 'banned' && !isCurrentUser) options.push('<option value="banned">Banned</option>');
-    
-    // Special case: if current user is owner, allow them to demote themselves
-    // (backend will check if there are other owners before allowing this)
     if (isCurrentUser && currentRole === 'owner') {
+      // Special case: if current user is owner, only show demote options
+      // (backend will check if there are other owners before allowing this)
       options.push('<option value="manager">Demote to Manager</option>');
       options.push('<option value="member">Demote to Member</option>');
+    } else {
+      // For other users
+      if (currentRole !== 'owner') options.push('<option value="owner">Owner</option>');
+      if (currentRole !== 'manager') options.push('<option value="manager">Manager</option>');
+      if (currentRole !== 'member') options.push('<option value="member">Member</option>');
+      
+      // For banned role, exclude current user (owners cannot ban themselves)
+      if (currentRole !== 'banned') options.push('<option value="banned">Banned</option>');
     }
   } else if (currentUserRole === 'manager') {
     if (currentRole !== 'member') options.push('<option value="member">Member</option>');
@@ -2345,6 +2354,134 @@ function formatDate(timestamp) {
   if (!timestamp) return 'Never';
   const date = new Date(parseInt(timestamp));
   return date.toLocaleDateString();
+}
+
+// Username autocomplete functionality
+function initializeUsernameAutocomplete(input) {
+  const suggestionsContainer = document.getElementById('username-suggestions');
+  let searchTimeout;
+  let selectedIndex = -1;
+  
+  input.addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+      hideSuggestions();
+      return;
+    }
+    
+    searchTimeout = setTimeout(async () => {
+      try {
+        await searchUsers(query, suggestionsContainer);
+        selectedIndex = -1;
+      } catch (error) {
+        console.error('[caiz] Error searching users:', error);
+        hideSuggestions();
+      }
+    }, 300);
+  });
+  
+  input.addEventListener('keydown', function(e) {
+    const suggestions = suggestionsContainer.querySelectorAll('.dropdown-item');
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+      updateSelection(suggestions);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      updateSelection(suggestions);
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault();
+      suggestions[selectedIndex].click();
+    } else if (e.key === 'Escape') {
+      hideSuggestions();
+    }
+  });
+  
+  input.addEventListener('blur', function() {
+    // Delay hiding to allow clicking on suggestions
+    setTimeout(() => hideSuggestions(), 150);
+  });
+  
+  function updateSelection(suggestions) {
+    suggestions.forEach((item, index) => {
+      item.classList.toggle('active', index === selectedIndex);
+    });
+  }
+  
+  function hideSuggestions() {
+    suggestionsContainer.style.display = 'none';
+    suggestionsContainer.innerHTML = '';
+    selectedIndex = -1;
+  }
+}
+
+async function searchUsers(query, container) {
+  try {
+    // Use NodeBB's user search API
+    const response = await fetch(`/api/users?query=${encodeURIComponent(query)}&limit=10`);
+    const data = await response.json();
+    
+    if (!data.users || data.users.length === 0) {
+      container.innerHTML = '<div class="dropdown-item-text text-muted">No users found</div>';
+      container.style.display = 'block';
+      return;
+    }
+    
+    container.innerHTML = data.users.map(user => {
+      // Handle avatar image properly
+      let avatarElement;
+      if (user.picture && user.picture !== '') {
+        avatarElement = `<img src="${user.picture}" 
+                             alt="${user.username}" 
+                             class="avatar-sm me-2" 
+                             style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div class="avatar-sm me-2 d-flex align-items-center justify-content-center bg-primary text-white" 
+                              style="width: 24px; height: 24px; border-radius: 50%; font-size: 10px; display: none;">
+                           ${user.username.charAt(0).toUpperCase()}
+                         </div>`;
+      } else {
+        avatarElement = `<div class="avatar-sm me-2 d-flex align-items-center justify-content-center bg-primary text-white" 
+                             style="width: 24px; height: 24px; border-radius: 50%; font-size: 10px;">
+                           ${user.username.charAt(0).toUpperCase()}
+                         </div>`;
+      }
+      
+      return `
+        <a class="dropdown-item d-flex align-items-center" href="#" data-username="${user.username}">
+          ${avatarElement}
+          <div>
+            <div class="fw-medium">${user.displayname || user.username}</div>
+            <small class="text-muted">@${user.username}</small>
+          </div>
+        </a>
+      `;
+    }).join('');
+    
+    container.style.display = 'block';
+    
+    // Add click handlers for suggestions
+    container.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const username = this.dataset.username;
+        const input = document.getElementById('add-member-username');
+        input.value = username;
+        container.style.display = 'none';
+        input.focus();
+      });
+    });
+    
+  } catch (error) {
+    console.error('[caiz] Error fetching user suggestions:', error);
+    container.innerHTML = '<div class="dropdown-item-text text-muted">Error loading suggestions</div>';
+    container.style.display = 'block';
+  }
 }
 
 function showAddMemberForm() {

@@ -930,6 +930,198 @@
   }
 }
 
+/* Username autocomplete suggestions */
+#username-suggestions {
+  background-color: var(--bs-body-bg, #ffffff);
+  border: 1px solid var(--bs-border-color, #ced4da);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  
+  .dropdown-item {
+    color: var(--bs-body-color, #212529);
+    padding: 0.5rem 1rem;
+    border: none;
+    text-decoration: none;
+    
+    &:hover, &.active {
+      background-color: var(--bs-primary-bg-subtle, #cfe2ff);
+      color: var(--bs-emphasis-color, #000);
+    }
+    
+    img {
+      object-fit: cover;
+    }
+  }
+  
+  .dropdown-item-text {
+    padding: 0.5rem 1rem;
+    color: var(--bs-secondary-color, #6c757d);
+  }
+}
+
+/* Add Member form styling */
+#add-member-form-container {
+  .card {
+    background-color: var(--bs-body-bg, #ffffff);
+    border-color: var(--bs-border-color, #ced4da);
+    
+    .card-header {
+      background-color: var(--bs-secondary-bg, #f8f9fa);
+      border-bottom-color: var(--bs-border-color, #ced4da);
+      color: var(--bs-body-color, #212529) !important;
+      
+      h6, .h6 {
+        color: inherit !important;
+        margin-bottom: 0;
+      }
+      
+      .btn-close {
+        background-color: transparent;
+        border: none;
+        color: var(--bs-body-color, #212529);
+        opacity: 0.5;
+        
+        &:hover {
+          opacity: 0.75;
+        }
+      }
+    }
+    
+    .card-body {
+      background-color: var(--bs-body-bg, #ffffff);
+      
+      .form-label {
+        color: var(--bs-body-color, #212529);
+      }
+      
+      .form-control {
+        background-color: var(--bs-body-bg, #ffffff);
+        border-color: var(--bs-border-color, #ced4da);
+        color: var(--bs-body-color, #212529);
+        
+        &:focus {
+          background-color: var(--bs-body-bg, #ffffff);
+          border-color: var(--bs-primary, #0d6efd);
+          color: var(--bs-body-color, #212529);
+          box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+        }
+        
+        &::placeholder {
+          color: var(--bs-secondary-color, #6c757d);
+        }
+      }
+      
+      .form-text {
+        color: var(--bs-secondary-color, #6c757d);
+      }
+      
+      .invalid-feedback {
+        color: var(--bs-danger, #dc3545);
+      }
+    }
+  }
+}
+
+/* Additional specific selectors for Add Member title */
+#add-member-form-container .card .card-header h6,
+#add-member-form-container .card .card-header .h6,
+.community-edit-modal #add-member-form-container .card .card-header h6,
+.community-edit-modal #add-member-form-container .card .card-header .h6,
+.modal #add-member-form-container .card .card-header h6,
+.modal #add-member-form-container .card .card-header .h6 {
+  color: var(--bs-body-color, #212529) !important;
+}
+
+/* Try to override any bootstrap card header text color */
+.card-header h6,
+.card-header .h6 {
+  color: var(--bs-body-color, #212529) !important;
+}
+
+/* Force color for dark theme specifically */
+[data-bs-theme="dark"] #add-member-form-container .card .card-header h6,
+[data-bs-theme="dark"] #add-member-form-container .card .card-header .h6,
+[data-bs-theme="dark"] .card-header h6,
+[data-bs-theme="dark"] .card-header .h6 {
+  color: #fff !important;
+}
+
+/* Force color for light theme specifically */
+[data-bs-theme="light"] #add-member-form-container .card .card-header h6,
+[data-bs-theme="light"] #add-member-form-container .card .card-header .h6,
+[data-bs-theme="light"] .card-header h6,
+[data-bs-theme="light"] .card-header .h6 {
+  color: #212529 !important;
+}
+
+/* Override any potential utility classes */
+#add-member-form-container .card .card-header h6.text-muted,
+#add-member-form-container .card .card-header .h6.text-muted,
+.card-header h6.text-muted,
+.card-header .h6.text-muted {
+  color: var(--bs-body-color, #212529) !important;
+}
+
+[data-bs-theme="dark"] #add-member-form-container .card .card-header h6.text-muted,
+[data-bs-theme="dark"] #add-member-form-container .card .card-header .h6.text-muted,
+[data-bs-theme="dark"] .card-header h6.text-muted,
+[data-bs-theme="dark"] .card-header .h6.text-muted {
+  color: #fff !important;
+}
+
+/* Direct theme-based color for card-header */
+[data-bs-theme="dark"] #add-member-form-container .card .card-header,
+[data-bs-theme="dark"] .community-edit-modal #add-member-form-container .card .card-header,
+[data-bs-theme="dark"] .modal #add-member-form-container .card .card-header {
+  color: #fff !important;
+}
+
+[data-bs-theme="light"] #add-member-form-container .card .card-header,
+[data-bs-theme="light"] .community-edit-modal #add-member-form-container .card .card-header,
+[data-bs-theme="light"] .modal #add-member-form-container .card .card-header {
+  color: #212529 !important;
+}
+
+/* Ultra-specific selector to override Bootstrap */
+.modal-content #add-member-form-container .card .card-header,
+.modal-body #add-member-form-container .card .card-header,
+div#add-member-form-container.mt-4 .card .card-header {
+  color: var(--bs-body-color, #f8f9fa) !important;
+  background-color: var(--bs-table-bg, #212529) !important;
+}
+
+[data-bs-theme="dark"] .modal-content #add-member-form-container .card .card-header,
+[data-bs-theme="dark"] .modal-body #add-member-form-container .card .card-header,
+[data-bs-theme="dark"] div#add-member-form-container.mt-4 .card .card-header {
+  color: #ffffff !important;
+  background-color: var(--bs-dark, #212529) !important;
+}
+
+/* Nuclear option - override everything with maximum specificity */
+body #add-member-form-container .card .card-header,
+html body #add-member-form-container .card .card-header,
+.modal-dialog #add-member-form-container .card .card-header {
+  color: var(--bs-body-color, #212529) !important;
+  background-color: var(--bs-dark, #212529) !important;
+}
+
+body[data-bs-theme="dark"] #add-member-form-container .card .card-header,
+html body[data-bs-theme="dark"] #add-member-form-container .card .card-header,
+[data-bs-theme="dark"] body #add-member-form-container .card .card-header {
+  color: #ffffff !important;
+}
+
+/* Override all child elements */
+#add-member-form-container .card .card-header * {
+  color: inherit !important;
+}
+
+/* Additional override for Bootstrap's .text-muted that might be applied */
+#add-member-form-container .card-header h6:not(.btn):not(.badge),
+#add-member-form-container .card-header .h6:not(.btn):not(.badge) {
+  color: inherit !important;
+}
+
 /* Input group for search */
 .input-group {
   .input-group-text {
@@ -940,6 +1132,9 @@
     i {
       font-size: 0.875rem;
     }
+  }
+  .search-button {
+    background-color: var(--bs-body-color, #212529) !important;
   }
 }
 
