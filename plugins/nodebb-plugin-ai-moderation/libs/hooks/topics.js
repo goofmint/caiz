@@ -9,9 +9,7 @@ const topicsHooks = {
     // 新規トピック作成時のフック
     async moderateTopicCreate(hookData) {
         winston.info('[ai-moderation] Topic create hook triggered', {
-            title: hookData.topic?.title?.substring(0, 50) || hookData.title?.substring(0, 50) || 'no title',
-            content: hookData.topic?.content?.substring(0, 50) || hookData.content?.substring(0, 50) || 'no content',
-            tid: hookData.topic?.tid || hookData.tid
+            hookData: JSON.stringify(hookData, null, 2)
         });
         
         // フィルター処理のログ

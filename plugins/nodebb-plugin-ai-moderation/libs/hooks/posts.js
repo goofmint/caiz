@@ -11,7 +11,8 @@ const postsHooks = {
         winston.info('[ai-moderation] Post create hook triggered', {
             content: hookData.post?.content?.substring(0, 50) || 'no content',
             pid: hookData.post?.pid,
-            uid: hookData.post?.uid
+            uid: hookData.post?.uid,
+            isMainTopic: hookData.data?.isMain || false
         });
         
         // フィルター処理のログ
