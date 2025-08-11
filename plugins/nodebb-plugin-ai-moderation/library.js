@@ -95,6 +95,7 @@ async function handleSaveSettings(req, res) {
     }
 }
 
+
 // 管理者認証ヘルパー関数
 async function requireAdmin(socket) {
     if (!socket.uid) {
@@ -140,15 +141,41 @@ function setupSocketHandlers() {
         },
 
         // API接続テスト
-        testConnection: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                const result = await apiFactory.testProvider('openai', data.apiKey);
-                callback(null, result);
-            } catch (error) {
-                winston.error('[ai-moderation] Connection test failed', { error: error.message });
-                callback(error);
+        testConnection: function(socket, data, callback) {
+            winston.info('[ai-moderation] Connection test started', { 
+                uid: socket.uid,
+                arguments: Array.from(arguments).map((arg, i) => ({
+                    index: i,
+                    type: typeof arg,
+                    value: i === 1 && arg && arg.apiKey ? { apiKey: arg.apiKey.substring(0, 7) + '...' } : 
+                           typeof arg === 'function' ? '[Function]' : arg
+                }))
+            });
+            
+            // コールバックがない場合は最後の引数をコールバックとする
+            if (typeof callback !== 'function' && typeof data === 'function') {
+                callback = data;
+                data = {};
             }
+            
+            if (typeof callback !== 'function') {
+                winston.error('[ai-moderation] No callback function provided');
+                return;
+            }
+            
+            // 非同期処理を実行
+            (async () => {
+                try {
+                    await requireAdmin(socket);
+                    const result = await apiFactory.testProvider('openai', data.apiKey);
+                    
+                    winston.info('[ai-moderation] Connection test completed', { success: result.success });
+                    callback(null, result);
+                } catch (error) {
+                    winston.error('[ai-moderation] Connection test failed', { error: error.message });
+                    callback(error);
+                }
+            })();
         }
     };
 
