@@ -9,7 +9,7 @@ const postsHooks = {
     // 新規投稿作成時のフック
     async moderatePostCreate(hookData) {
         winston.info('[ai-moderation] Post create hook triggered', {
-            content: hookData.content?.substring(0, 50) || 'no content'
+            hookData: JSON.stringify(hookData, null, 2)
         });
         
         // フィルター処理のログ
