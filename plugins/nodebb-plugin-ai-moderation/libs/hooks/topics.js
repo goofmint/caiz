@@ -15,31 +15,7 @@ const topicsHooks = {
         // フィルター処理のログ
         winston.info('[ai-moderation] Applying topic create filter');
         
-        try {
-            // タイトルとコンテンツを結合してモデレーション
-            const combinedContent = `${hookData.title}\n\n${hookData.content || ''}`;
-
-            const analysisResult = await analyzer.analyzeContent({
-                content: combinedContent,
-                contentType: 'topic',
-                contentId: hookData.tid || 'new',
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、トピックを削除フラグを立てる
-            if (analysisResult.action === 'rejected') {
-                hookData.deleted = 1;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Topic moderation failed', {
-                error: error.message,
-                uid: hookData.uid
-            });
-            return hookData;
-        }
+        return hookData;
     },
 
     // トピック編集時のフック
@@ -48,28 +24,14 @@ const topicsHooks = {
             return hookData;
         }
 
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.title,
-                contentType: 'topic',
-                contentId: hookData.tid,
-                uid: hookData.uid
-            });
+        winston.info('[ai-moderation] Topic edit hook triggered', {
+            content: hookData.title?.substring(0, 50) || 'no title'
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying topic edit filter');
 
-            // リジェクトの場合、編集を無効化
-            if (analysisResult.action === 'rejected') {
-                delete hookData.title;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Topic edit moderation failed', {
-                error: error.message,
-                tid: hookData.tid
-            });
-            return hookData;
-        }
+        return hookData;
     }
 };
 

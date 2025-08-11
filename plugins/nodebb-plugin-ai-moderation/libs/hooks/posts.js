@@ -15,28 +15,7 @@ const postsHooks = {
         // フィルター処理のログ
         winston.info('[ai-moderation] Applying post create filter');
         
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.content,
-                contentType: 'post',
-                contentId: hookData.pid || 'new',
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、投稿を削除フラグを立てる
-            if (analysisResult.action === 'rejected') {
-                hookData.deleted = 1;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Post moderation failed', {
-                error: error.message,
-                uid: hookData.uid
-            });
-            return hookData;
-        }
+        return hookData;
     },
 
     // 投稿編集時のフック
@@ -48,28 +27,7 @@ const postsHooks = {
         // フィルター処理のログ
         winston.info('[ai-moderation] Applying post edit filter');
         
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.content,
-                contentType: 'post',
-                contentId: hookData.pid,
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、編集を無効化
-            if (analysisResult.action === 'rejected') {
-                delete hookData.content;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Post edit moderation failed', {
-                error: error.message,
-                pid: hookData.pid
-            });
-            return hookData;
-        }
+        return hookData;
     }
 };
 
