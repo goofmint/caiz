@@ -1,6 +1,6 @@
 'use strict';
 
-const logger = require.main.require('./src/logger');
+const winston = require.main.require('winston');
 
 class OpenAIModerator {
     constructor(apiKey) {
@@ -61,13 +61,13 @@ class OpenAIModerator {
 
         } catch (error) {
             if (error.name === 'TimeoutError' || error.name === 'AbortError' || error.code === 'ERR_ABORTED') {
-                logger.error('[ai-moderation] OpenAI API request timed out', { 
+                winston.error('[ai-moderation] OpenAI API request timed out', { 
                     timeout: this.timeout 
                 });
                 throw new Error('OpenAI API request timed out');
             }
 
-            logger.error('[ai-moderation] OpenAI moderation failed', { 
+            winston.error('[ai-moderation] OpenAI moderation failed', { 
                 error: error.message 
             });
             throw error;
@@ -100,7 +100,7 @@ class OpenAIModerator {
                 // レート制限エラーの場合は指数バックオフで再試行
                 if (error.message.includes('429') && attempt < maxRetries) {
                     const delay = Math.pow(2, attempt) * 1000; // 2^attempt seconds
-                    logger.warn(`[ai-moderation] Rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+                    winston.warn(`[ai-moderation] Rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }

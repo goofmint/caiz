@@ -1,26 +1,24 @@
 'use strict';
 
 const plugin = {};
-const logger = require.main.require('./src/logger');
+const winston = require.main.require('winston');
 const db = require.main.require('./src/database');
 const socketPlugins = require.main.require('./src/socket.io/plugins');
 
 // コアモジュールの読み込み
 const settings = require('./libs/core/settings');
-const ModerationLogger = require('./libs/core/logger');
 const ContentAnalyzer = require('./libs/core/analyzer');
 const apiFactory = require('./libs/api');
 const postsHooks = require('./libs/hooks/posts');
 const topicsHooks = require('./libs/hooks/topics');
 
 // インスタンス
-const moderationLogger = new ModerationLogger();
 const contentAnalyzer = new ContentAnalyzer();
 
 plugin.init = async function(params) {
     const { router, middleware } = params;
     
-    logger.info('[ai-moderation] Initializing AI Moderation Plugin');
+    winston.info('[ai-moderation] Initializing AI Moderation Plugin');
     
     // Initialize database schema
     await initializeDatabase();
@@ -31,7 +29,7 @@ plugin.init = async function(params) {
     // Setup socket handlers
     setupSocketHandlers();
     
-    logger.info('[ai-moderation] AI Moderation Plugin initialized');
+    winston.info('[ai-moderation] AI Moderation Plugin initialized');
 };
 
 plugin.addAdminNavigation = function(header, callback) {
@@ -53,9 +51,9 @@ plugin.moderateTopicEdit = topicsHooks.moderateTopicEdit;
 async function initializeDatabase() {
     try {
         // データベース初期化処理
-        logger.info('[ai-moderation] Database initialized');
+        winston.info('[ai-moderation] Database initialized');
     } catch (error) {
-        logger.error('[ai-moderation] Database initialization failed', { error: error.message });
+        winston.error('[ai-moderation] Database initialization failed', { error: error.message });
         throw error;
     }
 }
@@ -87,16 +85,12 @@ async function handleSaveSettings(req, res) {
         const settingsData = req.body;
         await settings.saveSettings(settingsData);
         
-        // ModerationLoggerの設定を更新
-        moderationLogger.updateConfig({
-            logRetentionDays: settingsData.logRetentionDays,
-            enableContentHashing: settingsData.enableContentHashing
-        });
+        // 設定更新完了
 
-        logger.info('[ai-moderation] Settings saved via POST by user', { uid: req.uid });
+        winston.info('[ai-moderation] Settings saved via POST by user', { uid: req.uid });
         res.json({ success: true });
     } catch (error) {
-        logger.error('[ai-moderation] Failed to save settings via POST', { error: error.message });
+        winston.error('[ai-moderation] Failed to save settings via POST', { error: error.message });
         res.status(500).json({ error: error.message });
     }
 }
@@ -123,7 +117,7 @@ function setupSocketHandlers() {
                 const settingsData = await settings.getSettings();
                 callback(null, settingsData);
             } catch (error) {
-                logger.error('[ai-moderation] Failed to get settings', { error: error.message });
+                winston.error('[ai-moderation] Failed to get settings', { error: error.message });
                 callback(error);
             }
         },
@@ -135,16 +129,12 @@ function setupSocketHandlers() {
                 
                 await settings.saveSettings(data);
                 
-                // ModerationLoggerの設定を更新
-                moderationLogger.updateConfig({
-                    logRetentionDays: data.logRetentionDays,
-                    enableContentHashing: data.enableContentHashing
-                });
+                // 設定更新完了
 
-                logger.info('[ai-moderation] Settings saved by user', { uid: socket.uid });
+                winston.info('[ai-moderation] Settings saved by user', { uid: socket.uid });
                 callback(null);
             } catch (error) {
-                logger.error('[ai-moderation] Failed to save settings', { error: error.message });
+                winston.error('[ai-moderation] Failed to save settings', { error: error.message });
                 callback(error);
             }
         },
@@ -153,63 +143,16 @@ function setupSocketHandlers() {
         testConnection: async function(socket, data, callback) {
             try {
                 await requireAdmin(socket);
-                const result = await apiFactory.testProvider(data.provider, data.apiKey);
+                const result = await apiFactory.testProvider('openai', data.apiKey);
                 callback(null, result);
             } catch (error) {
-                logger.error('[ai-moderation] Connection test failed', { error: error.message });
-                callback(error);
-            }
-        },
-
-        // クリーンアップ実行
-        runCleanup: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                
-                const result = await moderationLogger.performCleanup();
-                logger.info('[ai-moderation] Manual cleanup executed by user', { 
-                    uid: socket.uid, 
-                    cleaned: result.cleaned 
-                });
-                
-                callback(null, result);
-            } catch (error) {
-                logger.error('[ai-moderation] Cleanup failed', { error: error.message });
-                callback(error);
-            }
-        },
-
-        // 統計情報の取得
-        getStats: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                const stats = await moderationLogger.getLogStats(null, 30); // 30日間の統計
-                callback(null, stats);
-            } catch (error) {
-                logger.error('[ai-moderation] Failed to get stats', { error: error.message });
-                callback(error);
-            }
-        },
-
-        // システムステータスの取得
-        getSystemStatus: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                
-                const status = {
-                    circuitBreaker: contentAnalyzer.circuitBreaker.getState(),
-                    lastCleanup: null // TODO: 実装
-                };
-
-                callback(null, status);
-            } catch (error) {
-                logger.error('[ai-moderation] Failed to get system status', { error: error.message });
+                winston.error('[ai-moderation] Connection test failed', { error: error.message });
                 callback(error);
             }
         }
     };
 
-    logger.info('[ai-moderation] Socket handlers registered');
+    winston.info('[ai-moderation] Socket handlers registered');
 }
 
 module.exports = plugin;

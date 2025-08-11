@@ -1,7 +1,7 @@
 'use strict';
 
 const OpenAIModerator = require('./openai');
-const logger = require.main.require('./src/logger');
+const winston = require.main.require('winston');
 
 class ModerationAPIFactory {
     constructor() {
@@ -11,7 +11,7 @@ class ModerationAPIFactory {
 
     registerProvider(name, ProviderClass) {
         this.providers.set(name, ProviderClass);
-        logger.info(`[ai-moderation] Registered provider: ${name}`);
+        winston.info(`[ai-moderation] Registered provider: ${name}`);
     }
 
     createModerator(provider, apiKey, options = {}) {
