@@ -320,21 +320,30 @@ class ModerationLogger {
     }
     
     async updateLogReview(logId, reviewedBy, action, reviewedAt = Date.now()) {
+        // 既存のログを読み込んで現在の状態を取得
+        const existingLog = await db.getObject(`ai-moderation:log:${logId}`);
+        if (!existingLog) {
+            throw new Error(`Log entry ${logId} not found`);
+        }
+        
+        // 既存のアクションとタイムスタンプを保存
+        const oldAction = existingLog.actionTaken;
+        const createdAt = parseInt(existingLog.createdAt);
+        
+        // ログを更新
         const updates = {
             actionTaken: action,
             reviewedBy: reviewedBy,
             reviewedAt: reviewedAt
         };
-        
         await db.setObject(`ai-moderation:log:${logId}`, updates);
         
         // アクションインデックスを更新
-        const log = await db.getObject(`ai-moderation:log:${logId}`);
-        if (log) {
+        if (oldAction !== action) {
             // 古いアクションインデックスから削除
-            await db.sortedSetRemove(`ai-moderation:logs:action:${log.actionTaken}`, logId);
+            await db.sortedSetRemove(`ai-moderation:logs:action:${oldAction}`, logId);
             // 新しいアクションインデックスに追加
-            await db.sortedSetAdd(`ai-moderation:logs:action:${action}`, log.createdAt, logId);
+            await db.sortedSetAdd(`ai-moderation:logs:action:${action}`, createdAt, logId);
         }
     }
 }
@@ -379,6 +388,8 @@ async function migrateFromDirectSql() {
 ```
 
 ## 管理画面テンプレート
+
+各ラベルはNodeBBのi18nシステムを使用して翻訳可能にすること。
 
 ### static/templates/admin/plugins/ai-moderation.tpl
 
