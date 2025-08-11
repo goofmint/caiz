@@ -48,6 +48,13 @@ plugin.moderatePostEdit = postsHooks.moderatePostEdit;
 plugin.moderateTopicCreate = topicsHooks.moderateTopicCreate;
 plugin.moderateTopicEdit = topicsHooks.moderateTopicEdit;
 
+winston.info('[ai-moderation] Hooks registered', {
+    moderatePostCreate: typeof plugin.moderatePostCreate,
+    moderatePostEdit: typeof plugin.moderatePostEdit,
+    moderateTopicCreate: typeof plugin.moderateTopicCreate,
+    moderateTopicEdit: typeof plugin.moderateTopicEdit
+});
+
 async function initializeDatabase() {
     try {
         // データベース初期化処理
