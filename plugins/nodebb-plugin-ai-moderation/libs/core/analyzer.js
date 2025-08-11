@@ -9,12 +9,23 @@ class ContentAnalyzer {
         const { content, contentType, contentId, uid } = contentData;
 
         try {
+            // コンテンツを安全な文字列に変換し、空の場合は承認
+            const safeContent = String(content || '').trim();
+            if (!safeContent) {
+                return { action: 'approved' };
+            }
+
             // 設定を取得
             const config = await settings.getSettings();
             
             if (!config.enabled) {
                 return { action: 'approved' };
             }
+
+            // 閾値の安全な取得
+            const thresholds = config.thresholds || {};
+            const flagThreshold = thresholds.flag ?? 70;
+            const rejectThreshold = thresholds.reject ?? 90;
 
             // APIプロバイダを作成
             const moderator = apiFactory.createModerator(
@@ -23,14 +34,14 @@ class ContentAnalyzer {
             );
 
             // コンテンツをモデレート
-            const moderationResult = await moderator.moderate(content);
+            const moderationResult = await moderator.moderateWithRetry(safeContent);
 
             // アクションを決定
             let action = 'approved';
             if (moderationResult.flagged) {
-                if (moderationResult.score >= config.thresholds.reject) {
+                if (moderationResult.score >= rejectThreshold) {
                     action = 'rejected';
-                } else if (moderationResult.score >= config.thresholds.flag) {
+                } else if (moderationResult.score >= flagThreshold) {
                     action = 'flagged';
                 }
             }

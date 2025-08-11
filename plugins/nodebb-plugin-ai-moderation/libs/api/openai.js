@@ -123,7 +123,7 @@ class OpenAIModerator {
             const batchPromises = batch.map(content => 
                 this.moderateWithRetry(content).catch(error => ({
                     error: error.message,
-                    content: content.substring(0, 100) // 最初の100文字のみをログに含める
+                    content: typeof content === 'string' ? content.substring(0, 100) : String(content || '').substring(0, 100) // 最初の100文字のみをログに含める
                 }))
             );
 
