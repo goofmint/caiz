@@ -3,3 +3,4 @@ bak
 .docker
 upload.tag.gz
 backup.sql
+.env
