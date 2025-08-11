@@ -1,6 +1,6 @@
 'use strict';
 
-define('admin/plugins/ai-moderation', ['settings', 'alerts'], function(Settings, alerts) {
+define('admin/plugins/ai-moderation', ['settings', 'alerts', 'translator'], function(Settings, alerts, translator) {
     const ACP = {};
 
     ACP.init = function() {
@@ -32,34 +32,60 @@ define('admin/plugins/ai-moderation', ['settings', 'alerts'], function(Settings,
         // ボタン状態を更新
         $button.prop('disabled', true);
         const originalText = $button.text();
-        $button.text('[[ai-moderation:testing-connection]]');
+        
+        translator.translate('[[ai-moderation:testing-connection]]', function(translated) {
+            $button.text(translated);
+        });
 
         app.socket.emit('plugins.ai-moderation.testConnection', { apiKey }, function(err, data) {
             // ボタン状態を復元
             $button.prop('disabled', false).text(originalText);
             
             if (err) {
-                // 具体的なエラーメッセージの判定
-                let errorMessage = '[[ai-moderation:error-connection-failed]]';
-                const errorStr = err.message || err.toString();
+                // Log the full error for debugging
+                console.error('[ai-moderation] Connection test error:', err);
                 
-                if (errorStr.includes('401') || errorStr.includes('invalid') || errorStr.includes('Unauthorized')) {
-                    errorMessage = '[[ai-moderation:error-invalid-api-key]]';
-                } else if (errorStr.includes('timeout') || errorStr.includes('ECONNREFUSED')) {
-                    errorMessage = '[[ai-moderation:error-connection-timeout]]';
-                } else if (errorStr.includes('429') || errorStr.includes('rate limit')) {
-                    errorMessage = '[[ai-moderation:error-rate-limit]]';
+                // Normalize error checking
+                const errorMessage = err.message || err.toString() || '';
+                const errorLower = errorMessage.toLowerCase();
+                const errorCode = err.code || '';
+                const statusCode = err.status || err.statusCode || 0;
+                
+                let localizedError = '[[ai-moderation:error-connection-failed]]';
+                
+                // Check for specific error conditions
+                if (statusCode === 401 || 
+                    errorLower.includes('401') || 
+                    errorLower.includes('unauthorized') || 
+                    errorLower.includes('invalid') ||
+                    errorLower.includes('api key')) {
+                    localizedError = '[[ai-moderation:error-invalid-api-key]]';
+                } else if (statusCode === 429 || 
+                           errorLower.includes('429') || 
+                           errorLower.includes('rate limit') ||
+                           errorLower.includes('too many')) {
+                    localizedError = '[[ai-moderation:error-rate-limit]]';
+                } else if (errorCode === 'ETIMEDOUT' || 
+                           errorCode === 'ECONNRESET' ||
+                           errorCode === 'ECONNREFUSED' ||
+                           errorCode === 'ENOTFOUND' ||
+                           errorLower.includes('timeout') ||
+                           errorLower.includes('timed out') ||
+                           errorLower.includes('connection')) {
+                    localizedError = '[[ai-moderation:error-connection-timeout]]';
                 }
                 
-                alerts.error(errorMessage + ': ' + errorStr);
+                // Only show localized error to user (no raw error details)
+                alerts.error(localizedError);
                 return;
             }
 
             if (data && data.success) {
                 alerts.success('[[ai-moderation:success-connection-test]]');
             } else {
-                const errorMsg = data?.error || 'Unknown error';
-                alerts.error('[[ai-moderation:error-connection-failed]]: ' + errorMsg);
+                // Log error for debugging but don't expose to user
+                console.error('[ai-moderation] Connection test failed:', data?.error || 'Unknown error');
+                alerts.error('[[ai-moderation:error-connection-failed]]');
             }
         });
     }

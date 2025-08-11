@@ -33,6 +33,9 @@
   "templates": "static/templates",
   "languages": "languages",
   "modules": {
-    "../admin/plugins/ai-moderation.js": "static/lib/admin.js"
-  }
+    "admin/plugins/ai-moderation": "./static/lib/admin.js"
+  },
+  "acpScripts": [
+    "static/lib/admin.js"
+  ]
 }
