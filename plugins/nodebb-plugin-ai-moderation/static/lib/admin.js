@@ -1,6 +1,6 @@
 'use strict';
 
-define('admin/plugins/ai-moderation', ['settings', 'alerts'], function(Settings, alerts) {
+define('admin/plugins/nodebb-plugin-ai-moderation', ['settings', 'alerts'], function(Settings, alerts) {
     const ACP = {};
 
     ACP.init = function() {
