@@ -8,6 +8,13 @@ const analyzer = new ContentAnalyzer();
 const topicsHooks = {
     // 新規トピック作成時のフック
     async moderateTopicCreate(hookData) {
+        winston.info('[ai-moderation] Topic create hook triggered', {
+            content: hookData.title?.substring(0, 50) || 'no title'
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying topic create filter');
+        
         try {
             // タイトルとコンテンツを結合してモデレーション
             const combinedContent = `${hookData.title}\n\n${hookData.content || ''}`;

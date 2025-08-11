@@ -8,6 +8,13 @@ const analyzer = new ContentAnalyzer();
 const postsHooks = {
     // 新規投稿作成時のフック
     async moderatePostCreate(hookData) {
+        winston.info('[ai-moderation] Post create hook triggered', {
+            content: hookData.content?.substring(0, 50) || 'no content'
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying post create filter');
+        
         try {
             const analysisResult = await analyzer.analyzeContent({
                 content: hookData.content,
@@ -34,6 +41,13 @@ const postsHooks = {
 
     // 投稿編集時のフック
     async moderatePostEdit(hookData) {
+        winston.info('[ai-moderation] Post edit hook triggered', {
+            content: hookData.content?.substring(0, 50) || 'no content'
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying post edit filter');
+        
         try {
             const analysisResult = await analyzer.analyzeContent({
                 content: hookData.content,
