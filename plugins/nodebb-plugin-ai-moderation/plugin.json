@@ -32,7 +32,7 @@
   ],
   "templates": "static/templates",
   "languages": "languages",
-  "acpScripts": [
-    "static/lib/admin.js"
-  ]
+  "modules": {
+    "../admin/plugins/ai-moderation.js": "static/lib/admin.js"
+  }
 }

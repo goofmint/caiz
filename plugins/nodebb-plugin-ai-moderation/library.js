@@ -34,7 +34,7 @@ plugin.init = async function(params) {
 
 plugin.addAdminNavigation = function(header, callback) {
     header.plugins.push({
-        route: '/plugins/nodebb-plugin-ai-moderation',
+        route: '/plugins/ai-moderation',
         icon: 'fa fa-shield-alt',
         name: '[[ai-moderation:ai-moderation]]'
     });
@@ -59,13 +59,13 @@ async function initializeDatabase() {
 }
 
 function setupAdminRoutes(router, middleware) {
-    router.get('/admin/plugins/nodebb-plugin-ai-moderation', middleware.admin.buildHeader, renderAdmin);
-    router.get('/api/admin/plugins/nodebb-plugin-ai-moderation', middleware.admin.buildHeader, renderAdmin);
-    router.post('/api/admin/plugins/nodebb-plugin-ai-moderation/save', middleware.admin.buildHeader, handleSaveSettings);
+    router.get('/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
+    router.get('/api/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
+    router.post('/api/admin/plugins/ai-moderation/save', middleware.admin.buildHeader, handleSaveSettings);
 }
 
 function renderAdmin(req, res) {
-    res.render('admin/plugins/nodebb-plugin-ai-moderation', {
+    res.render('admin/plugins/ai-moderation', {
         title: 'AI Moderation Settings',
         csrf_token: req.csrfToken ? req.csrfToken() : ''
     });
