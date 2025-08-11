@@ -37,7 +37,12 @@ APIキーの更新・消去ルール:
 {
   version: 1,
   provider: 'openai',           // 将来的に 'azure' や 'openrouter' などを拡張可能
-  apiKey: '[encrypted]',        // 後述の方式で暗号化
+  apiKey: {                     // AES-256-GCM暗号化オブジェクト
+    algorithm: 'aes-256-gcm',
+    iv: 'base64-encoded-iv',
+    tag: 'base64-encoded-tag',
+    cipherText: 'base64-encoded-ciphertext'
+  },
   thresholds: {
     flag: 70,
     reject: 90
@@ -54,22 +59,31 @@ APIキーの更新・消去ルール:
 - プラグイン設定は NodeBB の Meta.settings API を優先的に利用
   - `Meta.settings.set('caiz-ai-moderation', data)` / `Meta.settings.get('caiz-ai-moderation', callback)`
   - 利用不可の場合は `db.setObject('settings:plugin:caiz:ai-moderation', data)` / `db.getObject('settings:plugin:caiz:ai-moderation', callback)`
-- APIキーの暗号化は Node.js の crypto モジュールで AES-256-GCM を使用
-  - 鍵は環境変数 `CAIZ_ENC_KEY`（32バイト）から取得
-  - IV は毎回ランダム生成、`iv`, `tag`, `cipherText` を Base64 で保持
-  - 復号はサーバー側のみで実行し、クライアントには平文を返さない
+
+APIキーの処理仕様:
+- **サーバー側処理ロジック**:
+  - 空文字列またはundefined: 既存の暗号化キーをそのまま保持（更新しない）
+  - `clearApiKey: true` フラグまたは `apiKey: null`: 保存された暗号化キーを完全に削除
+  - 新しい平文文字列が提供: AES-256-GCM で暗号化してから上書き保存
+- **暗号化仕様**: 
+  - 環境変数 `CAIZ_ENC_KEY`（32バイト）を使用
+  - IV は毎回ランダム生成、`iv`, `tag`, `cipherText` を Base64 エンコードして保存
+- **読み込み時の処理**:
+  - `getSettings()` は平文や生の暗号化データをクライアントに返さない
+  - マスク値（例: "••••• (saved)"）または `hasApiKey` ブール値 + 他の設定のみ返却
+  - 復号はサーバー側でのみ実行し、必要時にのみ行う
 
 ### フロントエンド修正
 - `static/lib/admin.js`でNodeBBのSettings APIを使用
 
 実装のポイント（例）:
 ```javascript
-// admin.js
+// admin.js - Settings モジュールはAMD形式でrequireする必要がある
 const formId = 'caiz-ai-settings';
-const pluginId = 'nodebb-plugin-caiz'; // 実IDに合わせる
+const pluginId = 'ai-moderation';
 const settings = new Settings(pluginId, formId, () => {
-  settings.load(() => {
-    if (saved.hasApiKey) {
+  settings.load((data) => {  // callbackでdataパラメータを受け取る
+    if (data.hasApiKey) {
       const input = document.querySelector('#apiKey');
       input.value = ''; // 平文はセットしない
       input.placeholder = '********（保存済み）';
@@ -78,7 +92,7 @@ const settings = new Settings(pluginId, formId, () => {
   });
 });
 
-document.querySelector('#save').addEventListener('click', async () => {
+document.querySelector('#save').addEventListener('click', () => {  // async削除
   const payload = settings.serialize();
   // プレースホルダーのままなら apiKey を送らない（上書き防止）
   const input = document.querySelector('#apiKey');
@@ -86,9 +100,16 @@ document.querySelector('#save').addEventListener('click', async () => {
     delete payload.apiKey;
   }
   if (document.querySelector('#clearApiKey')?.checked) {
-    payload.apiKey = ''; // 明示クリア
+    payload.clearApiKey = true; // 明示クリア
   }
-  await socket.emit('admin.caiz.saveSettings', payload);
+  // callbackフォームに修正
+  app.socket.emit('admin.ai-moderation.saveSettings', payload, function(err, res) {
+    if (err) {
+      console.error('Settings save error:', err);
+    } else {
+      console.log('Settings saved successfully');
+    }
+  });
 });
 ```
 
