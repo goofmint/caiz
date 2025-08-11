@@ -9,7 +9,9 @@ const postsHooks = {
     // 新規投稿作成時のフック
     async moderatePostCreate(hookData) {
         winston.info('[ai-moderation] Post create hook triggered', {
-            hookData: JSON.stringify(hookData, null, 2)
+            content: hookData.post?.content?.substring(0, 50) || 'no content',
+            pid: hookData.post?.pid,
+            uid: hookData.post?.uid
         });
         
         // フィルター処理のログ
@@ -21,7 +23,9 @@ const postsHooks = {
     // 投稿編集時のフック
     async moderatePostEdit(hookData) {
         winston.info('[ai-moderation] Post edit hook triggered', {
-            content: hookData.content?.substring(0, 50) || 'no content'
+            content: hookData.post?.content?.substring(0, 50) || 'no content',
+            pid: hookData.post?.pid,
+            uid: hookData.post?.uid
         });
         
         // フィルター処理のログ
