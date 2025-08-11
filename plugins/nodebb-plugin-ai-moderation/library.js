@@ -32,6 +32,7 @@ plugin.init = async function(params) {
     winston.info('[ai-moderation] AI Moderation Plugin initialized');
 };
 
+
 plugin.addAdminNavigation = function(header, callback) {
     header.plugins.push({
         route: '/plugins/ai-moderation',
