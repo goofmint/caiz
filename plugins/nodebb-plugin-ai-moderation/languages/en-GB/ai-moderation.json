@@ -21,5 +21,12 @@
     "api-status": "API Status",
     "circuit-breaker": "Circuit Breaker",
     "last-cleanup": "Last Cleanup",
-    "system-status": "System Status"
+    "system-status": "System Status",
+    "testing-connection": "Testing...",
+    "success-connection-test": "API connection successful",
+    "error-api-key-required": "Please enter an API key",
+    "error-invalid-api-key": "Invalid API key",
+    "error-connection-failed": "Connection failed",
+    "error-connection-timeout": "Connection timed out",
+    "error-rate-limit": "Rate limit exceeded"
 }

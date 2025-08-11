@@ -11,32 +11,55 @@ define('admin/plugins/ai-moderation', ['settings', 'alerts'], function(Settings,
     };
 
     function saveSettings() {
-        Settings.save('ai-moderation', $('.ai-moderation-settings'), function() {
-            alerts.success('設定を保存しました');
+        Settings.save('ai-moderation', $('.ai-moderation-settings'), function(err) {
+            if (err) {
+                alerts.error('[[ai-moderation:settings-save-error]]: ' + err.message);
+            } else {
+                alerts.success('[[ai-moderation:settings-saved]]');
+            }
         });
     }
 
     function testConnection() {
-        const apiKey = $('#apiKey').val();
+        const apiKey = $('#apiKey').val().trim();
+        const $button = $('#test-connection');
         
         if (!apiKey) {
-            alerts.error('APIキーを入力してください');
+            alerts.error('[[ai-moderation:error-api-key-required]]');
             return;
         }
 
-        $('#test-connection').prop('disabled', true).text('テスト中...');
+        // ボタン状態を更新
+        $button.prop('disabled', true);
+        const originalText = $button.text();
+        $button.text('[[ai-moderation:testing-connection]]');
 
         app.socket.emit('plugins.ai-moderation.testConnection', { apiKey }, function(err, data) {
-            $('#test-connection').prop('disabled', false).text('接続テスト');
+            // ボタン状態を復元
+            $button.prop('disabled', false).text(originalText);
             
             if (err) {
-                return alerts.error('接続テストに失敗しました: ' + err.message);
+                // 具体的なエラーメッセージの判定
+                let errorMessage = '[[ai-moderation:error-connection-failed]]';
+                const errorStr = err.message || err.toString();
+                
+                if (errorStr.includes('401') || errorStr.includes('invalid') || errorStr.includes('Unauthorized')) {
+                    errorMessage = '[[ai-moderation:error-invalid-api-key]]';
+                } else if (errorStr.includes('timeout') || errorStr.includes('ECONNREFUSED')) {
+                    errorMessage = '[[ai-moderation:error-connection-timeout]]';
+                } else if (errorStr.includes('429') || errorStr.includes('rate limit')) {
+                    errorMessage = '[[ai-moderation:error-rate-limit]]';
+                }
+                
+                alerts.error(errorMessage + ': ' + errorStr);
+                return;
             }
 
             if (data && data.success) {
-                alerts.success('APIへの接続に成功しました');
+                alerts.success('[[ai-moderation:success-connection-test]]');
             } else {
-                alerts.error('APIへの接続に失敗しました: ' + (data?.error || 'Unknown error'));
+                const errorMsg = data?.error || 'Unknown error';
+                alerts.error('[[ai-moderation:error-connection-failed]]: ' + errorMsg);
             }
         });
     }

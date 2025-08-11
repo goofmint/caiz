@@ -21,5 +21,12 @@
     "api-status": "API状態",
     "circuit-breaker": "サーキットブレーカー",
     "last-cleanup": "最終クリーンアップ",
-    "system-status": "システム状態"
+    "system-status": "システム状態",
+    "testing-connection": "テスト中...",
+    "success-connection-test": "APIへの接続に成功しました",
+    "error-api-key-required": "APIキーを入力してください",
+    "error-invalid-api-key": "APIキーが無効です",
+    "error-connection-failed": "接続に失敗しました",
+    "error-connection-timeout": "接続がタイムアウトしました",
+    "error-rate-limit": "レート制限に達しました"
 }
