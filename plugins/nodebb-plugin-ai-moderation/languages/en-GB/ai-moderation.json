@@ -28,5 +28,6 @@
     "error-invalid-api-key": "Invalid API key",
     "error-connection-failed": "Connection failed",
     "error-connection-timeout": "Connection timed out",
-    "error-rate-limit": "Rate limit exceeded"
+    "error-rate-limit": "Rate limit exceeded",
+    "warning-rate-limit-but-connected": "API connection successful, but rate limit exceeded. This may be due to too many requests or insufficient payment/credits. Please wait or check your OpenAI account usage and billing."
 }
