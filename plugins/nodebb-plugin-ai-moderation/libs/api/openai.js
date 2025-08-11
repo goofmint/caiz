@@ -26,6 +26,7 @@ class OpenAIModerator {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    model: process.env.OPENAI_MODERATION_MODEL || 'omni-moderation-latest',
                     input: content
                 }),
                 signal: AbortSignal.timeout(this.timeout)
@@ -46,7 +47,8 @@ class OpenAIModerator {
             
             // スコアの計算（0-100のスケール）
             const categoryScores = result.category_scores || {};
-            const maxScore = Math.max(...Object.values(categoryScores)) || 0;
+            const values = Object.values(categoryScores);
+            const maxScore = values.length === 0 ? 0 : Math.max(...values);
             const score = Math.round(maxScore * 100);
 
             return {
@@ -58,7 +60,7 @@ class OpenAIModerator {
             };
 
         } catch (error) {
-            if (error.name === 'TimeoutError') {
+            if (error.name === 'TimeoutError' || error.name === 'AbortError' || error.code === 'ERR_ABORTED') {
                 logger.error('[ai-moderation] OpenAI API request timed out', { 
                     timeout: this.timeout 
                 });

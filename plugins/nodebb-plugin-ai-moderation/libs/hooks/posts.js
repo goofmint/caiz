@@ -6,35 +6,36 @@ const logger = require.main.require('./src/logger');
 const analyzer = new ContentAnalyzer();
 
 const postsHooks = {
-    // 新規投稿作成時のフック
-    async moderateNewPost(hookData) {
-        const { post } = hookData;
-        
+    // 新規投稿作成時のフック（Pre-save filter）
+    async moderatePostCreate(hookData) {
         try {
             logger.info('[ai-moderation] Moderating new post', { 
-                pid: post.pid,
-                uid: post.uid,
-                cid: post.cid 
+                uid: hookData.uid,
+                cid: hookData.cid 
             });
 
             const analysisResult = await analyzer.analyzeContent({
-                content: post.content,
+                content: hookData.content,
                 contentType: 'post',
-                contentId: post.pid,
-                cid: post.cid,
-                uid: post.uid
+                contentId: hookData.pid || 'new',
+                cid: hookData.cid,
+                uid: hookData.uid
             });
 
-            // アクションに基づいて処理
-            await handleModerationAction(post, analysisResult);
+            // アクションに基づいてhookDataを変更
+            if (analysisResult.action === 'rejected') {
+                hookData.content = '[Content rejected by AI moderation]';
+                hookData.deleted = 1;
+            } else if (analysisResult.action === 'flagged') {
+                await addToModerationQueue(hookData, analysisResult);
+            }
 
             return hookData;
 
         } catch (error) {
             logger.error('[ai-moderation] Post moderation failed', {
                 error: error.message,
-                pid: post.pid,
-                uid: post.uid
+                uid: hookData.uid
             });
 
             // エラーが発生しても投稿を通す（フェイルセーフ）
@@ -42,39 +43,40 @@ const postsHooks = {
         }
     },
 
-    // 投稿編集時のフック
+    // 投稿編集時のフック（Pre-save filter）
     async moderatePostEdit(hookData) {
-        const { post, data } = hookData;
-        
         // 編集内容が含まれている場合のみモデレーション
-        if (!data.content || data.content === post.content) {
+        if (!hookData.content) {
             return hookData;
         }
 
         try {
             logger.info('[ai-moderation] Moderating edited post', { 
-                pid: post.pid,
-                uid: post.uid 
+                pid: hookData.pid,
+                uid: hookData.uid 
             });
 
             const analysisResult = await analyzer.analyzeContent({
-                content: data.content,
+                content: hookData.content,
                 contentType: 'post',
-                contentId: post.pid,
-                cid: post.cid,
-                uid: post.uid
+                contentId: hookData.pid,
+                cid: hookData.cid,
+                uid: hookData.uid
             });
 
             // 編集時のアクション処理
-            await handleEditModerationAction(post, data, analysisResult);
+            if (analysisResult.action === 'rejected') {
+                // 編集を拒否（元の内容を維持するために変更を無効化）
+                delete hookData.content;
+            }
 
             return hookData;
 
         } catch (error) {
             logger.error('[ai-moderation] Post edit moderation failed', {
                 error: error.message,
-                pid: post.pid,
-                uid: post.uid
+                pid: hookData.pid,
+                uid: hookData.uid
             });
 
             return hookData;
@@ -169,14 +171,14 @@ async function handleEditModerationAction(post, editData, analysisResult) {
 }
 
 // モデレーションキューへの追加
-async function addToModerationQueue(post, analysisResult) {
+async function addToModerationQueue(hookData, analysisResult) {
     const db = require.main.require('./src/database');
     
     const queueData = {
-        pid: post.pid,
-        uid: post.uid,
-        cid: post.cid,
-        content: post.content,
+        pid: hookData.pid || 'pending',
+        uid: hookData.uid,
+        cid: hookData.cid,
+        content: hookData.content,
         score: analysisResult.score,
         categories: analysisResult.categories,
         logId: analysisResult.logId,
@@ -184,11 +186,12 @@ async function addToModerationQueue(post, analysisResult) {
         status: 'pending'
     };
 
-    await db.setObject(`ai-moderation:queue:${post.pid}`, queueData);
-    await db.sortedSetAdd('ai-moderation:queue:posts', Date.now(), post.pid);
+    const queueKey = hookData.pid || `temp-${Date.now()}`;
+    await db.setObject(`ai-moderation:queue:${queueKey}`, queueData);
+    await db.sortedSetAdd('ai-moderation:queue:posts', Date.now(), queueKey);
 
     // カテゴリ別キューにも追加
-    await db.sortedSetAdd(`ai-moderation:queue:cid:${post.cid}`, Date.now(), post.pid);
+    await db.sortedSetAdd(`ai-moderation:queue:cid:${hookData.cid}`, Date.now(), queueKey);
 }
 
 module.exports = postsHooks;

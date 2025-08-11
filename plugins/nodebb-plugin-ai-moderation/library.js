@@ -45,9 +45,9 @@ plugin.addAdminNavigation = function(header, callback) {
 };
 
 // フック登録
-plugin.moderateNewPost = postsHooks.moderateNewPost;
+plugin.moderatePostCreate = postsHooks.moderatePostCreate;
 plugin.moderatePostEdit = postsHooks.moderatePostEdit;
-plugin.moderateNewTopic = topicsHooks.moderateNewTopic;
+plugin.moderateTopicCreate = topicsHooks.moderateTopicCreate;
 plugin.moderateTopicEdit = topicsHooks.moderateTopicEdit;
 
 async function initializeDatabase() {
@@ -101,21 +101,25 @@ async function handleSaveSettings(req, res) {
     }
 }
 
+// 管理者認証ヘルパー関数
+async function requireAdmin(socket) {
+    if (!socket.uid) {
+        throw new Error('Not logged in');
+    }
+
+    const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
+    if (!isAdmin) {
+        throw new Error('Not authorized');
+    }
+}
+
 function setupSocketHandlers() {
     // 管理画面用のSocket.IOイベントハンドラ
     socketPlugins['ai-moderation'] = {
         // 設定の取得
         getSettings: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
                 const settingsData = await settings.getSettings();
                 callback(null, settingsData);
             } catch (error) {
@@ -127,15 +131,8 @@ function setupSocketHandlers() {
         // 設定の保存
         saveSettings: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
+                
                 await settings.saveSettings(data);
                 
                 // ModerationLoggerの設定を更新
@@ -155,15 +152,7 @@ function setupSocketHandlers() {
         // API接続テスト
         testConnection: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
                 const result = await apiFactory.testProvider(data.provider, data.apiKey);
                 callback(null, result);
             } catch (error) {
@@ -175,15 +164,8 @@ function setupSocketHandlers() {
         // クリーンアップ実行
         runCleanup: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
+                
                 const result = await moderationLogger.performCleanup();
                 logger.info('[ai-moderation] Manual cleanup executed by user', { 
                     uid: socket.uid, 
@@ -200,15 +182,7 @@ function setupSocketHandlers() {
         // 統計情報の取得
         getStats: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
                 const stats = await moderationLogger.getLogStats(null, 30); // 30日間の統計
                 callback(null, stats);
             } catch (error) {
@@ -220,15 +194,8 @@ function setupSocketHandlers() {
         // システムステータスの取得
         getSystemStatus: async function(socket, data, callback) {
             try {
-                if (!socket.uid) {
-                    return callback(new Error('Not logged in'));
-                }
-
-                const isAdmin = await require.main.require('./src/user').isAdministrator(socket.uid);
-                if (!isAdmin) {
-                    return callback(new Error('Not authorized'));
-                }
-
+                await requireAdmin(socket);
+                
                 const status = {
                     circuitBreaker: contentAnalyzer.circuitBreaker.getState(),
                     lastCleanup: null // TODO: 実装

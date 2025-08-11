@@ -44,15 +44,28 @@ class ContentAnalyzer {
             // アクションを決定
             const action = this.determineAction(moderationResult.score, config);
 
-            // ログに記録
+            // ログに記録（PII保護）
+            const crypto = require.main.require('crypto');
+            const contentHash = crypto.createHash('sha256').update(content).digest('hex');
+            const contentSnippet = content.length > 100 ? content.substring(0, 100) + '...' : content;
+            
+            // APIレスポンスをサマリー化（機密情報除去）
+            const apiResponseSummary = {
+                model: moderationResult.raw?.model || provider,
+                flagged: moderationResult.flagged,
+                score: moderationResult.score,
+                categories: moderationResult.categories
+            };
+
             const logData = {
                 contentType,
                 contentId,
                 cid,
                 uid,
-                content,
+                content: contentSnippet,
+                contentHash,
                 apiProvider: provider,
-                apiResponse: moderationResult.raw,
+                apiResponse: apiResponseSummary,
                 score: moderationResult.score,
                 categories: moderationResult.categories,
                 actionTaken: action

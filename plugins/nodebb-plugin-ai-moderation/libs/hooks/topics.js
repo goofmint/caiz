@@ -6,38 +6,40 @@ const logger = require.main.require('./src/logger');
 const analyzer = new ContentAnalyzer();
 
 const topicsHooks = {
-    // 新規トピック作成時のフック
-    async moderateNewTopic(hookData) {
-        const { topic, post } = hookData;
-        
+    // 新規トピック作成時のフック（Pre-save filter）
+    async moderateTopicCreate(hookData) {
         try {
             logger.info('[ai-moderation] Moderating new topic', { 
-                tid: topic.tid,
-                uid: topic.uid,
-                cid: topic.cid 
+                uid: hookData.uid,
+                cid: hookData.cid 
             });
 
             // タイトルとコンテンツを結合してモデレーション
-            const combinedContent = `${topic.title}\n\n${post.content}`;
+            const combinedContent = `${hookData.title}\n\n${hookData.content || ''}`;
 
             const analysisResult = await analyzer.analyzeContent({
                 content: combinedContent,
                 contentType: 'topic',
-                contentId: topic.tid,
-                cid: topic.cid,
-                uid: topic.uid
+                contentId: hookData.tid || 'new',
+                cid: hookData.cid,
+                uid: hookData.uid
             });
 
-            // アクションに基づいて処理
-            await handleTopicModerationAction(topic, post, analysisResult);
+            // アクションに基づいてhookDataを変更
+            if (analysisResult.action === 'rejected') {
+                hookData.title = '[Topic rejected by AI moderation]';
+                hookData.content = '[Content rejected by AI moderation]';
+                hookData.deleted = 1;
+            } else if (analysisResult.action === 'flagged') {
+                await addTopicToModerationQueue(hookData, analysisResult);
+            }
 
             return hookData;
 
         } catch (error) {
             logger.error('[ai-moderation] Topic moderation failed', {
                 error: error.message,
-                tid: topic.tid,
-                uid: topic.uid
+                uid: hookData.uid
             });
 
             // エラーが発生しても投稿を通す（フェイルセーフ）
@@ -45,39 +47,40 @@ const topicsHooks = {
         }
     },
 
-    // トピック編集時のフック
+    // トピック編集時のフック（Pre-save filter）
     async moderateTopicEdit(hookData) {
-        const { topic, data } = hookData;
-        
         // タイトルが変更された場合のみモデレーション
-        if (!data.title || data.title === topic.title) {
+        if (!hookData.title) {
             return hookData;
         }
 
         try {
             logger.info('[ai-moderation] Moderating edited topic title', { 
-                tid: topic.tid,
-                uid: topic.uid 
+                tid: hookData.tid,
+                uid: hookData.uid 
             });
 
             const analysisResult = await analyzer.analyzeContent({
-                content: data.title,
+                content: hookData.title,
                 contentType: 'topic',
-                contentId: topic.tid,
-                cid: topic.cid,
-                uid: topic.uid || topic.userId
+                contentId: hookData.tid,
+                cid: hookData.cid,
+                uid: hookData.uid
             });
 
             // 編集時のアクション処理
-            await handleTopicEditModerationAction(topic, data, analysisResult);
+            if (analysisResult.action === 'rejected') {
+                // 編集を拒否（タイトル変更を無効化）
+                delete hookData.title;
+            }
 
             return hookData;
 
         } catch (error) {
             logger.error('[ai-moderation] Topic edit moderation failed', {
                 error: error.message,
-                tid: topic.tid,
-                uid: topic.uid
+                tid: hookData.tid,
+                uid: hookData.uid
             });
 
             return hookData;
@@ -93,20 +96,30 @@ async function handleTopicModerationAction(topic, post, analysisResult) {
 
     switch (analysisResult.action) {
         case 'rejected':
-            // トピック全体を削除
-            await topics.delete(topic.tid);
+            try {
+                // トピック全体を削除（システムユーザー権限で）
+                await topics.delete(topic.tid, 0);
+            } catch (deleteError) {
+                logger.error('[ai-moderation] Failed to delete topic', {
+                    tid: topic.tid,
+                    error: deleteError.message
+                });
+            }
             
-            // ユーザーに通知
-            await notifications.create({
+            // ユーザーに通知（国際化対応）
+            const note = await notifications.create({
                 type: 'ai-moderation-topic-rejected',
                 nid: `ai-moderation-topic-rejected-${topic.tid}`,
                 from: 'system',
                 to: topic.uid,
-                subject: 'トピックが削除されました',
-                bodyShort: 'AIモデレーションにより不適切と判定されたトピックが削除されました。',
+                subject: '[[ai-moderation:notify.topic-rejected.subject]]',
+                bodyShort: '[[ai-moderation:notify.topic-rejected.bodyShort]]',
                 path: `/topic/${topic.tid}`,
                 importance: 5
             });
+            
+            // 通知を送信
+            await notifications.push(note, [topic.uid]);
 
             logger.warn('[ai-moderation] Topic rejected and deleted', {
                 tid: topic.tid,
@@ -152,16 +165,19 @@ async function handleTopicEditModerationAction(topic, editData, analysisResult) 
         editData.title = topic.title;
         
         const notifications = require.main.require('./src/notifications');
-        await notifications.create({
+        const note = await notifications.create({
             type: 'ai-moderation-topic-edit-rejected',
             nid: `ai-moderation-topic-edit-rejected-${topic.tid}`,
             from: 'system',
             to: topic.uid || topic.userId,
-            subject: 'トピックタイトルの編集が拒否されました',
-            bodyShort: 'AIモデレーションにより不適切と判定された編集が拒否されました。',
+            subject: '[[ai-moderation:notify.topic-edit-rejected.subject]]',
+            bodyShort: '[[ai-moderation:notify.topic-edit-rejected.bodyShort]]',
             path: `/topic/${topic.tid}`,
             importance: 5
         });
+        
+        // 通知を送信
+        await notifications.push(note, [topic.uid || topic.userId]);
 
         logger.warn('[ai-moderation] Topic edit rejected', {
             tid: topic.tid,
@@ -172,16 +188,15 @@ async function handleTopicEditModerationAction(topic, editData, analysisResult) 
 }
 
 // トピックをモデレーションキューに追加
-async function addTopicToModerationQueue(topic, post, analysisResult) {
+async function addTopicToModerationQueue(hookData, analysisResult) {
     const db = require.main.require('./src/database');
     
     const queueData = {
-        tid: topic.tid,
-        pid: post.pid,
-        uid: topic.uid,
-        cid: topic.cid,
-        title: topic.title,
-        content: post.content,
+        tid: hookData.tid || 'pending',
+        uid: hookData.uid,
+        cid: hookData.cid,
+        title: hookData.title,
+        content: hookData.content,
         score: analysisResult.score,
         categories: analysisResult.categories,
         logId: analysisResult.logId,
@@ -190,11 +205,12 @@ async function addTopicToModerationQueue(topic, post, analysisResult) {
         type: 'topic'
     };
 
-    await db.setObject(`ai-moderation:queue:topic:${topic.tid}`, queueData);
-    await db.sortedSetAdd('ai-moderation:queue:topics', Date.now(), topic.tid);
+    const queueKey = hookData.tid || `temp-topic-${Date.now()}`;
+    await db.setObject(`ai-moderation:queue:topic:${queueKey}`, queueData);
+    await db.sortedSetAdd('ai-moderation:queue:topics', Date.now(), queueKey);
 
     // カテゴリ別キューにも追加
-    await db.sortedSetAdd(`ai-moderation:queue:topics:cid:${topic.cid}`, Date.now(), topic.tid);
+    await db.sortedSetAdd(`ai-moderation:queue:topics:cid:${hookData.cid}`, Date.now(), queueKey);
 }
 
 // キューからのトピック削除処理
@@ -220,7 +236,7 @@ async function reviewTopic(tid, action, reviewerUid) {
     const topics = require.main.require('./src/topics');
     const ModerationLogger = require('../core/logger');
     
-    const logger = new ModerationLogger();
+    const moderationLogger = new ModerationLogger();
     
     try {
         const queueData = await db.getObject(`ai-moderation:queue:topic:${tid}`);
@@ -231,7 +247,7 @@ async function reviewTopic(tid, action, reviewerUid) {
 
         // ログを更新
         if (queueData.logId) {
-            await logger.updateLogReview(queueData.logId, reviewerUid, action);
+            await moderationLogger.updateLogReview(queueData.logId, reviewerUid, action);
         }
 
         switch (action) {
@@ -250,7 +266,7 @@ async function reviewTopic(tid, action, reviewerUid) {
                 throw new Error(`Unknown review action: ${action}`);
         }
 
-        logger.logger.info('[ai-moderation] Topic review completed', {
+        logger.info('[ai-moderation] Topic review completed', {
             tid,
             action,
             reviewerUid,
@@ -260,7 +276,7 @@ async function reviewTopic(tid, action, reviewerUid) {
         return { success: true };
 
     } catch (error) {
-        logger.logger.error('[ai-moderation] Topic review failed', {
+        logger.error('[ai-moderation] Topic review failed', {
             error: error.message,
             tid,
             action,

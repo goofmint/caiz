@@ -14,19 +14,19 @@
       "method": "addAdminNavigation"
     },
     {
-      "hook": "action:post.save",
-      "method": "moderateNewPost"
+      "hook": "filter:posts.create",
+      "method": "moderatePostCreate"
     },
     {
-      "hook": "action:post.edit",
+      "hook": "filter:posts.edit",
       "method": "moderatePostEdit"
     },
     {
-      "hook": "action:topic.save",
-      "method": "moderateNewTopic"
+      "hook": "filter:topics.create",
+      "method": "moderateTopicCreate"
     },
     {
-      "hook": "action:topic.edit",
+      "hook": "filter:topics.edit",
       "method": "moderateTopicEdit"
     }
   ],
