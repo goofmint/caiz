@@ -63,9 +63,6 @@ plugins/nodebb-plugin-ai-moderation/
       "method": "addAdminNavigation"
     }
   ],
-  "scripts": [
-    "static/lib/admin.js"
-  ],
   "templates": "static/templates",
   "languages": "languages",
   "acpScripts": [
