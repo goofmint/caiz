@@ -22,7 +22,6 @@ plugins/nodebb-plugin-ai-moderation/
 ├── libs/
 │   ├── api/
 │   │   ├── openai.js     # OpenAI API統合
-│   │   ├── anthropic.js  # Anthropic API統合（将来）
 │   │   └── index.js      # APIファクトリー
 │   ├── core/
 │   │   ├── analyzer.js   # コンテンツ分析エンジン
@@ -121,13 +120,13 @@ plugins/nodebb-plugin-ai-moderation/
 'use strict';
 
 const plugin = {};
-const winston = require.main.require('winston');
+const logger = require.main.require('./src/logger');
 const db = require.main.require('./src/database');
 
 plugin.init = async function(params) {
     const { router, middleware } = params;
     
-    winston.info('[ai-moderation] Initializing AI Moderation Plugin');
+    logger.info('[ai-moderation] Initializing AI Moderation Plugin');
     
     // Initialize database schema
     await initializeDatabase();
@@ -135,14 +134,14 @@ plugin.init = async function(params) {
     // Setup admin routes
     setupAdminRoutes(router, middleware);
     
-    winston.info('[ai-moderation] AI Moderation Plugin initialized');
+    logger.info('[ai-moderation] AI Moderation Plugin initialized');
 };
 
 plugin.addAdminNavigation = function(header, callback) {
     header.plugins.push({
         route: '/plugins/ai-moderation',
-        icon: 'fa-shield-alt',
-        name: 'AI Moderation'
+        icon: 'fa fa-shield-alt',
+        name: '[[ai-moderation:ai-moderation]]'
     });
     
     callback(null, header);
@@ -154,7 +153,7 @@ async function initializeDatabase() {
 
 function setupAdminRoutes(router, middleware) {
     router.get('/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
-    router.get('/api/admin/plugins/ai-moderation', renderAdmin);
+    router.get('/api/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
 }
 
 function renderAdmin(req, res) {
@@ -172,6 +171,7 @@ module.exports = plugin;
 -- AI Moderation Plugin Schema
 
 -- Settings table for global and per-category configuration
+DROP TABLE IF EXISTS ai_moderation_settings;
 CREATE TABLE IF NOT EXISTS ai_moderation_settings (
     id SERIAL PRIMARY KEY,
     setting_key VARCHAR(100) UNIQUE NOT NULL,
@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS ai_moderation_settings (
 );
 
 -- Moderation log table
+DROP TABLE IF EXISTS ai_moderation_log;
 CREATE TABLE IF NOT EXISTS ai_moderation_log (
     id SERIAL PRIMARY KEY,
     content_type VARCHAR(20) NOT NULL, -- 'topic' or 'post'
