@@ -63,12 +63,42 @@ async function initializeDatabase() {
 function setupAdminRoutes(router, middleware) {
     router.get('/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
     router.get('/api/admin/plugins/ai-moderation', middleware.admin.buildHeader, renderAdmin);
+    router.post('/api/admin/plugins/ai-moderation/save', middleware.admin.buildHeader, handleSaveSettings);
 }
 
 function renderAdmin(req, res) {
     res.render('admin/plugins/ai-moderation', {
-        title: 'AI Moderation Settings'
+        title: 'AI Moderation Settings',
+        csrf_token: req.csrfToken ? req.csrfToken() : ''
     });
+}
+
+async function handleSaveSettings(req, res) {
+    try {
+        if (!req.uid) {
+            return res.status(401).json({ error: 'Not logged in' });
+        }
+
+        const isAdmin = await require.main.require('./src/user').isAdministrator(req.uid);
+        if (!isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        const settingsData = req.body;
+        await settings.saveSettings(settingsData);
+        
+        // ModerationLoggerの設定を更新
+        moderationLogger.updateConfig({
+            logRetentionDays: settingsData.logRetentionDays,
+            enableContentHashing: settingsData.enableContentHashing
+        });
+
+        logger.info('[ai-moderation] Settings saved via POST by user', { uid: req.uid });
+        res.json({ success: true });
+    } catch (error) {
+        logger.error('[ai-moderation] Failed to save settings via POST', { error: error.message });
+        res.status(500).json({ error: error.message });
+    }
 }
 
 function setupSocketHandlers() {

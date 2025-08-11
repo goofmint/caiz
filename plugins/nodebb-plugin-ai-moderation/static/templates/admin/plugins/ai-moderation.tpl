@@ -4,7 +4,8 @@
             <div class="panel panel-default">
                 <div class="panel-heading">[[ai-moderation:settings]]</div>
                 <div class="panel-body">
-                    <form role="form" class="ai-moderation-settings">
+                    <form role="form" class="ai-moderation-settings" method="post">
+                        <input type="hidden" name="_csrf" value="{config.csrf_token}" />
                         <div class="form-group">
                             <label for="api-provider">[[ai-moderation:api-provider]]</label>
                             <select class="form-control" id="api-provider" name="provider">

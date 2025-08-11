@@ -46,7 +46,8 @@ $(document).ready(function() {
                 thresholdFlag: parseInt($('#threshold-flag').val()),
                 thresholdReject: parseInt($('#threshold-reject').val()),
                 enableContentHashing: $('#enable-content-hashing').is(':checked'),
-                logRetentionDays: parseInt($('#log-retention-days').val())
+                logRetentionDays: parseInt($('#log-retention-days').val()),
+                _csrf: $('input[name="_csrf"]').val()
             };
 
             // バリデーション
@@ -73,23 +74,41 @@ $(document).ready(function() {
             const saveBtn = $('#save');
             saveBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Saving...');
 
-            socket.emit('plugins.ai-moderation.saveSettings', settings, function(err) {
-                saveBtn.prop('disabled', false).html('<i class="fa fa-save"></i> Save Settings');
+            // フォームPOST方式で保存（CSRF保護付き）
+            $.ajax({
+                url: '/api/admin/plugins/ai-moderation/save',
+                type: 'POST',
+                data: settings,
+                success: function(response) {
+                    saveBtn.prop('disabled', false).html('<i class="fa fa-save"></i> Save Settings');
+                    
+                    if (response.success) {
+                        app.alertSuccess('Settings saved successfully');
+                        
+                        // APIキーが入力された場合はステータスを更新
+                        if (settings.apiKey) {
+                            $('#api-key-status').html('<span class="label label-success">API Key configured</span>');
+                            $('#api-key').val(''); // セキュリティのためクリア
+                        }
 
-                if (err) {
-                    app.alertError('Failed to save settings: ' + err.message);
-                    return;
+                        AiModerationAdmin.refreshStats();
+                    } else {
+                        app.alertError('Failed to save settings: ' + response.error);
+                    }
+                },
+                error: function(xhr) {
+                    saveBtn.prop('disabled', false).html('<i class="fa fa-save"></i> Save Settings');
+                    
+                    let errorMessage = 'Failed to save settings';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMessage += ': ' + response.error;
+                    } catch (e) {
+                        errorMessage += ': ' + xhr.statusText;
+                    }
+                    
+                    app.alertError(errorMessage);
                 }
-
-                app.alertSuccess('Settings saved successfully');
-                
-                // APIキーが入力された場合はステータスを更新
-                if (settings.apiKey) {
-                    $('#api-key-status').html('<span class="label label-success">API Key configured</span>');
-                    $('#api-key').val(''); // セキュリティのためクリア
-                }
-
-                AiModerationAdmin.refreshStats();
             });
         },
 
