@@ -2,62 +2,100 @@
 
 ## 概要
 
-AIモデレーションプラグインにフィルター設定機能を追加する。管理者がコンテンツタイプ別にモデレーションの有効/無効を制御できるようにする。
+AIモデレーションを適用するコンテンツタイプを管理画面から選択できるようにする。実際のモデレーション処理はまだ実装せず、設定の保存と読み込み、およびログベースでの動作確認のみを実装する。
 
 ## 対象
 
-- [ ] 投稿フィルターの有効/無効設定
+- [ ] トピック作成、投稿、返信に対するフィルター設定
 
 ## 詳細仕様
 
-### 投稿フィルターの有効/無効設定
+### フィルター設定項目
 
-管理画面に新しいセクションを追加し、投稿のモデレーション機能の有効/無効を制御する。
-
-#### フロントエンド
-
-- 管理画面に「フィルター設定」セクションを追加
-- チェックボックスで投稿モデレーションの有効/無効を切り替え可能
-- 設定変更は即座に反映される
-
-#### バックエンド
-
-- `filterSettings` オブジェクトに `posts` プロパティを追加
-- デフォルト値は `true`（有効）に設定
-- 投稿作成/編集時にこの設定を参照してモデレーション実行を制御
+管理画面で以下の3つのコンテンツタイプごとにモデレーションの有効/無効を設定：
+- トピック作成（新規トピック投稿）
+- ポスト作成（トピックへの返信）  
+- ポスト編集（既存投稿の編集）
 
 #### 設定項目
 
 ```javascript
 {
-  "filterSettings": {
-    "posts": true
+  "filters": {
+    "topicCreate": true,
+    "postCreate": true,
+    "postEdit": true
   }
 }
+```
+
+#### フロントエンド仕様
+
+管理画面テンプレートに新しいセクションを追加：
+
+```html
+<div class="form-group">
+  <label>[[ai-moderation:filter-settings]]</label>
+  <div class="checkbox">
+    <label>
+      <input type="checkbox" name="filters.topicCreate" checked>
+      [[ai-moderation:filter-topic-create]]
+    </label>
+  </div>
+  <div class="checkbox">
+    <label>
+      <input type="checkbox" name="filters.postCreate" checked>
+      [[ai-moderation:filter-post-create]]
+    </label>
+  </div>
+  <div class="checkbox">
+    <label>
+      <input type="checkbox" name="filters.postEdit" checked>
+      [[ai-moderation:filter-post-edit]]
+    </label>
+  </div>
+</div>
 ```
 
 #### 国際化対応
 
 日本語:
-- `filter-settings`: "フィルター設定"
-- `enable-post-moderation`: "投稿のモデレーション"
-- `enable-post-moderation-help`: "新しい投稿と投稿の編集にAIモデレーションを適用します"
+- `filter-settings`: "モデレーション対象"
+- `filter-topic-create`: "新規トピック作成"
+- `filter-post-create`: "返信投稿"
+- `filter-post-edit`: "投稿編集"
 
 英語:
-- `filter-settings`: "Filter Settings"
-- `enable-post-moderation`: "Post Moderation"
-- `enable-post-moderation-help`: "Apply AI moderation to new posts and post edits"
+- `filter-settings`: "Moderation Filters"
+- `filter-topic-create`: "Topic Creation"
+- `filter-post-create`: "Post Creation"  
+- `filter-post-edit`: "Post Editing"
 
-#### 実装ポイント
+#### バックエンド仕様
 
-1. 管理画面テンプレートに新しいセクションを追加
-2. 設定保存機能を拡張してフィルター設定を含める
-3. フック処理でフィルター設定を確認してからモデレーション実行
-4. 既存のしきい値設定との整合性を保つ
+各フックハンドラーで設定値を参照し、ログ出力のみ実行：
+
+```javascript
+// libs/hooks/topics.js
+async moderateTopicCreate(hookData) {
+  const settings = await getSettings();
+  winston.info('[ai-moderation] Topic create filter check', { 
+    enabled: !!settings.filters?.topicCreate 
+  });
+  
+  if (!settings.filters?.topicCreate) {
+    winston.info('[ai-moderation] Topic moderation disabled, skipping');
+    return hookData;
+  }
+  
+  winston.info('[ai-moderation] Topic moderation enabled - would process here');
+  return hookData;
+}
+```
 
 ## 成功条件
 
-- 管理画面でフィルター設定が表示される
-- チェックボックスの状態が正しく保存される
-- 投稿モデレーションが設定に応じて有効/無効になる
-- 国際化が正しく機能する
+- 管理画面にフィルター設定のチェックボックスが3つ表示される
+- 各チェックボックスの状態を保存できる
+- 保存した設定値が画面リロード時に復元される
+- フックハンドラーでログによる設定値確認ができる（実際のモデレーション処理はスキップ）
