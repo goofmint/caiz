@@ -1,0 +1,38 @@
+{
+  "id": "nodebb-plugin-ai-moderation",
+  "name": "NodeBB AI Moderation Plugin",
+  "description": "AI-powered content moderation for NodeBB forums",
+  "version": "1.0.0",
+  "library": "./library.js",
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "init"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminNavigation"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "moderateNewPost"
+    },
+    {
+      "hook": "action:post.edit",
+      "method": "moderatePostEdit"
+    },
+    {
+      "hook": "action:topic.save",
+      "method": "moderateNewTopic"
+    },
+    {
+      "hook": "action:topic.edit",
+      "method": "moderateTopicEdit"
+    }
+  ],
+  "templates": "static/templates",
+  "languages": "languages",
+  "acpScripts": [
+    "static/lib/admin.js"
+  ]
+}

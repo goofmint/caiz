@@ -1,0 +1,23 @@
+{
+    "ai-moderation": "AI Moderation",
+    "settings": "Settings",
+    "api-provider": "API Provider",
+    "api-key": "API Key",
+    "threshold-flag": "Flag Threshold",
+    "threshold-reject": "Auto-Reject Threshold",
+    "save-settings": "Save Settings",
+    "settings-saved": "Settings saved successfully",
+    "settings-save-error": "Failed to save settings",
+    "test-connection": "Test Connection",
+    "run-cleanup": "Run Cleanup",
+    "refresh-stats": "Refresh Statistics",
+    "total-moderated": "Total Moderated",
+    "approved": "Approved",
+    "flagged": "Flagged",
+    "rejected": "Rejected",
+    "average-score": "Average Score",
+    "api-status": "API Status",
+    "circuit-breaker": "Circuit Breaker",
+    "last-cleanup": "Last Cleanup",
+    "system-status": "System Status"
+}

@@ -1,0 +1,31 @@
+{
+  "name": "nodebb-plugin-ai-moderation",
+  "version": "1.0.0",
+  "description": "AI-powered content moderation for NodeBB forums",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/nodebb-plugin-ai-moderation"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "ai",
+    "moderation",
+    "content-filtering"
+  ],
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/nodebb-plugin-ai-moderation/issues"
+  },
+  "homepage": "https://github.com/yourusername/nodebb-plugin-ai-moderation",
+  "nbbpm": {
+    "compatibility": "^4.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
