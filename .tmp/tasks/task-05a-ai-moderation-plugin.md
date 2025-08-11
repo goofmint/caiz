@@ -37,13 +37,11 @@ plugins/nodebb-plugin-ai-moderation/
 │   │           └── ai-moderation.tpl
 │   └── lib/
 │       └── admin.js      # 管理画面JS
-├── languages/
-│   ├── en-GB/
-│   │   └── ai-moderation.json
-│   └── ja/
-│       └── ai-moderation.json
-└── sql/
-    └── schema.sql        # データベーススキーマ
+└── languages/
+    ├── en-GB/
+    │   └── ai-moderation.json
+    └── ja/
+        └── ai-moderation.json
 ```
 
 ## プラグイン定義（plugin.json）
@@ -163,48 +161,221 @@ function renderAdmin(req, res) {
 module.exports = plugin;
 ```
 
-## データベーススキーマ
+## データストレージ設計
 
-### PostgreSQL用スキーマ（sql/schema.sql）
+### NodeBB データベース抽象化を使用
 
-```sql
--- AI Moderation Plugin Schema
+このプラグインはNodeBBのデータベース抽象化レイヤーを使用し、MongoDB、Redis、PostgreSQLなどのデータベースに対応します。
 
--- Settings table for global and per-category configuration
-DROP TABLE IF EXISTS ai_moderation_settings;
-CREATE TABLE IF NOT EXISTS ai_moderation_settings (
-    id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+### 設定管理
 
--- Moderation log table
-DROP TABLE IF EXISTS ai_moderation_log;
-CREATE TABLE IF NOT EXISTS ai_moderation_log (
-    id SERIAL PRIMARY KEY,
-    content_type VARCHAR(20) NOT NULL, -- 'topic' or 'post'
-    content_id INTEGER NOT NULL,
-    cid INTEGER NOT NULL,
-    uid INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    api_provider VARCHAR(50),
-    api_response JSONB,
-    score INTEGER,
-    categories JSONB,
-    action_taken VARCHAR(20), -- 'approved', 'flagged', 'rejected'
-    reviewed_by INTEGER,
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+```javascript
+const meta = require.main.require('./src/meta');
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_ai_moderation_log_content ON ai_moderation_log(content_type, content_id);
-CREATE INDEX IF NOT EXISTS idx_ai_moderation_log_cid ON ai_moderation_log(cid);
-CREATE INDEX IF NOT EXISTS idx_ai_moderation_log_uid ON ai_moderation_log(uid);
-CREATE INDEX IF NOT EXISTS idx_ai_moderation_log_action ON ai_moderation_log(action_taken);
-CREATE INDEX IF NOT EXISTS idx_ai_moderation_log_created ON ai_moderation_log(created_at);
+// プラグイン設定の保存
+async function saveSettings(settings) {
+    // APIキーは暗号化して保存し、クライアントには送信しない
+    const safeSettings = { ...settings };
+    if (safeSettings.apiKey) {
+        // NodeBBの暗号化機能を使用
+        safeSettings.apiKey = await meta.settings.setEncrypted('ai-moderation', 'apiKey', safeSettings.apiKey);
+        delete safeSettings.apiKey; // レスポンスから削除
+    }
+    
+    await meta.settings.set('ai-moderation', safeSettings);
+}
+
+// プラグイン設定の取得
+async function getSettings() {
+    const settings = await meta.settings.get('ai-moderation');
+    // APIキーは復号化（サーバーサイドのみ）
+    const apiKey = await meta.settings.getEncrypted('ai-moderation', 'apiKey');
+    return {
+        ...settings,
+        hasApiKey: !!apiKey, // クライアントには存在確認のみ送信
+        // apiKeyの実際の値はサーバーサイドでのみ使用
+    };
+}
+
+// APIキーの安全な取得（サーバーサイドのみ）
+async function getApiKey() {
+    return await meta.settings.getEncrypted('ai-moderation', 'apiKey');
+}
+```
+
+### モデレーションログ管理
+
+```javascript
+const db = require.main.require('./src/database');
+
+// モデレーションログのデータ構造
+class ModerationLogger {
+    async logModeration(data) {
+        // ユニークIDを生成
+        const logId = await db.incrObjectField('global', 'nextAiModerationLogId');
+        
+        // ログエントリを作成
+        const logEntry = {
+            id: logId,
+            contentType: data.contentType, // 'topic' or 'post'
+            contentId: data.contentId,
+            cid: data.cid,
+            uid: data.uid,
+            content: data.content,
+            apiProvider: data.apiProvider,
+            apiResponse: JSON.stringify(data.apiResponse),
+            score: data.score,
+            categories: JSON.stringify(data.categories),
+            actionTaken: data.actionTaken, // 'approved', 'flagged', 'rejected'
+            reviewedBy: data.reviewedBy || null,
+            reviewedAt: data.reviewedAt || null,
+            createdAt: Date.now()
+        };
+        
+        // ログエントリを保存
+        await db.setObject(`ai-moderation:log:${logId}`, logEntry);
+        
+        // インデックス用のソート済みセットに追加
+        await Promise.all([
+            // 時系列インデックス
+            db.sortedSetAdd('ai-moderation:logs:timestamp', logEntry.createdAt, logId),
+            
+            // カテゴリ別インデックス
+            db.sortedSetAdd(`ai-moderation:logs:cid:${data.cid}`, logEntry.createdAt, logId),
+            
+            // ユーザー別インデックス
+            db.sortedSetAdd(`ai-moderation:logs:uid:${data.uid}`, logEntry.createdAt, logId),
+            
+            // アクション別インデックス
+            db.sortedSetAdd(`ai-moderation:logs:action:${data.actionTaken}`, logEntry.createdAt, logId),
+            
+            // コンテンツタイプ別インデックス
+            db.sortedSetAdd(`ai-moderation:logs:type:${data.contentType}`, logEntry.createdAt, logId)
+        ]);
+        
+        return logId;
+    }
+    
+    async getLogsByCategory(cid, start = 0, stop = -1) {
+        const logIds = await db.getSortedSetRevRange(`ai-moderation:logs:cid:${cid}`, start, stop);
+        return await this.getLogsById(logIds);
+    }
+    
+    async getLogsByUser(uid, start = 0, stop = -1) {
+        const logIds = await db.getSortedSetRevRange(`ai-moderation:logs:uid:${uid}`, start, stop);
+        return await this.getLogsById(logIds);
+    }
+    
+    async getLogsByAction(action, start = 0, stop = -1) {
+        const logIds = await db.getSortedSetRevRange(`ai-moderation:logs:action:${action}`, start, stop);
+        return await this.getLogsById(logIds);
+    }
+    
+    async getRecentLogs(start = 0, stop = 19) {
+        const logIds = await db.getSortedSetRevRange('ai-moderation:logs:timestamp', start, stop);
+        return await this.getLogsById(logIds);
+    }
+    
+    async getLogsById(logIds) {
+        if (!logIds || logIds.length === 0) return [];
+        
+        const keys = logIds.map(id => `ai-moderation:log:${id}`);
+        const logs = await db.getObjects(keys);
+        
+        return logs.map(log => {
+            if (log) {
+                // JSONフィールドをパース
+                log.apiResponse = log.apiResponse ? JSON.parse(log.apiResponse) : null;
+                log.categories = log.categories ? JSON.parse(log.categories) : null;
+                log.createdAt = parseInt(log.createdAt);
+                log.reviewedAt = log.reviewedAt ? parseInt(log.reviewedAt) : null;
+            }
+            return log;
+        }).filter(Boolean);
+    }
+    
+    async getLogStats(cid = null, days = 30) {
+        const since = Date.now() - (days * 24 * 60 * 60 * 1000);
+        const baseKey = cid ? `ai-moderation:logs:cid:${cid}` : 'ai-moderation:logs:timestamp';
+        
+        // 指定期間内のログIDを取得
+        const logIds = await db.getSortedSetRangeByScore(baseKey, since, Date.now());
+        
+        if (logIds.length === 0) {
+            return { total: 0, approved: 0, flagged: 0, rejected: 0, avgScore: 0 };
+        }
+        
+        const logs = await this.getLogsById(logIds);
+        const stats = logs.reduce((acc, log) => {
+            acc.total++;
+            acc[log.actionTaken] = (acc[log.actionTaken] || 0) + 1;
+            acc.totalScore += log.score || 0;
+            return acc;
+        }, { total: 0, approved: 0, flagged: 0, rejected: 0, totalScore: 0 });
+        
+        stats.avgScore = stats.total > 0 ? Math.round(stats.totalScore / stats.total) : 0;
+        delete stats.totalScore;
+        
+        return stats;
+    }
+    
+    async updateLogReview(logId, reviewedBy, action, reviewedAt = Date.now()) {
+        const updates = {
+            actionTaken: action,
+            reviewedBy: reviewedBy,
+            reviewedAt: reviewedAt
+        };
+        
+        await db.setObject(`ai-moderation:log:${logId}`, updates);
+        
+        // アクションインデックスを更新
+        const log = await db.getObject(`ai-moderation:log:${logId}`);
+        if (log) {
+            // 古いアクションインデックスから削除
+            await db.sortedSetRemove(`ai-moderation:logs:action:${log.actionTaken}`, logId);
+            // 新しいアクションインデックスに追加
+            await db.sortedSetAdd(`ai-moderation:logs:action:${action}`, log.createdAt, logId);
+        }
+    }
+}
+```
+
+### データベース互換性
+
+この設計により、以下のNodeBBサポートデータベースで動作します：
+
+- **MongoDB**: オブジェクトとソート済みセットのネイティブサポート
+- **Redis**: 高速なソート済みセット操作
+- **PostgreSQL**: NodeBBの抽象化レイヤー経由でサポート
+
+### マイグレーション対応
+
+既存のPostgreSQL直接実装からの移行パスを提供：
+
+```javascript
+// オプション: PostgreSQL直接実装からの移行
+async function migrateFromDirectSql() {
+    const db = require.main.require('./src/database');
+    const logger = require.main.require('./src/logger');
+    
+    try {
+        // 既存のPostgreSQLテーブルの存在確認
+        const hasOldTables = await checkOldPostgresTables();
+        
+        if (hasOldTables) {
+            logger.info('[ai-moderation] Migrating from PostgreSQL direct tables...');
+            
+            // データ移行ロジック
+            await migrateSettingsData();
+            await migrateModerationLogs();
+            
+            logger.info('[ai-moderation] Migration completed successfully');
+        }
+    } catch (error) {
+        logger.error('[ai-moderation] Migration failed:', error);
+        throw error;
+    }
+}
 ```
 
 ## 管理画面テンプレート
