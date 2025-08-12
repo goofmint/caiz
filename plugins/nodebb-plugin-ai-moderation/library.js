@@ -3,6 +3,7 @@
 const plugin = {};
 const winston = require.main.require('winston');
 const db = require.main.require('./src/database');
+const privileges = require.main.require('./src/privileges');
 const socketPlugins = require.main.require('./src/socket.io/plugins');
 
 // コアモジュールの読み込み
@@ -14,6 +15,12 @@ const topicsHooks = require('./libs/hooks/topics');
 
 // インスタンス
 const contentAnalyzer = new ContentAnalyzer();
+
+// NodeBBではフラグ作成に特別な権限は不要なため、権限付与処理は削除可能
+// ただし、将来の拡張のために最小限のセットアップは残す
+
+// フラグを作成するユーザーID（システムユーザー）
+const FLAG_UID = 1;
 
 plugin.init = async function(params) {
     const { router, middleware } = params;
@@ -29,7 +36,8 @@ plugin.init = async function(params) {
     // Setup socket handlers
     setupSocketHandlers();
     
-    winston.info('[ai-moderation] AI Moderation Plugin initialized');
+    // NodeBBではフラグ作成に権限不要のため、権限付与処理は削除
+    winston.info('[ai-moderation] AI Moderation Plugin initialized with flag UID:', FLAG_UID);
 };
 
 
@@ -48,12 +56,22 @@ plugin.moderatePostCreate = postsHooks.moderatePostCreate;
 plugin.moderatePostEdit = postsHooks.moderatePostEdit;
 plugin.moderateTopicCreate = topicsHooks.moderateTopicCreate;
 plugin.moderateTopicEdit = topicsHooks.moderateTopicEdit;
+plugin.afterPostSave = postsHooks.afterPostSave;
+
+// 新規カテゴリ作成時のフック（将来の拡張用に残す）
+plugin.onCategoryCreate = async function(data) {
+    const cid = data?.cid || data?.category?.cid;
+    if (cid) {
+        winston.info('[ai-moderation] New category created', { cid });
+    }
+};
 
 winston.info('[ai-moderation] Hooks registered', {
     moderatePostCreate: typeof plugin.moderatePostCreate,
     moderatePostEdit: typeof plugin.moderatePostEdit,
     moderateTopicCreate: typeof plugin.moderateTopicCreate,
-    moderateTopicEdit: typeof plugin.moderateTopicEdit
+    moderateTopicEdit: typeof plugin.moderateTopicEdit,
+    onCategoryCreate: typeof plugin.onCategoryCreate
 });
 
 async function initializeDatabase() {

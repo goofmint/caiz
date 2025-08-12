@@ -15,6 +15,7 @@ async function getSettings() {
         enabled: settings.enabled !== false,  // デフォルトは有効
         provider: settings.provider || 'openai',
         apiKey: settings.apiKey || '',
+        flagUid: parseInt(settings.flagUid, 10) || 1,  // フラグを作成するユーザーID
         thresholds: {
             flag: parseInt(settings['thresholds.flag'] || settings.thresholdFlag, 10) || 70,
             reject: parseInt(settings['thresholds.reject'] || settings.thresholdReject, 10) || 90
