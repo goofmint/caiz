@@ -18,6 +18,12 @@ class ContentAnalyzer {
             // 設定を取得
             const config = await settings.getSettings();
             
+            winston.info('[ai-moderation] Config loaded', { 
+                enabled: config.enabled,
+                thresholds: config.thresholds,
+                hasApiKey: !!config.apiKey
+            });
+            
             if (!config.enabled) {
                 return { action: 'approved' };
             }
@@ -26,6 +32,8 @@ class ContentAnalyzer {
             const thresholds = config.thresholds || {};
             const flagThreshold = thresholds.flag ?? 70;
             const rejectThreshold = thresholds.reject ?? 90;
+            
+            winston.info('[ai-moderation] Using thresholds', { flagThreshold, rejectThreshold });
 
             // APIプロバイダを作成
             const moderator = apiFactory.createModerator(
