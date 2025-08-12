@@ -11,21 +11,13 @@ const analysisCache = new Map();
 const postsHooks = {
     // 新規投稿作成時のフック
     async moderatePostCreate(hookData) {
-        const isMainTopic = hookData.data?.isMain || false;
-        
         winston.info('[ai-moderation] Post create hook triggered', {
             content: hookData.post?.content?.substring(0, 50) || 'no content',
             pid: hookData.post?.pid,
-            uid: hookData.post?.uid,
-            isMainTopic: isMainTopic
+            uid: hookData.post?.uid
         });
         
-        if (isMainTopic) {
-            winston.info('[ai-moderation] Skipping post filter (already processed in topic create)');
-            return hookData;
-        }
-        
-        // AI分析処理
+        // AI分析処理（全ての投稿を対象）
         const content = hookData.post?.content;
         if (!content) {
             winston.info('[ai-moderation] No content to analyze');
