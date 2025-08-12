@@ -28,5 +28,6 @@
     "error-invalid-api-key": "APIキーが無効です",
     "error-connection-failed": "接続に失敗しました",
     "error-connection-timeout": "接続がタイムアウトしました",
-    "error-rate-limit": "レート制限に達しました"
+    "error-rate-limit": "レート制限に達しました",
+    "warning-rate-limit-but-connected": "APIへの接続は成功しましたが、レート制限に達しています。リクエスト頻度が高すぎるか、料金不足の可能性があります。しばらく待つか、OpenAIアカウントの利用状況を確認してください。"
 }
