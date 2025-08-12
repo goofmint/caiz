@@ -22,14 +22,6 @@
       "method": "moderatePostEdit"
     },
     {
-      "hook": "filter:topic.create",
-      "method": "moderateTopicCreate"
-    },
-    {
-      "hook": "filter:topic.edit",
-      "method": "moderateTopicEdit"
-    },
-    {
       "hook": "action:category.create",
       "method": "onCategoryCreate"
     },
