@@ -47,6 +47,17 @@ const postsHooks = {
                 hookData.post.deleted = 1;
                 winston.warn('[ai-moderation] Post rejected and marked as deleted');
             }
+            
+            // フラグの場合、NodeBBのフラグシステムに登録
+            if (analysisResult.action === 'flagged') {
+                try {
+                    const flags = require.main.require('./src/flags');
+                    await flags.create('post', hookData.post.pid, hookData.post.uid, 'AI Moderation', `AI analysis flagged this content with score: ${analysisResult.score}`);
+                    winston.info('[ai-moderation] Post flagged in NodeBB system', { pid: hookData.post.pid });
+                } catch (flagError) {
+                    winston.error('[ai-moderation] Failed to create flag', { error: flagError.message });
+                }
+            }
 
         } catch (error) {
             winston.error('[ai-moderation] Post analysis failed', { error: error.message });
