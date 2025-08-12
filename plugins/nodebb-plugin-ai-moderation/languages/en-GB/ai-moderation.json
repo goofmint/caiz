@@ -29,5 +29,10 @@
     "error-connection-failed": "Connection failed",
     "error-connection-timeout": "Connection timed out",
     "error-rate-limit": "Rate limit exceeded",
-    "warning-rate-limit-but-connected": "API connection successful, but rate limit exceeded. This may be due to too many requests or insufficient payment/credits. Please wait or check your OpenAI account usage and billing."
+    "warning-rate-limit-but-connected": "API connection successful, but rate limit exceeded. This may be due to too many requests or insufficient payment/credits. Please wait or check your OpenAI account usage and billing.",
+    "flag-user": "Moderation User",
+    "flag-user-help": "Select the user who will create flags for AI-moderated content.",
+    "search-user": "Search for user...",
+    "error-user-search": "Failed to search for user",
+    "user-not-found": "User not found"
 }

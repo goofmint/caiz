@@ -4,33 +4,30 @@ const meta = require.main.require('./src/meta');
 
 // プラグイン設定の保存
 async function saveSettings(settings) {
-    // APIキーは暗号化して保存し、クライアントには送信しない
-    const safeSettings = { ...settings };
-    if (safeSettings.apiKey) {
-        // NodeBBの暗号化機能を使用
-        await meta.settings.setEncrypted('ai-moderation', 'apiKey', safeSettings.apiKey);
-        delete safeSettings.apiKey; // レスポンスから削除
-    }
-    
-    await meta.settings.set('ai-moderation', safeSettings);
-    return safeSettings;
+    await meta.settings.set('ai-moderation', settings);
+    return settings;
 }
 
 // プラグイン設定の取得
 async function getSettings() {
-    const settings = await meta.settings.get('ai-moderation');
-    // APIキーは復号化（サーバーサイドのみ）
-    const apiKey = await meta.settings.getEncrypted('ai-moderation', 'apiKey');
+    const settings = await meta.settings.get('ai-moderation') || {};
     return {
-        ...settings,
-        hasApiKey: !!apiKey, // クライアントには存在確認のみ送信
-        // apiKeyの実際の値はサーバーサイドでのみ使用
+        enabled: settings.enabled !== false,  // デフォルトは有効
+        provider: settings.provider || 'openai',
+        apiKey: settings.apiKey || '',
+        flagUid: parseInt(settings.flagUid, 10) || 1,  // フラグを作成するユーザーID
+        thresholds: {
+            flag: parseInt(settings['thresholds.flag'] || settings.thresholdFlag, 10) || 70,
+            reject: parseInt(settings['thresholds.reject'] || settings.thresholdReject, 10) || 90
+        },
+        hasApiKey: !!settings.apiKey
     };
 }
 
 // APIキーの安全な取得（サーバーサイドのみ）
 async function getApiKey() {
-    return await meta.settings.getEncrypted('ai-moderation', 'apiKey');
+    const settings = await meta.settings.get('ai-moderation') || {};
+    return settings.apiKey || '';
 }
 
 module.exports = {

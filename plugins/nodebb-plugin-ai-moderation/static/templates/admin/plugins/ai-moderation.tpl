@@ -17,6 +17,29 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="flagUser">[[ai-moderation:flag-user]]</label>
+                            <div class="row">
+                                <div class="col-sm-8">
+                                    <div class="input-group">
+                                        <input type="text" id="flagUserSearch" class="form-control" placeholder="[[ai-moderation:search-user]]" />
+                                        <span class="input-group-btn">
+                                            <button class="btn btn-default" type="button" id="flagUserSearchBtn">
+                                                <i class="fa fa-search"></i>
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <input type="hidden" id="flagUid" name="flagUid" value="1" />
+                                    <div id="selectedUser" class="selected-user" style="margin-top: 10px;">
+                                        <span class="label label-primary" id="selectedUserLabel">
+                                            <i class="fa fa-user"></i> <span id="selectedUsername">UID: 1</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="help-block">[[ai-moderation:flag-user-help]]</p>
+                        </div>
+
                         <div class="row">
                             <div class="col-sm-6">
                                 <div class="form-group">

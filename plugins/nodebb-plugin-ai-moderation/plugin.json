@@ -28,6 +28,14 @@
     {
       "hook": "filter:topic.edit",
       "method": "moderateTopicEdit"
+    },
+    {
+      "hook": "action:category.create",
+      "method": "onCategoryCreate"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "afterPostSave"
     }
   ],
   "templates": "static/templates",
