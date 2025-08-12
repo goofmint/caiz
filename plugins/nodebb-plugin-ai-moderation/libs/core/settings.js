@@ -16,8 +16,8 @@ async function getSettings() {
         provider: settings.provider || 'openai',
         apiKey: settings.apiKey || '',
         thresholds: {
-            flag: parseInt(settings.thresholdFlag, 10) || 70,
-            reject: parseInt(settings.thresholdReject, 10) || 90
+            flag: parseInt(settings['thresholds.flag'] || settings.thresholdFlag, 10) || 70,
+            reject: parseInt(settings['thresholds.reject'] || settings.thresholdReject, 10) || 90
         },
         hasApiKey: !!settings.apiKey
     };
