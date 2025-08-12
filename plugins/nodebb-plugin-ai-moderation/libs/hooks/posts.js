@@ -52,10 +52,15 @@ const postsHooks = {
             if (analysisResult.action === 'flagged') {
                 try {
                     const flags = require.main.require('./src/flags');
-                    await flags.create('post', hookData.post.pid, hookData.post.uid, 'AI Moderation', `AI analysis flagged this content with score: ${analysisResult.score}`);
+                    // システム管理者として実行（uid: 0 は通常システムユーザー）
+                    await flags.create('post', hookData.post.pid, 0, 'AI Moderation', `AI analysis flagged this content with score: ${analysisResult.score}`);
                     winston.info('[ai-moderation] Post flagged in NodeBB system', { pid: hookData.post.pid });
                 } catch (flagError) {
                     winston.error('[ai-moderation] Failed to create flag', { error: flagError.message });
+                    // 代替手段として投稿にフラグフィールドを追加
+                    hookData.post.aiModerated = true;
+                    hookData.post.aiScore = analysisResult.score;
+                    winston.info('[ai-moderation] Added AI moderation fields to post', { pid: hookData.post.pid });
                 }
             }
 
