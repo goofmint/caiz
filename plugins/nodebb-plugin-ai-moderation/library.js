@@ -119,44 +119,24 @@ function setupSocketHandlers() {
     // 管理画面用のSocket.IOイベントハンドラ
     socketPlugins['ai-moderation'] = {
         // 設定の取得
-        getSettings: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                const settingsData = await settings.getSettings();
-                callback(null, settingsData);
-            } catch (error) {
-                winston.error('[ai-moderation] Failed to get settings', { error: error.message });
-                callback(error);
-            }
+        getSettings: async function(socket, data) {
+            await requireAdmin(socket);
+            return settings.getSettings();
         },
 
         // 設定の保存
-        saveSettings: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                
-                await settings.saveSettings(data);
-                
-                // 設定更新完了
-
-                winston.info('[ai-moderation] Settings saved by user', { uid: socket.uid });
-                callback(null);
-            } catch (error) {
-                winston.error('[ai-moderation] Failed to save settings', { error: error.message });
-                callback(error);
-            }
+        saveSettings: async function(socket, data) {
+            await requireAdmin(socket);
+            
+            await settings.saveSettings(data);
+            winston.info('[ai-moderation] Settings saved by user', { uid: socket.uid });
+            return { success: true };
         },
 
         // API接続テスト
-        testConnection: async function(socket, data, callback) {
-            try {
-                await requireAdmin(socket);
-                const result = await apiFactory.testProvider('openai', data.apiKey);
-                callback(null, result);
-            } catch (error) {
-                winston.error('[ai-moderation] Connection test failed', { error: error.message });
-                callback(error);
-            }
+        testConnection: async function(socket, data) {
+            await requireAdmin(socket);
+            return apiFactory.testProvider('openai', data.apiKey);
         }
     };
 

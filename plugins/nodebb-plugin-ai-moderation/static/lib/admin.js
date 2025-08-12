@@ -37,7 +37,7 @@ define('admin/plugins/ai-moderation', ['settings', 'alerts', 'translator'], func
             $button.text(translated);
         });
 
-        app.socket.emit('plugins.ai-moderation.testConnection', { apiKey }, function(err, data) {
+        window.socket.emit('plugins.ai-moderation.testConnection', { apiKey }, function(err, data) {
             // ボタン状態を復元
             $button.prop('disabled', false).text(originalText);
             
