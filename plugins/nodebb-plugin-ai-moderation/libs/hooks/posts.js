@@ -22,8 +22,35 @@ const postsHooks = {
             return hookData;
         }
         
-        // フィルター処理のログ
-        winston.info('[ai-moderation] Applying post create filter');
+        // AI分析処理
+        const content = hookData.post?.content;
+        if (!content) {
+            winston.info('[ai-moderation] No content to analyze');
+            return hookData;
+        }
+
+        try {
+            const analysisResult = await analyzer.analyzeContent({
+                content: content,
+                contentType: 'post',
+                contentId: hookData.post?.pid || 'new',
+                uid: hookData.post?.uid
+            });
+
+            winston.info('[ai-moderation] Post analysis result', { 
+                action: analysisResult.action,
+                score: analysisResult.score 
+            });
+
+            // リジェクトの場合、投稿削除フラグを設定
+            if (analysisResult.action === 'rejected') {
+                hookData.post.deleted = 1;
+                winston.warn('[ai-moderation] Post rejected and marked as deleted');
+            }
+
+        } catch (error) {
+            winston.error('[ai-moderation] Post analysis failed', { error: error.message });
+        }
         
         return hookData;
     },
