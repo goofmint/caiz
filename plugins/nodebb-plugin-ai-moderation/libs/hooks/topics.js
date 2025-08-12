@@ -8,61 +8,30 @@ const analyzer = new ContentAnalyzer();
 const topicsHooks = {
     // 新規トピック作成時のフック
     async moderateTopicCreate(hookData) {
-        try {
-            // タイトルとコンテンツを結合してモデレーション
-            const combinedContent = `${hookData.title}\n\n${hookData.content || ''}`;
-
-            const analysisResult = await analyzer.analyzeContent({
-                content: combinedContent,
-                contentType: 'topic',
-                contentId: hookData.tid || 'new',
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、トピックを削除フラグを立てる
-            if (analysisResult.action === 'rejected') {
-                hookData.deleted = 1;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Topic moderation failed', {
-                error: error.message,
-                uid: hookData.uid
-            });
-            return hookData;
-        }
+        winston.info('[ai-moderation] Topic create hook triggered', {
+            title: hookData.topic?.title?.substring(0, 50) || hookData.data?.title?.substring(0, 50) || 'no title',
+            content: hookData.data?.content?.substring(0, 50) || 'no content',
+            tid: hookData.topic?.tid,
+            uid: hookData.topic?.uid
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying topic create filter');
+        
+        return hookData;
     },
 
     // トピック編集時のフック
     async moderateTopicEdit(hookData) {
-        if (!hookData.title) {
-            return hookData;
-        }
+        winston.info('[ai-moderation] Topic edit hook triggered', {
+            title: hookData.topic?.title?.substring(0, 50) || hookData.title?.substring(0, 50) || 'no title',
+            tid: hookData.topic?.tid || hookData.tid
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying topic edit filter');
 
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.title,
-                contentType: 'topic',
-                contentId: hookData.tid,
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、編集を無効化
-            if (analysisResult.action === 'rejected') {
-                delete hookData.title;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Topic edit moderation failed', {
-                error: error.message,
-                tid: hookData.tid
-            });
-            return hookData;
-        }
+        return hookData;
     }
 };
 

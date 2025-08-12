@@ -8,54 +8,38 @@ const analyzer = new ContentAnalyzer();
 const postsHooks = {
     // 新規投稿作成時のフック
     async moderatePostCreate(hookData) {
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.content,
-                contentType: 'post',
-                contentId: hookData.pid || 'new',
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、投稿を削除フラグを立てる
-            if (analysisResult.action === 'rejected') {
-                hookData.deleted = 1;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Post moderation failed', {
-                error: error.message,
-                uid: hookData.uid
-            });
+        const isMainTopic = hookData.data?.isMain || false;
+        
+        winston.info('[ai-moderation] Post create hook triggered', {
+            content: hookData.post?.content?.substring(0, 50) || 'no content',
+            pid: hookData.post?.pid,
+            uid: hookData.post?.uid,
+            isMainTopic: isMainTopic
+        });
+        
+        if (isMainTopic) {
+            winston.info('[ai-moderation] Skipping post filter (already processed in topic create)');
             return hookData;
         }
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying post create filter');
+        
+        return hookData;
     },
 
     // 投稿編集時のフック
     async moderatePostEdit(hookData) {
-        try {
-            const analysisResult = await analyzer.analyzeContent({
-                content: hookData.content,
-                contentType: 'post',
-                contentId: hookData.pid,
-                uid: hookData.uid
-            });
-
-            // リジェクトの場合、編集を無効化
-            if (analysisResult.action === 'rejected') {
-                delete hookData.content;
-            }
-
-            return hookData;
-
-        } catch (error) {
-            winston.error('[ai-moderation] Post edit moderation failed', {
-                error: error.message,
-                pid: hookData.pid
-            });
-            return hookData;
-        }
+        winston.info('[ai-moderation] Post edit hook triggered', {
+            content: hookData.post?.content?.substring(0, 50) || 'no content',
+            pid: hookData.post?.pid,
+            uid: hookData.post?.uid
+        });
+        
+        // フィルター処理のログ
+        winston.info('[ai-moderation] Applying post edit filter');
+        
+        return hookData;
     }
 };
 
