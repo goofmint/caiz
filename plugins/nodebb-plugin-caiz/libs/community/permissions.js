@@ -1,4 +1,5 @@
 const winston = require.main.require('winston');
+const Categories = require.main.require('./src/categories');
 const data = require('./data');
 const { GROUP_SUFFIXES, getGroupName } = require('./shared/constants');
 
@@ -16,13 +17,13 @@ async function IsCommunityOwner(socket, { cid }) {
 
   try {
     // Get category data to find owner group
-    const category = await data.getCategoryData(cid);
+    const category = await Categories.getCategoryData(cid);
     if (!category) {
       winston.warn(`[plugin/caiz] Category ${cid} not found`);
       return { isOwner: false };
     }
 
-    const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+    const ownerGroup = category.ownerGroup;
     if (!ownerGroup) {
       winston.info(`[plugin/caiz] No owner group found for category ${cid}`);
       return { isOwner: false };
@@ -60,7 +61,8 @@ async function checkOwnership(uid, cid) {
     return false;
   }
   
-  const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+  const category = await Categories.getCategoryData(cid);
+  const ownerGroup = category?.ownerGroup;
   if (!ownerGroup) {
     return false;
   }
