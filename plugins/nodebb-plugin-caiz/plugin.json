@@ -38,6 +38,10 @@
     {
       "hook": "filter:middleware.renderHeader",
       "method": "loadCommunityEditModal"
+    },
+    {
+      "hook": "filter:category.get",
+      "method": "filterCategoryGet"
     }
   ]
 }

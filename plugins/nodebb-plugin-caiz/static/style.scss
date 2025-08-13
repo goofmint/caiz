@@ -4,7 +4,8 @@
 }
 
 /* Hide follow button on subcategory pages (parentCid !== 0) */
-[component="category"]:not([data-parent-cid="0"]) #community-follow-button {
+[component="category"]:not([data-parent-cid="0"]) #community-follow-button,
+body[data-template="category"] .hideFollowButton #community-follow-button {
   display: none !important;
 }
 

@@ -30,6 +30,15 @@ class Category extends Base {
     }
     return data;
   }
+
+  static async filterCategoryGet(data) {
+    const {category} = data;
+    // Hide follow button for subcategories (parentCid !== 0)
+    if (category && category.parentCid !== 0) {
+      category.hideFollowButton = true;
+    }
+    return data;
+  }
 }
 
 module.exports = Category;
