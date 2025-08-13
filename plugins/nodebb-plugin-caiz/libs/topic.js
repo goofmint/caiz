@@ -31,7 +31,7 @@ class Topic extends Base {
       return data;
     }
     
-    const community = breadcrumbs.find(b => b && b.url && b.url.match(/.*\/category\/[0-9]\/([^\/]*)$/));
+    const community = breadcrumbs.find(b => b && b.url && b.url.match(/.*\/category\/[0-9]+\/([^\/]*)$/));
     if (!community) {
       return data;
     }
