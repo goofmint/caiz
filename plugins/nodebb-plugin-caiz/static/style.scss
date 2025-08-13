@@ -1,3 +1,32 @@
+/* Hide follow button on topic pages */
+[component="topic"] #community-follow-button {
+  display: none !important;
+}
+
+/* Thread Composer Modal Positioning */
+.composer {
+  &.resizable {
+    max-width: 800px !important;
+    width: 70% !important;
+    left: 50% !important;
+    transform: translateX(-50%);
+    margin: 0 auto;
+  }
+  
+  .composer-container {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .composer {
+    &.resizable {
+      width: 95% !important;
+      max-width: none !important;
+    }
+  }
+}
+
 /* Community Creator Modal z-index adjustment */
 #community-create-modal {
   z-index: 1060;
@@ -31,6 +60,7 @@
 }
 
 .community-sidebar {
+  z-index: 10;
   padding-left: 8px;
   min-width: 56px;
   max-width: 56px;
