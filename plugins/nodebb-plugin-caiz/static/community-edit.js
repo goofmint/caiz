@@ -231,8 +231,8 @@ const initializeCommunityPage = async () => {
     return;
   }
   
-  // Initialize follow button for all users
-  if (app.user && app.user.uid) {
+  // Initialize follow button only for top-level categories (parentCid === 0)
+  if (app.user && app.user.uid && ajaxify.data.category.parentCid === 0) {
     await initializeFollowButton(cid);
     
     // Check if user is owner and add edit button
