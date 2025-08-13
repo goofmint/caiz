@@ -28,11 +28,23 @@ const addCommunity = (community, communityUl) => {
   const li = document.createElement('li');
   li.classList.add('nav-item', 'mx-2');
   li.setAttribute('data-bs-original-title', community.name);
+  
+  // Determine whether to show background image or icon
+  let iconContent;
+  if (community.backgroundImage) {
+    iconContent = `<img src="${community.backgroundImage}" alt="${community.name}" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;">`;
+  } else if (community.icon) {
+    iconContent = `<i class="fa fa-fw ${community.icon}" data-content="" style="font-size: 14px;"></i>`;
+  } else {
+    // Fallback to first letter of community name
+    iconContent = `<span style="font-size: 12px; font-weight: bold;">${community.name.charAt(0).toUpperCase()}</span>`;
+  }
+  
   li.innerHTML = `<a class="nav-link navigation-link d-flex gap-2 justify-content-between align-items-center" href="/${community.handle}" aria-label="${community.name}">
     <span class="d-flex gap-2 align-items-center text-nowrap truncate-open">
       <span class="position-relative">
-        <span class="icon d-inline-flex justify-content-center align-items-center align-middle rounded-1 flex-shrink-0" style="background-color: ${community.bgColor}; border-color: ${community.bgColor} !important; color: ${community.color}; width: 24px !important; height: 24px !important;">
-          <i class="fa fa-fw ${community.icon}" data-content="" style="font-size: 14px;"></i>
+        <span class="icon d-inline-flex justify-content-center align-items-center align-middle rounded-1 flex-shrink-0" style="background-color: ${community.backgroundImage ? 'transparent' : (community.bgColor || '#6c757d')}; border-color: ${community.backgroundImage ? 'transparent' : (community.bgColor || '#6c757d')} !important; color: ${community.color || '#fff'}; width: 24px !important; height: 24px !important;">
+          ${iconContent}
         </span>
         <span component="navigation/count" class="visible-closed position-absolute top-0 start-100 translate-middle badge rounded-1 bg-primary hidden"></span>
       </span>
