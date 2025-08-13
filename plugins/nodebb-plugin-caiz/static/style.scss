@@ -66,6 +66,7 @@ body[data-template="category"] .hideFollowButton #community-follow-button {
 }
 
 .community-sidebar {
+  z-index: 10;
   padding-left: 8px;
   min-width: 56px;
   max-width: 56px;
