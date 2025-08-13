@@ -61,7 +61,6 @@ const toggleCommunity = async () => {
   sidebarEl.toggleClass('open');
   
   const newState = sidebarEl.hasClass('open') ? 'on' : 'off';
-  console.log('[caiz] Toggling sidebar from', isOpen ? 'open' : 'closed', 'to', newState);
   
   // Save to user settings (primary method)
   if (app.user && app.user.uid) {
@@ -71,7 +70,6 @@ const toggleCommunity = async () => {
           openCommunitySidebars: newState,
         },
       });
-      console.log('[caiz] Sidebar state saved to user settings:', newState);
     } catch (err) {
       console.error('[caiz] Failed to save sidebar state to user settings:', err);
     }
@@ -80,43 +78,30 @@ const toggleCommunity = async () => {
   // Also save to localStorage and sessionStorage as fallback
   localStorage.setItem('caiz-sidebar-state', newState);
   sessionStorage.setItem('caiz-sidebar-state', newState);
-  console.log('[caiz] Sidebar state saved to localStorage and sessionStorage:', newState);
   
   $(window).trigger('action:sidebar.toggleCommunity');
 };
 
 const restoreSidebarState = () => {
   const sidebarEl = $('.community-sidebar');
-  if (sidebarEl.length === 0) {
-    console.log('[caiz] No sidebar element found, skipping restore');
-    return;
-  }
+  if (sidebarEl.length === 0) return;
   
   let shouldOpen = false;
-  
-  // Always check localStorage first
-  const savedState = localStorage.getItem('caiz-sidebar-state');
-  console.log('[caiz] localStorage state:', savedState);
   
   // Check user settings
   if (app.user && app.user.settings && app.user.settings.openCommunitySidebars) {
     shouldOpen = app.user.settings.openCommunitySidebars === 'on';
-    console.log('[caiz] User settings state:', app.user.settings.openCommunitySidebars);
   }
   // Fallback to localStorage
-  else if (savedState) {
+  else {
+    const savedState = localStorage.getItem('caiz-sidebar-state');
     shouldOpen = savedState === 'on';
-    console.log('[caiz] Using localStorage state:', savedState);
   }
-  
-  console.log('[caiz] Final shouldOpen decision:', shouldOpen);
   
   if (shouldOpen) {
     sidebarEl.addClass('open');
-    console.log('[caiz] Sidebar restored to open state');
   } else {
     sidebarEl.removeClass('open');
-    console.log('[caiz] Sidebar restored to closed state');
   }
 };
 
