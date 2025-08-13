@@ -11,8 +11,8 @@
     "community_name": "Community Name",
     "community_description": "Community Description",
     "submit_create": "Create",
-    "follow": "Followed",
-    "unfollow": "Not Followed",
+    "follow": "Follow",
+    "unfollow": "Following",
     "following": "Follow",
     "unfollowing": "Unfollow"
   }

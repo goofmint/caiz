@@ -26,7 +26,7 @@ const DEPRECATED_followInitializer = async () => {
   const getText = (key) => messages[key] || key;
 
   const changeButtonLabel = async () => {
-    const key = follow.status ? 'caiz:follow' : 'caiz:unfollow';
+    const key = follow.status ? 'caiz:unfollow' : 'caiz:follow';
     followButton.text(getText(key));
     updateCommunities();
   };
@@ -50,7 +50,7 @@ const DEPRECATED_followInitializer = async () => {
   });
 
   followButton.on('mouseleave', () => {
-    const key = follow.status ? 'caiz:follow' : 'caiz:unfollow';
+    const key = follow.status ? 'caiz:unfollow' : 'caiz:follow';
     followButton.text(getText(key));
   });
 
