@@ -1,3 +1,8 @@
+/* Hide follow button on topic pages */
+[component="topic"] #community-follow-button {
+  display: none !important;
+}
+
 /* Thread Composer Modal Positioning */
 .composer {
   &.resizable {
