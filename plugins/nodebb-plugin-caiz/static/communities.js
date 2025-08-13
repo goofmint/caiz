@@ -77,30 +77,39 @@ const toggleCommunity = async () => {
     }
   }
   
-  // Also save to localStorage as fallback
+  // Also save to localStorage and sessionStorage as fallback
   localStorage.setItem('caiz-sidebar-state', newState);
-  console.log('[caiz] Sidebar state saved to localStorage:', newState);
+  sessionStorage.setItem('caiz-sidebar-state', newState);
+  console.log('[caiz] Sidebar state saved to localStorage and sessionStorage:', newState);
   
   $(window).trigger('action:sidebar.toggleCommunity');
 };
 
 const restoreSidebarState = () => {
   const sidebarEl = $('.community-sidebar');
-  if (sidebarEl.length === 0) return;
+  if (sidebarEl.length === 0) {
+    console.log('[caiz] No sidebar element found, skipping restore');
+    return;
+  }
   
   let shouldOpen = false;
   
-  // Primary: Check user settings
-  if (app.user && app.user.settings && app.user.settings.openCommunitySidebars === 'on') {
-    shouldOpen = true;
-    console.log('[caiz] Sidebar state from user settings: open');
+  // Always check localStorage first
+  const savedState = localStorage.getItem('caiz-sidebar-state');
+  console.log('[caiz] localStorage state:', savedState);
+  
+  // Check user settings
+  if (app.user && app.user.settings && app.user.settings.openCommunitySidebars) {
+    shouldOpen = app.user.settings.openCommunitySidebars === 'on';
+    console.log('[caiz] User settings state:', app.user.settings.openCommunitySidebars);
   }
-  // Fallback: Check localStorage
-  else if (!app.user || !app.user.uid) {
-    const savedState = localStorage.getItem('caiz-sidebar-state');
+  // Fallback to localStorage
+  else if (savedState) {
     shouldOpen = savedState === 'on';
-    console.log('[caiz] Sidebar state from localStorage:', savedState);
+    console.log('[caiz] Using localStorage state:', savedState);
   }
+  
+  console.log('[caiz] Final shouldOpen decision:', shouldOpen);
   
   if (shouldOpen) {
     sidebarEl.addClass('open');
