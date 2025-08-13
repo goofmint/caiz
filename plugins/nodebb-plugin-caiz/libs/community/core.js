@@ -12,6 +12,7 @@ const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./sha
 async function createCommunity(uid, { name, description }) {
   const ownerPrivileges = await Privileges.categories.getGroupPrivilegeList();
   
+  winston.info(`[plugin/caiz] Creating community: ${JSON.stringify(ownerPrivileges)}`);
   // Create a new top-level category
   const categoryData = {
     name,
@@ -40,10 +41,10 @@ async function createCommunity(uid, { name, description }) {
   await permissions.createCommunityGroup(managerGroupName, managerGroupDesc, uid, 0, 0);
   
   // Create a community members group
-  const communityGroupName = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
-  const communityGroupDesc = `Members of Community: ${name}`;
-  await permissions.createCommunityGroup(communityGroupName, communityGroupDesc, uid, 0, 0);
-  
+  const communityMemberName = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
+  const communityMemberDesc = `Members of Community: ${name}`;
+  await permissions.createCommunityGroup(communityMemberName, communityMemberDesc, uid, 0, 0);
+
   // Create a community banned group
   const communityBanGroupName = getGroupName(cid, GROUP_SUFFIXES.BANNED);
   const communityBanGroupDesc = `Banned members of Community: ${name}`;
@@ -53,10 +54,41 @@ async function createCommunity(uid, { name, description }) {
   await data.setObjectField(`category:${cid}`, 'ownerGroup', ownerGroupName);
   await data.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
 
-  // Set up privileges
   await Privileges.categories.give(ownerPrivileges, cid, ownerGroupName);
-  const communityPrivileges = ownerPrivileges.filter(p => p !== 'groups:posts:view_deleted' && p !== 'groups:purge' && p !== 'groups:moderate');
-  await Privileges.categories.give(communityPrivileges, cid, communityGroupName);
+  // Set up privileges
+  // マネージャー: 担当カテゴリ内の運営を想定
+  // → ownerPrivileges から全域の物理削除権限などを除外
+  const managerPrivileges = ownerPrivileges.filter(priv => 
+    ![
+      "groups:purge",        // 物理削除
+    ].includes(priv)
+  );
+  await Privileges.categories.rescind(ownerPrivileges, cid, managerGroupName);
+  await Privileges.categories.give(managerPrivileges, cid, managerGroupName);
+
+  // Manager グループへのモデレーション権限付与（新規追加）
+  const moderationPrivileges = ['groups:find', 'groups:read', 'groups:topics:read', 'groups:moderate'];
+  await Privileges.categories.give(moderationPrivileges, cid, managerGroupName);
+  winston.info(`[plugin/caiz] Moderation privileges granted to manager group: ${managerGroupName}`);
+
+  // メンバー: 一般参加者を想定
+  // → managerPrivileges からモデレーションや高度編集を除外
+  const memberPrivileges = managerPrivileges.filter(priv =>
+    ![
+      "groups:topics:schedule",    // 公開日時予約
+      "groups:topics:tag",         // タグ編集（必要なら許可可）
+      "groups:posts:edit",         // 他人の投稿編集
+      "groups:posts:history",      // 編集履歴閲覧
+      "groups:posts:delete",       // 他人の投稿削除
+      "groups:topics:delete",      // 他人のトピック削除
+      "groups:posts:view_deleted", // 削除済み投稿閲覧
+      "groups:moderate"            // モデレーション全般
+    ].includes(priv)
+  );
+  await Privileges.categories.rescind(ownerPrivileges, cid, communityMemberName);
+  await Privileges.categories.give(memberPrivileges, cid, communityMemberName);
+
+  // const communityPrivileges = ownerPrivileges.filter(p => p !== 'groups:posts:view_deleted' && p !== 'groups:purge' && p !== 'groups:moderate' && p !== 'groups:topics:delete');
   await Privileges.categories.give([], cid, communityBanGroupName);
   await Privileges.categories.rescind(ownerPrivileges, cid, 'guests');
   await Privileges.categories.give(GUEST_PRIVILEGES, cid, 'guests');
