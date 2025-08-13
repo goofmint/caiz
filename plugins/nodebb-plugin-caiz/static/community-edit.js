@@ -231,17 +231,7 @@ const initializeCommunityPage = async () => {
     return;
   }
   
-  // Hide follow button for subcategories (parentCid !== 0)
-  if (ajaxify.data.category.parentCid !== 0) {
-    const followButton = $('#community-follow-button');
-    if (followButton.length > 0) {
-      followButton.hide();
-      console.log('[caiz] Hidden follow button for subcategory');
-    }
-    return; // Don't initialize follow button for subcategories
-  }
-  
-  // Initialize follow button only for top-level categories (parentCid === 0)
+  // Initialize follow button for all users
   if (app.user && app.user.uid) {
     await initializeFollowButton(cid);
     

@@ -33,7 +33,6 @@ plugin.init = async function (params) {
 plugin.customizeCategoriesLink = Community.customizeIndexLink;
 plugin.customizeCategoryLink = Category.customizeLink;
 plugin.customizeTopicRender = Topic.customizeRender;
-plugin.filterCategoryGet = Category.filterCategoryGet;
 plugin.customizeSidebarCommunities = Header.customizeSidebarCommunities;
 plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
 sockets.caiz = {};
