@@ -57,15 +57,58 @@ const addCommunity = (community, communityUl) => {
 
 const toggleCommunity = async () => {
   const sidebarEl = $('.community-sidebar');
+  const isOpen = sidebarEl.hasClass('open');
   sidebarEl.toggleClass('open');
-  if (app.user.uid) {
-    await api.put(`/users/${app.user.uid}/settings`, {
-      settings: {
-        openCommunitySidebars: sidebarEl.hasClass('open') ? 'on' : 'off',
-      },
-    });
+  
+  const newState = sidebarEl.hasClass('open') ? 'on' : 'off';
+  console.log('[caiz] Toggling sidebar from', isOpen ? 'open' : 'closed', 'to', newState);
+  
+  // Save to user settings (primary method)
+  if (app.user && app.user.uid) {
+    try {
+      await api.put(`/users/${app.user.uid}/settings`, {
+        settings: {
+          openCommunitySidebars: newState,
+        },
+      });
+      console.log('[caiz] Sidebar state saved to user settings:', newState);
+    } catch (err) {
+      console.error('[caiz] Failed to save sidebar state to user settings:', err);
+    }
   }
+  
+  // Also save to localStorage as fallback
+  localStorage.setItem('caiz-sidebar-state', newState);
+  console.log('[caiz] Sidebar state saved to localStorage:', newState);
+  
   $(window).trigger('action:sidebar.toggleCommunity');
+};
+
+const restoreSidebarState = () => {
+  const sidebarEl = $('.community-sidebar');
+  if (sidebarEl.length === 0) return;
+  
+  let shouldOpen = false;
+  
+  // Primary: Check user settings
+  if (app.user && app.user.settings && app.user.settings.openCommunitySidebars === 'on') {
+    shouldOpen = true;
+    console.log('[caiz] Sidebar state from user settings: open');
+  }
+  // Fallback: Check localStorage
+  else if (!app.user || !app.user.uid) {
+    const savedState = localStorage.getItem('caiz-sidebar-state');
+    shouldOpen = savedState === 'on';
+    console.log('[caiz] Sidebar state from localStorage:', savedState);
+  }
+  
+  if (shouldOpen) {
+    sidebarEl.addClass('open');
+    console.log('[caiz] Sidebar restored to open state');
+  } else {
+    sidebarEl.removeClass('open');
+    console.log('[caiz] Sidebar restored to closed state');
+  }
 };
 
 // NodeBBのajaxifyフックを使用してページ遷移時に実行
@@ -84,9 +127,7 @@ $(window).on('action:ajaxify.end', function () {
     $('[component="community/toggle"]').off('click').on('click', toggleCommunity);
     
     // ユーザー設定に基づいてサイドバーの状態を復元
-    if (app.user.settings && app.user.settings.openCommunitySidebars === 'on') {
-      $('.community-sidebar').addClass('open');
-    }
+    restoreSidebarState();
   }
 });
 
@@ -102,8 +143,6 @@ document.addEventListener('DOMContentLoaded', function () {
     updateCommunities();
     $('[component="community/toggle"]').on('click', toggleCommunity);
     
-    if (app.user.settings && app.user.settings.openCommunitySidebars === 'on') {
-      $('.community-sidebar').addClass('open');
-    }
+    restoreSidebarState();
   }
 });
