@@ -64,6 +64,11 @@ async function createCommunity(uid, { name, description }) {
   await Privileges.categories.give(GUEST_PRIVILEGES, cid, 'registered-users');
   await Privileges.categories.give([], cid, 'banned-users');
 
+  // Manager グループへのモデレーション権限付与（新規追加）
+  const moderationPrivileges = ['read', 'topics:read', 'moderate'];
+  await Privileges.categories.give(moderationPrivileges, cid, managerGroupName);
+  winston.info(`[plugin/caiz] Moderation privileges granted to manager group: ${managerGroupName}`);
+
   // Create child categories in the community
   await Promise.all(initialCategories.map((category) => {
     return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
