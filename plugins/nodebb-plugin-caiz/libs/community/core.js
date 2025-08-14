@@ -107,7 +107,7 @@ async function createCommunity(uid, { name, description }) {
         winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
         return null;
       }
-      return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
+      return data.createCategory({ ...category, parentCid: cid });
     }));
   }
 
