@@ -1,0 +1,7 @@
+{
+    "id": "nodebb-theme-caiz",
+    "name": "Caiz",
+    "description": "The default theme for Caiz.",
+    "url": "https://github.com/nodebb/nodebb-theme-harmony",
+    "screenshot": "screenshot.png"
+}
