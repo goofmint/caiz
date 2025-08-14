@@ -1,6 +1,8 @@
 const winston = require.main.require('winston');
+const path = require('path');
 const Privileges = require.main.require('./src/privileges');
-const initialCategories = require.main.require('./install/data/categories.json');
+const translator = require.main.require('./src/translator');
+const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
 const data = require('./data');
 const permissions = require('./permissions');
 const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./shared/constants');
@@ -97,9 +99,29 @@ async function createCommunity(uid, { name, description }) {
   await Privileges.categories.give([], cid, 'banned-users');
 
   // Create child categories in the community
-  await Promise.all(initialCategories.map((category) => {
-    return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
-  }));
+  const categoriesToCreate = Array.isArray(caizCategories) ? caizCategories : [];
+  if (!categoriesToCreate.length) {
+    winston.warn('[plugin/caiz] No default subcategories found or invalid data shape; skipping child category creation.');
+  } else {
+    await Promise.all(categoriesToCreate.map(async (category) => {
+      if (!category || !category.name) {
+        winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
+        return null;
+      }
+      
+      // Translate i18n keys to actual text
+      const translatedCategory = { ...category };
+      if (category.name && category.name.includes('[[') && category.name.includes(']]')) {
+        translatedCategory.name = await translator.translate(category.name);
+      }
+      if (category.description && category.description.includes('[[') && category.description.includes(']]')) {
+        translatedCategory.description = await translator.translate(category.description);
+      }
+      
+      winston.info(`[plugin/caiz] Creating subcategory: ${translatedCategory.name} (original: ${category.name})`);
+      return data.createCategory({ ...translatedCategory, parentCid: cid });
+    }));
+  }
 
   winston.info(`[plugin/caiz] Community created: ${name} (CID: ${cid}), Owner: ${uid}, Owner Group: ${ownerGroupName}`);
   return newCategory;

@@ -14,6 +14,16 @@
     "follow": "Follow",
     "unfollow": "Following",
     "following": "Follow",
-    "unfollowing": "Unfollow"
+    "unfollowing": "Unfollow",
+  },
+  "subcategory": {
+    "announcements": "Announcements",
+    "announcements_description": "Important announcements from the community",
+    "general": "General Discussion",
+    "general_description": "A place for members to freely discuss and interact",
+    "questions": "Questions & Support",
+    "questions_description": "Feel free to ask questions or seek advice",
+    "resources": "Resources & Information",
+    "resources_description": "A place to share useful information and resources"
   }
 }

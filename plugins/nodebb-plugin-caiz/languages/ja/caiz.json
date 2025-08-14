@@ -11,5 +11,15 @@
   "unfollowing": "フォロー解除する",
   "follow_success": "フォローしました",
   "unfollow_success": "フォロー解除しました",
-  "error.generic": "エラーが発生しました"
+  "error.generic": "エラーが発生しました",
+  "subcategory": {
+    "announcements": "お知らせ",
+    "announcements_description": "コミュニティからの重要なお知らせ",
+    "general": "雑談・交流",
+    "general_description": "メンバー同士の自由な話し合いの場",
+    "questions": "質問・相談",
+    "questions_description": "困ったことがあれば気軽にご相談ください",
+    "resources": "資料・情報共有",
+    "resources_description": "有用な情報や資料の共有場所"
+  }
 }

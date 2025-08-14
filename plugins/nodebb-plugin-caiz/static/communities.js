@@ -25,17 +25,32 @@ const updateCommunities = async () => {
 };
 
 // Security utilities
-const escapeHtml = (text) => {
+const communitiesEscapeHtml = (text) => {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 };
 
+const decodeHtmlEntities = (text) => {
+  if (!text) return text;
+  const div = document.createElement('div');
+  div.innerHTML = text;
+  return div.textContent || div.innerText || text;
+};
+
 const isValidUrl = (url) => {
+  if (!url) return false;
+  
+  // Allow relative URLs starting with /
+  if (url.startsWith('/')) return true;
+  
+  // Allow data URLs
+  if (url.startsWith('data:image/')) return true;
+  
+  // Check absolute URLs
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' || 
-           (parsed.protocol === 'data:' && parsed.pathname.startsWith('image/'));
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
   }
@@ -57,7 +72,7 @@ const addCommunity = (community, communityUl) => {
   li.classList.add('nav-item', 'mx-2');
   
   // Sanitize community name
-  const safeName = escapeHtml(community.name || 'Unnamed Community');
+  const safeName = communitiesEscapeHtml(community.name || 'Unnamed Community');
   li.setAttribute('data-bs-original-title', safeName);
   
   // Sanitize colors
@@ -68,9 +83,12 @@ const addCommunity = (community, communityUl) => {
   let iconContent;
   let iconElement;
   
-  if (community.backgroundImage && isValidUrl(community.backgroundImage)) {
+  if (community.backgroundImage) {
+    // Decode HTML entities in the URL
+    const decodedUrl = decodeHtmlEntities(community.backgroundImage);
+    
     iconElement = document.createElement('img');
-    iconElement.src = community.backgroundImage;
+    iconElement.src = decodedUrl;
     iconElement.alt = safeName;
     iconElement.style.cssText = 'width: 24px; height: 24px; object-fit: cover; border-radius: 4px;';
     iconContent = iconElement.outerHTML;
@@ -90,7 +108,7 @@ const addCommunity = (community, communityUl) => {
   // Create elements safely
   const link = document.createElement('a');
   link.className = 'nav-link navigation-link d-flex gap-2 justify-content-between align-items-center';
-  link.href = `/${escapeHtml(community.handle || '')}`;
+  link.href = `/${communitiesEscapeHtml(community.handle || '')}`;
   link.setAttribute('aria-label', safeName);
   
   const mainSpan = document.createElement('span');
@@ -101,7 +119,9 @@ const addCommunity = (community, communityUl) => {
   
   const iconSpan = document.createElement('span');
   iconSpan.className = 'icon d-inline-flex justify-content-center align-items-center align-middle rounded-1 flex-shrink-0';
-  iconSpan.style.cssText = `background-color: ${community.backgroundImage ? 'transparent' : safeBgColor}; border-color: ${community.backgroundImage ? 'transparent' : safeBgColor} !important; color: ${safeColor}; width: 24px !important; height: 24px !important;`;
+  // Apply background color only when using icon or first letter, not for images
+  const hasBackgroundImage = community.backgroundImage && isValidUrl(community.backgroundImage);
+  iconSpan.style.cssText = `background-color: ${hasBackgroundImage ? 'transparent' : safeBgColor}; border-color: ${hasBackgroundImage ? 'transparent' : safeBgColor} !important; color: ${safeColor}; width: 24px !important; height: 24px !important;`;
   iconSpan.innerHTML = iconContent;
   
   const badgeSpan1 = document.createElement('span');
