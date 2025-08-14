@@ -1,7 +1,8 @@
 const winston = require.main.require('winston');
 const path = require('path');
 const Privileges = require.main.require('./src/privileges');
-const translator = require.main.require('./src/translator');
+const user = require.main.require('./src/user');
+const meta = require.main.require('./src/meta');
 const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
 const data = require('./data');
 const permissions = require('./permissions');
@@ -103,40 +104,78 @@ async function createCommunity(uid, { name, description }) {
   if (!categoriesToCreate.length) {
     winston.warn('[plugin/caiz] No default subcategories found or invalid data shape; skipping child category creation.');
   } else {
+    // Get user's language setting - default to English first
+    let userLang = 'en-US'; // Default to English
+    try {
+      const userData = await user.getUserData(uid);
+      const userSettings = await user.getSettings(uid);
+      winston.info(`[plugin/caiz] User ${uid} userData.settings: ${JSON.stringify(userData && userData.settings)}`);
+      winston.info(`[plugin/caiz] User ${uid} userSettings: ${JSON.stringify(userSettings)}`);
+      winston.info(`[plugin/caiz] Meta config defaultLang: ${meta.config.defaultLang}`);
+      
+      userLang = (userSettings && userSettings.userLang) || 
+                 (userData && userData.settings && userData.settings.userLang) || 
+                 meta.config.defaultLang || 'en-US';
+      
+      winston.info(`[plugin/caiz] Final user ${uid} language: ${userLang}`);
+    } catch (err) {
+      winston.error(`[plugin/caiz] Failed to get user language, using default: ${userLang}`, err);
+    }
+    winston.info(`[plugin/caiz] Using language: ${userLang} for subcategory translations`);
+    
     await Promise.all(categoriesToCreate.map(async (category) => {
       if (!category || !category.name) {
         winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
         return null;
       }
       
-      // Translate i18n keys to actual text
+      // Translate i18n keys to actual text using user's language
       const translatedCategory = { ...category };
       winston.info(`[plugin/caiz] BEFORE translation - name: ${category.name}, desc: ${category.description}`);
       
       if (category.name && category.name.includes('[[') && category.name.includes(']]')) {
         try {
-          const translatedName = await translator.translate(category.name);
+          const translator = require.main.require('./src/translator');
+          const translatedName = await translator.translate(category.name, userLang);
           winston.info(`[plugin/caiz] Translation result - original: ${category.name}, translated: ${translatedName}`);
           translatedCategory.name = translatedName;
         } catch (err) {
           winston.error(`[plugin/caiz] Translation failed for name: ${category.name}`, err);
-          // Fallback: manually translate common cases
-          if (category.name.includes('announcements')) translatedCategory.name = 'お知らせ';
-          else if (category.name.includes('general')) translatedCategory.name = '雑談・交流';
-          else if (category.name.includes('questions')) translatedCategory.name = '質問・相談';
-          else if (category.name.includes('resources')) translatedCategory.name = '資料・情報共有';
+          // Fallback: use English default
+          if (category.name.includes('announcements')) {
+            translatedCategory.name = 'Announcements';
+          } else if (category.name.includes('general')) {
+            translatedCategory.name = 'General Discussion';
+          } else if (category.name.includes('questions')) {
+            translatedCategory.name = 'Questions & Support';
+          } else if (category.name.includes('resources')) {
+            translatedCategory.name = 'Resources & Information';
+          } else {
+            // Strip i18n syntax as ultimate fallback
+            translatedCategory.name = category.name.replace(/\[\[.*?\]\]/g, '').trim() || 'Category';
+          }
         }
       }
+      
       if (category.description && category.description.includes('[[') && category.description.includes(']]')) {
         try {
-          translatedCategory.description = await translator.translate(category.description);
+          const translator = require.main.require('./src/translator');
+          translatedCategory.description = await translator.translate(category.description, userLang);
         } catch (err) {
           winston.error(`[plugin/caiz] Translation failed for description: ${category.description}`, err);
-          // Fallback descriptions
-          if (category.description.includes('announcements')) translatedCategory.description = 'コミュニティからの重要なお知らせ';
-          else if (category.description.includes('general')) translatedCategory.description = 'メンバー同士の自由な話し合いの場';
-          else if (category.description.includes('questions')) translatedCategory.description = '困ったことがあれば気軽にご相談ください';
-          else if (category.description.includes('resources')) translatedCategory.description = '有用な情報や資料の共有場所';
+          // Fallback: use English descriptions
+          if (category.description.includes('announcements')) {
+            translatedCategory.description = 'Important announcements from the community';
+          } else if (category.description.includes('general')) {
+            translatedCategory.description = 'A place for members to freely discuss and interact';
+          } else if (category.description.includes('questions')) {
+            translatedCategory.description = 'Feel free to ask questions or seek advice';
+          } else if (category.description.includes('resources')) {
+            translatedCategory.description = 'A place to share useful information and resources';
+          } else {
+            // Strip i18n syntax as ultimate fallback
+            translatedCategory.description = category.description.replace(/\[\[.*?\]\]/g, '').trim() || '';
+          }
         }
       }
       

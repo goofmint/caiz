@@ -5,9 +5,7 @@
                 <h5 class="modal-title" id="communityCreateModalLabel"> 
                     [[caiz:create_community]]
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">×</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="community-create-form">
@@ -25,7 +23,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     [[global:buttons.close]]
                 </button>
                 <button type="button" class="btn btn-primary" id="submit-community-create">
