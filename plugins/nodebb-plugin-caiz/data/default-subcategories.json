@@ -1,0 +1,34 @@
+[
+  {
+    "name": "[[caiz:subcategory.announcements]]",
+    "description": "[[caiz:subcategory.announcements_description]]",
+    "bgColor": "#2563eb",
+    "color": "#ffffff",
+    "icon": "fa-bullhorn",
+    "order": 1
+  },
+  {
+    "name": "[[caiz:subcategory.general]]",
+    "description": "[[caiz:subcategory.general_description]]",
+    "bgColor": "#10b981",
+    "color": "#ffffff",
+    "icon": "fa-comments",
+    "order": 2
+  },
+  {
+    "name": "[[caiz:subcategory.questions]]",
+    "description": "[[caiz:subcategory.questions_description]]",
+    "bgColor": "#f59e0b",
+    "color": "#ffffff",
+    "icon": "fa-question-circle",
+    "order": 3
+  },
+  {
+    "name": "[[caiz:subcategory.resources]]",
+    "description": "[[caiz:subcategory.resources_description]]",
+    "bgColor": "#8b5cf6",
+    "color": "#ffffff",
+    "icon": "fa-book",
+    "order": 4
+  }
+]

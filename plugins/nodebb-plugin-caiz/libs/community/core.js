@@ -1,6 +1,7 @@
 const winston = require.main.require('winston');
+const path = require('path');
 const Privileges = require.main.require('./src/privileges');
-const initialCategories = require.main.require('./install/data/categories.json');
+const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
 const data = require('./data');
 const permissions = require('./permissions');
 const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./shared/constants');
@@ -97,7 +98,7 @@ async function createCommunity(uid, { name, description }) {
   await Privileges.categories.give([], cid, 'banned-users');
 
   // Create child categories in the community
-  await Promise.all(initialCategories.map((category) => {
+  await Promise.all(caizCategories.map((category) => {
     return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
   }));
 

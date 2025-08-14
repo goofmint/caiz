@@ -6,18 +6,16 @@
 
 ## 現状の問題
 
-1. **デフォルトサブカテゴリーの内容が汎用的すぎる**
-   - "Announcements"、"General Discussion"、"Blogs"、"Comments & Feedback"
-   - 説明文が英語で、日本語ユーザーには不親切
-   - アイコンがCaizのブランディングと一致していない
+1. デフォルトサブカテゴリーのタイトルがi18n未対応
+   - "Announcements"、"General Discussion"、"News"、"Comments & Feedback"
+   - i18n対応させる
+2. 説明文が親カテゴリーを引き継いでいる
+   - 各サブカテゴリーに合った説明文を設定する
+   - こちらもi18n対応が必要
+3. アイコンも親カテゴリーを引き継いでいる
+   - 各サブカテゴリーに適切なアイコンを設定する
 
-2. **プラットフォーム固有のニーズに対応していない**
-   - Caizユーザーの典型的な利用パターンに最適化されていない
-   - コミュニティの種類（企業、趣味、学習等）に関係なく同一の構成
-
-## 目標
-
-コミュニティ作成時に、Caizプラットフォームに適したデフォルトサブカテゴリーを自動作成する。
+サブカテゴリー情報は、メンテナンスしやすいようにJSONファイルで管理する。
 
 ## 技術仕様
 
@@ -38,6 +36,8 @@ await Promise.all(initialCategories.map((category) => {
 #### 1. カスタムカテゴリー定義の作成
 
 **ファイル**: `plugins/nodebb-plugin-caiz/data/default-subcategories.json`
+
+i18n対応すること。
 
 ```json
 [
@@ -101,46 +101,9 @@ await Promise.all(caizCategories.map((category) => {
 }));
 ```
 
-#### 3. 設定可能性の追加（将来の拡張）
+#### 多言語対応
 
-設定画面でデフォルトサブカテゴリーをカスタマイズできるインターフェースを提供:
-
-```javascript
-// 設定取得のインターフェース例
-async function getDefaultSubcategories() {
-  // 管理者設定から取得、なければデフォルトを使用
-  const raw = await data.getObjectField('caiz:settings', 'defaultSubcategories');
-  if (!raw) return caizCategories;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : caizCategories;
-  } catch (e) {
-    // ログ出力とフォールバック
-    if (logger && typeof logger.warn === 'function') {
-      logger.warn('[caiz] Invalid defaultSubcategories JSON. Falling back to bundled defaults.', e);
-    }
-    return caizCategories;
-  }
-}
-```
-
-#### 4. 多言語対応（将来の拡張）
-
-言語設定に基づいて適切な言語のサブカテゴリーを選択:
-
-```javascript
-// 言語別カテゴリー定義の例
-const path = require('path');
-const categoryTranslations = {
-  'ja': require(path.join(__dirname, '../../data/default-subcategories-ja.json')),
-  'en': require(path.join(__dirname, '../../data/default-subcategories-en.json')),
-  // ...
-};
-
-function getLocalizedCategories(locale = 'ja') {
-  return categoryTranslations[locale] || categoryTranslations['ja'];
-}
-```
+ラベルだけi18n対応（NodeBB標準の）すればOK
 
 ## 実装の考慮事項
 
@@ -182,25 +145,3 @@ function getLocalizedCategories(locale = 'ja') {
 2. **core.jsの修正**
    - `require`文の変更
    - カテゴリー作成処理の更新
-
-3. **テスト実行**
-   - 新規コミュニティ作成の動作確認
-   - サブカテゴリーの表示・権限確認
-
-4. **ドキュメント更新**
-   - README.mdに新機能の説明を追加
-   - 設定方法の記載
-
-## 将来の拡張可能性
-
-1. **管理画面での設定**
-   - デフォルトサブカテゴリーをGUIで編集可能に
-
-2. **テンプレート機能**
-   - コミュニティの種類別（企業、趣味、学習等）にテンプレートを用意
-
-3. **多言語対応**
-   - ユーザーの言語設定に応じた自動切り替え
-
-4. **アイコンアップロード**
-   - カスタムアイコンのアップロード機能
