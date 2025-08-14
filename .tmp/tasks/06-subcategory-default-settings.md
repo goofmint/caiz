@@ -47,7 +47,7 @@ await Promise.all(initialCategories.map((category) => {
     "descriptionParsed": "<p>コミュニティからの重要なお知らせ</p>\n",
     "bgColor": "#2563eb",
     "color": "#ffffff",
-    "icon": "fa-megaphone",
+    "icon": "fa-bullhorn",
     "order": 1
   },
   {
@@ -109,8 +109,18 @@ await Promise.all(caizCategories.map((category) => {
 // 設定取得のインターフェース例
 async function getDefaultSubcategories() {
   // 管理者設定から取得、なければデフォルトを使用
-  const customCategories = await data.getObjectField('caiz:settings', 'defaultSubcategories');
-  return customCategories ? JSON.parse(customCategories) : caizCategories;
+  const raw = await data.getObjectField('caiz:settings', 'defaultSubcategories');
+  if (!raw) return caizCategories;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : caizCategories;
+  } catch (e) {
+    // ログ出力とフォールバック
+    if (logger && typeof logger.warn === 'function') {
+      logger.warn('[caiz] Invalid defaultSubcategories JSON. Falling back to bundled defaults.', e);
+    }
+    return caizCategories;
+  }
 }
 ```
 
@@ -120,9 +130,10 @@ async function getDefaultSubcategories() {
 
 ```javascript
 // 言語別カテゴリー定義の例
+const path = require('path');
 const categoryTranslations = {
-  'ja': require('./default-subcategories-ja.json'),
-  'en': require('./default-subcategories-en.json'),
+  'ja': require(path.join(__dirname, '../../data/default-subcategories-ja.json')),
+  'en': require(path.join(__dirname, '../../data/default-subcategories-en.json')),
   // ...
 };
 
