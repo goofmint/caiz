@@ -111,14 +111,36 @@ async function createCommunity(uid, { name, description }) {
       
       // Translate i18n keys to actual text
       const translatedCategory = { ...category };
+      winston.info(`[plugin/caiz] BEFORE translation - name: ${category.name}, desc: ${category.description}`);
+      
       if (category.name && category.name.includes('[[') && category.name.includes(']]')) {
-        translatedCategory.name = await translator.translate(category.name);
+        try {
+          const translatedName = await translator.translate(category.name);
+          winston.info(`[plugin/caiz] Translation result - original: ${category.name}, translated: ${translatedName}`);
+          translatedCategory.name = translatedName;
+        } catch (err) {
+          winston.error(`[plugin/caiz] Translation failed for name: ${category.name}`, err);
+          // Fallback: manually translate common cases
+          if (category.name.includes('announcements')) translatedCategory.name = 'お知らせ';
+          else if (category.name.includes('general')) translatedCategory.name = '雑談・交流';
+          else if (category.name.includes('questions')) translatedCategory.name = '質問・相談';
+          else if (category.name.includes('resources')) translatedCategory.name = '資料・情報共有';
+        }
       }
       if (category.description && category.description.includes('[[') && category.description.includes(']]')) {
-        translatedCategory.description = await translator.translate(category.description);
+        try {
+          translatedCategory.description = await translator.translate(category.description);
+        } catch (err) {
+          winston.error(`[plugin/caiz] Translation failed for description: ${category.description}`, err);
+          // Fallback descriptions
+          if (category.description.includes('announcements')) translatedCategory.description = 'コミュニティからの重要なお知らせ';
+          else if (category.description.includes('general')) translatedCategory.description = 'メンバー同士の自由な話し合いの場';
+          else if (category.description.includes('questions')) translatedCategory.description = '困ったことがあれば気軽にご相談ください';
+          else if (category.description.includes('resources')) translatedCategory.description = '有用な情報や資料の共有場所';
+        }
       }
       
-      winston.info(`[plugin/caiz] Creating subcategory: ${translatedCategory.name} (original: ${category.name})`);
+      winston.info(`[plugin/caiz] AFTER translation - name: ${translatedCategory.name}, desc: ${translatedCategory.description}`);
       return data.createCategory({ ...translatedCategory, parentCid: cid });
     }));
   }
