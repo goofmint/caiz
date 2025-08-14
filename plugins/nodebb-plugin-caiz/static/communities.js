@@ -31,6 +31,13 @@ const communitiesEscapeHtml = (text) => {
   return div.innerHTML;
 };
 
+const decodeHtmlEntities = (text) => {
+  if (!text) return text;
+  const div = document.createElement('div');
+  div.innerHTML = text;
+  return div.textContent || div.innerText || text;
+};
+
 const isValidUrl = (url) => {
   if (!url) return false;
   
@@ -76,19 +83,12 @@ const addCommunity = (community, communityUl) => {
   let iconContent;
   let iconElement;
   
-  // Debug logging
-  console.log('[caiz] Community icon data:', {
-    name: community.name,
-    backgroundImage: community.backgroundImage,
-    icon: community.icon,
-    bgColor: community.bgColor,
-    isValidUrl: community.backgroundImage ? isValidUrl(community.backgroundImage) : 'no url'
-  });
-  
   if (community.backgroundImage) {
-    // Try to use backgroundImage regardless of validation for now
+    // Decode HTML entities in the URL
+    const decodedUrl = decodeHtmlEntities(community.backgroundImage);
+    
     iconElement = document.createElement('img');
-    iconElement.src = community.backgroundImage;
+    iconElement.src = decodedUrl;
     iconElement.alt = safeName;
     iconElement.style.cssText = 'width: 24px; height: 24px; object-fit: cover; border-radius: 4px;';
     iconContent = iconElement.outerHTML;
