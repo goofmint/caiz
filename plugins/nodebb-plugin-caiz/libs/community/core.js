@@ -98,9 +98,18 @@ async function createCommunity(uid, { name, description }) {
   await Privileges.categories.give([], cid, 'banned-users');
 
   // Create child categories in the community
-  await Promise.all(caizCategories.map((category) => {
-    return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
-  }));
+  const categoriesToCreate = Array.isArray(caizCategories) ? caizCategories : [];
+  if (!categoriesToCreate.length) {
+    winston.warn('[plugin/caiz] No default subcategories found or invalid data shape; skipping child category creation.');
+  } else {
+    await Promise.all(categoriesToCreate.map((category) => {
+      if (!category || !category.name) {
+        winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
+        return null;
+      }
+      return data.createCategory({ ...category, parentCid: cid, cloneFromCid: cid });
+    }));
+  }
 
   winston.info(`[plugin/caiz] Community created: ${name} (CID: ${cid}), Owner: ${uid}, Owner Group: ${ownerGroupName}`);
   return newCategory;

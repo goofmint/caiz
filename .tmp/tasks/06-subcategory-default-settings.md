@@ -42,36 +42,32 @@ i18n対応すること。
 ```json
 [
   {
-    "name": "お知らせ",
-    "description": "コミュニティからの重要なお知らせ",
-    "descriptionParsed": "<p>コミュニティからの重要なお知らせ</p>\n",
+    "name": "[[caiz:subcategory.announcements]]",
+    "description": "[[caiz:subcategory.announcements_description]]",
     "bgColor": "#2563eb",
     "color": "#ffffff",
     "icon": "fa-bullhorn",
     "order": 1
   },
   {
-    "name": "雑談・交流",
-    "description": "メンバー同士の自由な話し合いの場",
-    "descriptionParsed": "<p>メンバー同士の自由な話し合いの場</p>\n",
+    "name": "[[caiz:subcategory.general]]",
+    "description": "[[caiz:subcategory.general_description]]",
     "bgColor": "#10b981",
     "color": "#ffffff", 
     "icon": "fa-comments",
     "order": 2
   },
   {
-    "name": "質問・相談",
-    "description": "困ったことがあれば気軽にご相談ください",
-    "descriptionParsed": "<p>困ったことがあれば気軽にご相談ください</p>\n",
+    "name": "[[caiz:subcategory.questions]]",
+    "description": "[[caiz:subcategory.questions_description]]",
     "bgColor": "#f59e0b",
     "color": "#ffffff",
     "icon": "fa-question-circle",
     "order": 3
   },
   {
-    "name": "資料・情報共有",
-    "description": "有用な情報や資料の共有場所",
-    "descriptionParsed": "<p>有用な情報や資料の共有場所</p>\n",
+    "name": "[[caiz:subcategory.resources]]",
+    "description": "[[caiz:subcategory.resources_description]]",
     "bgColor": "#8b5cf6",
     "color": "#ffffff",
     "icon": "fa-book",
