@@ -32,7 +32,7 @@ console.log('[caiz] members-only.js loaded');
     const cid = ajaxify.data.cid;
     if (!cid) {
       console.log('[caiz] No cid found, showing posting elements by default');
-      showPostingElements();
+      togglePostingElements(true);
       return;
     }
 
@@ -41,13 +41,9 @@ console.log('[caiz] members-only.js loaded');
     // ゲストユーザーは投稿フォーム非表示
     if (!app.user || !app.user.uid) {
       console.log('[caiz] Guest user - hiding posting elements');
-      hidePostingElements();
+      togglePostingElements(false);
       return;
     }
-
-    // まず投稿フォームを表示（デバッグ用）
-    showPostingElements();
-    console.log('[caiz] Posted elements shown by default');
 
     // フォロー状態をチェック
     socket.emit('plugins.caiz.isFollowed', { cid: cid }, function (err, data) {
@@ -55,13 +51,13 @@ console.log('[caiz] members-only.js loaded');
       
       if (err) {
         console.error('[caiz] Socket error:', err);
-        showPostingElements(); // エラー時は表示
+        togglePostingElements(true); // エラー時は表示
         return;
       }
 
       if (!data) {
         console.warn('[caiz] No data received from socket');
-        showPostingElements(); // データなし時は表示
+        togglePostingElements(true); // データなし時は表示
         return;
       }
 
@@ -70,19 +66,17 @@ console.log('[caiz] members-only.js loaded');
       if (data.isFollowed) {
         console.log('[caiz] User is following - showing posting elements');
         hideRestrictionMessage();
-        showPostingElements();
+        togglePostingElements(true);
       } else {
         console.log('[caiz] User is not following - hiding posting elements and showing restriction message');
-        hidePostingElements();
+        togglePostingElements(false);
         showRestrictionMessage(cid);
       }
     });
   }
 
-  function hidePostingElements() {
-    console.log('[caiz] Hiding posting elements');
-    
-    const elements = [
+  function getPostingElementSelectors() {
+    return [
       '[component="topic/reply"]',
       '[component="topic/reply/container"]',
       '[component="topic/quickreply/container"]',
@@ -96,39 +90,23 @@ console.log('[caiz] members-only.js loaded');
       'textarea[data-action]',
       'textarea.write'
     ];
-    
-    elements.forEach(selector => {
-      const $elements = $(selector);
-      if ($elements.length > 0) {
-        console.log(`[caiz] Hiding ${$elements.length} elements: ${selector}`);
-        $elements.addClass('hide').hide();
-      }
-    });
   }
 
-  function showPostingElements() {
-    console.log('[caiz] Showing posting elements');
+  function togglePostingElements(show) {
+    const action = show ? 'Showing' : 'Hiding';
+    console.log(`[caiz] ${action} posting elements`);
     
-    const elements = [
-      '[component="topic/reply"]',
-      '[component="topic/reply/container"]',
-      '[component="topic/quickreply/container"]',
-      '[component="topic/quickreply"]',
-      '[component="composer"]',
-      '.quickreply',
-      '.composer',
-      '.composer-container',
-      '#composer-container',
-      'form[action*="post"]',
-      'textarea[data-action]',
-      'textarea.write'
-    ];
+    const elements = getPostingElementSelectors();
     
     elements.forEach(selector => {
       const $elements = $(selector);
       if ($elements.length > 0) {
-        console.log(`[caiz] Showing ${$elements.length} elements: ${selector}`);
-        $elements.removeClass('hide').show();
+        console.log(`[caiz] ${action} ${$elements.length} elements: ${selector}`);
+        if (show) {
+          $elements.removeClass('hide').show();
+        } else {
+          $elements.addClass('hide').hide();
+        }
       }
     });
   }
