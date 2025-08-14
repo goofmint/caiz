@@ -86,6 +86,8 @@ async function checkManagerPermission(uid, cid) {
   return data.isMemberOfGroup(uid, managerGroup);
 }
 
+
+
 module.exports = {
   IsCommunityOwner,
   createCommunityGroup,

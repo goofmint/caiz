@@ -9,7 +9,8 @@
     "static/modal.js",
     "static/follow.js",
     "static/communities.js",
-    "static/community-edit.js"
+    "static/community-edit.js",
+    "static/members-only.js"
   ],
   "scss": [
     "static/style.scss"
@@ -38,6 +39,14 @@
     {
       "hook": "filter:middleware.renderHeader",
       "method": "loadCommunityEditModal"
+    },
+    {
+      "hook": "filter:topic.create",
+      "method": "filterTopicCreate"
+    },
+    {
+      "hook": "filter:post.create",
+      "method": "filterPostCreate"
     }
   ]
 }

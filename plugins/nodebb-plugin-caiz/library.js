@@ -8,6 +8,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
+const { IsFollowed } = require('./libs/community/core');
 
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
@@ -35,6 +36,63 @@ plugin.customizeCategoryLink = Category.customizeLink;
 plugin.customizeTopicRender = Topic.customizeRender;
 plugin.customizeSidebarCommunities = Header.customizeSidebarCommunities;
 plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
+
+/**
+ * フィルター: トピック作成制御
+ */
+plugin.filterTopicCreate = async function (hookData) {
+  const { data } = hookData;
+  const { uid, cid } = data;
+  
+  winston.info(`[plugin/caiz] Filtering topic creation for uid: ${uid}, cid: ${cid}`);
+  
+  if (!uid) {
+    winston.info('[plugin/caiz] Anonymous user cannot create topics in communities');
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  // Check if user is following the community
+  const followResult = await IsFollowed({ uid }, { cid });
+  if (!followResult.isFollowed) {
+    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid} - not following community`);
+    throw new Error('[[caiz:error.members-only-posting]]');
+  }
+  
+  return hookData;
+};
+
+/**
+ * フィルター: 返信作成制御
+ */
+plugin.filterPostCreate = async function (hookData) {
+  const { data } = hookData;
+  const { uid, tid } = data;
+  
+  winston.info(`[plugin/caiz] Filtering post creation for uid: ${uid}, tid: ${tid}`);
+  
+  if (!uid) {
+    winston.info('[plugin/caiz] Anonymous user cannot create posts in communities');
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  // Get topic data to find category
+  const Topics = require.main.require('./src/topics');
+  const topic = await Topics.getTopicData(tid);
+  
+  if (!topic || !topic.cid) {
+    winston.warn(`[plugin/caiz] Topic ${tid} not found or missing category`);
+    return hookData;
+  }
+  
+  // Check if user is following the community
+  const followResult = await IsFollowed({ uid }, { cid: topic.cid });
+  if (!followResult.isFollowed) {
+    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid}) - not following community`);
+    throw new Error('[[caiz:error.members-only-posting]]');
+  }
+  
+  return hookData;
+};
 sockets.caiz = {};
 sockets.caiz.createCommunity = Community.Create;
 sockets.caiz.followCommunity = Community.Follow;

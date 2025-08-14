@@ -12,6 +12,39 @@ const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./sha
  * Core community operations
  */
 
+/**
+ * Get the parent category (parentCid = 0) for a given category
+ * @param {number} cid - Category ID
+ * @returns {Promise<number>} Parent category ID
+ */
+async function getParentCategory(cid) {
+  try {
+    const Categories = require.main.require('./src/categories');
+    const categoryData = await Categories.getCategoryData(cid);
+    
+    // If this is already a parent category, return it
+    if (!categoryData || categoryData.parentCid === 0) {
+      return cid;
+    }
+    
+    // Find the parent community by traversing up
+    let parentCategory = categoryData;
+    while (parentCategory && parentCategory.parentCid !== 0) {
+      parentCategory = await Categories.getCategoryData(parentCategory.parentCid);
+    }
+    
+    if (parentCategory) {
+      winston.info(`[plugin/caiz] Found parent category ${parentCategory.cid} for subcategory ${cid}`);
+      return parentCategory.cid;
+    }
+    
+    return cid; // Fallback to original cid
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error finding parent category: ${err.message}`);
+    return cid; // Fallback to original cid
+  }
+}
+
 async function createCommunity(uid, { name, description }) {
   const ownerPrivileges = await Privileges.categories.getGroupPrivilegeList();
   
@@ -214,15 +247,18 @@ async function Follow(socket, { cid }) {
   
   winston.info(`[plugin/caiz] User ${uid} following community ${cid}`);
   
-  // Add to followed categories
-  await data.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
+  // Find the parent category to follow
+  const targetCid = await getParentCategory(cid);
   
-  // Check if user is already a member of any community group
+  // Add to followed categories (parent category only)
+  await data.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), targetCid);
+  
+  // Check if user is already a member of any community group (use parent category)
   const memberGroups = [
-    await data.getObjectField(`category:${cid}`, 'ownerGroup'),
-    getGroupName(cid, GROUP_SUFFIXES.MANAGERS),
-    getGroupName(cid, GROUP_SUFFIXES.MEMBERS),
-    getGroupName(cid, GROUP_SUFFIXES.BANNED)
+    await data.getObjectField(`category:${targetCid}`, 'ownerGroup'),
+    getGroupName(targetCid, GROUP_SUFFIXES.MANAGERS),
+    getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS),
+    getGroupName(targetCid, GROUP_SUFFIXES.BANNED)
   ];
   
   let isAlreadyMember = false;
@@ -234,14 +270,14 @@ async function Follow(socket, { cid }) {
     }
   }
   
-  // If not already a member, add to members group
+  // If not already a member, add to members group (use parent category)
   if (!isAlreadyMember) {
-    const memberGroupName = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
+    const memberGroupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
     if (await data.groupExists(memberGroupName)) {
       await data.joinGroup(memberGroupName, uid);
       winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
     } else {
-      winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${cid}`);
+      winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${targetCid}`);
     }
   }
   
@@ -281,7 +317,12 @@ async function Unfollow(socket, { cid }) {
 async function IsFollowed(socket, { cid }) {
   const { uid } = socket;
   if (!uid) return { isFollowed: false };
-  const isFollowed = await data.sortedSetScore(`uid:${uid}:followed_cats`, cid);
+  
+  // Find the parent category
+  const targetCid = await getParentCategory(cid);
+  
+  const isFollowed = await data.sortedSetScore(`uid:${uid}:followed_cats`, targetCid);
+  winston.info(`[plugin/caiz] Follow status check - uid: ${uid}, targetCid: ${targetCid}, result: ${isFollowed !== null}`);
   return { isFollowed: isFollowed !== null };
 }
 
