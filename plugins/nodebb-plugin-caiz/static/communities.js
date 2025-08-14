@@ -9,9 +9,18 @@ const updateCommunities = async () => {
   // remove all children
   communityUl.innerHTML = '';
   console.log('[caiz] Emitting getCommunities socket call');
+  
+  // Check if socket is available
+  if (typeof socket === 'undefined') {
+    console.error('[caiz] Socket is undefined, cannot load communities');
+    return;
+  }
+  
   socket.emit('plugins.caiz.getCommunities', {}, async function (err, communities) {
+    console.log('[caiz] getCommunities response - err:', err, 'communities:', communities);
     if (err) {
-      const { alert } = await getAlert();
+      console.error('[caiz] Error loading communities:', err);
+      const { alert } = await getCaizAlert();
       return alert({
         type: 'error',
         message: err.message || 'Error loading communities',
@@ -19,7 +28,13 @@ const updateCommunities = async () => {
       });
     }
     if (communities && Array.isArray(communities)) {
-      communities.forEach(community => addCommunity(community, communityUl));
+      console.log('[caiz] Adding', communities.length, 'communities to sidebar');
+      communities.forEach(community => {
+        console.log('[caiz] Adding community:', community.name);
+        addCommunity(community, communityUl);
+      });
+    } else {
+      console.log('[caiz] No communities data or not an array:', communities);
     }
   });
 };
@@ -216,7 +231,132 @@ $(window).on('action:ajaxify.end', function () {
     // ユーザー設定に基づいてサイドバーの状態を復元
     restoreSidebarState();
   }
+  
+  // Initialize modal functionality on each page load
+  initCommunityCreateModal();
 });
+
+// Community creation modal functionality
+const initCommunityCreateModal = () => {
+  const modal = document.getElementById('community-create-modal');
+  const form = document.getElementById('community-create-form');
+  const submitBtn = document.getElementById('submit-community-create');
+  
+  if (!modal || !form || !submitBtn) {
+    console.log('[caiz] Community create modal elements not found');
+    return;
+  }
+  
+  // Handle form submission
+  submitBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    const nameInput = document.getElementById('community-name');
+    const descInput = document.getElementById('community-description');
+    
+    if (!nameInput || !nameInput.value.trim()) {
+      const { alert } = await getCaizAlert();
+      return alert({
+        type: 'error',
+        message: 'Community name is required',
+        timeout: 3000,
+      });
+    }
+    
+    const formData = {
+      name: nameInput.value.trim(),
+      description: descInput ? descInput.value.trim() : '',
+      _csrf: document.querySelector('input[name="_csrf"]').value
+    };
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating...';
+    
+    try {
+      const response = await fetch('/api/v3/plugins/caiz/communities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // Close modal
+      const bsModal = bootstrap.Modal.getInstance(modal);
+      if (bsModal) {
+        bsModal.hide();
+      } else {
+        $(modal).modal('hide');
+      }
+      
+      // Reset form
+      form.reset();
+      
+      // Update communities list
+      await updateCommunities();
+      
+      const { alert } = await getCaizAlert();
+      alert({
+        type: 'success',
+        message: 'Community created successfully!',
+        timeout: 3000,
+      });
+      
+    } catch (error) {
+      console.error('[caiz] Failed to create community:', error);
+      const { alert } = await getCaizAlert();
+      alert({
+        type: 'error',
+        message: 'Failed to create community. Please try again.',
+        timeout: 3000,
+      });
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = document.querySelector('[data-original-text]')?.getAttribute('data-original-text') || 'Create';
+    }
+  });
+  
+  // Reset form when modal is closed
+  modal.addEventListener('hidden.bs.modal', () => {
+    form.reset();
+    submitBtn.disabled = false;
+    submitBtn.textContent = document.querySelector('[data-original-text]')?.getAttribute('data-original-text') || 'Create';
+  });
+};
+
+// Helper function to get alert utility
+const getCaizAlert = async () => {
+  if (window.bootbox) {
+    return {
+      alert: ({ type, message, timeout }) => {
+        const alertClass = type === 'error' ? 'danger' : type;
+        bootbox.alert({
+          message: `<div class="alert alert-${alertClass}">${message}</div>`,
+          backdrop: true
+        });
+        if (timeout) {
+          setTimeout(() => {
+            $('.bootbox').modal('hide');
+          }, timeout);
+        }
+      }
+    };
+  }
+  
+  // Fallback to browser alert
+  return {
+    alert: ({ message }) => {
+      alert(message);
+    }
+  };
+};
 
 // DOMContentLoadedでも初期化（初回ロード時用）
 document.addEventListener('DOMContentLoaded', function () {
@@ -232,4 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     restoreSidebarState();
   }
+  
+  // Initialize modal functionality
+  initCommunityCreateModal();
 });
