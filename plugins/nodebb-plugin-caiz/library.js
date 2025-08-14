@@ -8,6 +8,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
+const { canPost } = require('./libs/community/permissions');
 
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
@@ -35,6 +36,63 @@ plugin.customizeCategoryLink = Category.customizeLink;
 plugin.customizeTopicRender = Topic.customizeRender;
 plugin.customizeSidebarCommunities = Header.customizeSidebarCommunities;
 plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
+
+/**
+ * フィルター: トピック作成制御
+ */
+plugin.filterTopicCreate = async function (hookData) {
+  const { data } = hookData;
+  const { uid, cid } = data;
+  
+  winston.info(`[plugin/caiz] Filtering topic creation for uid: ${uid}, cid: ${cid}`);
+  
+  if (!uid) {
+    winston.info('[plugin/caiz] Anonymous user cannot create topics in communities');
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  // Check if user has posting permission
+  const hasPermission = await canPost(uid, cid);
+  if (!hasPermission) {
+    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid}`);
+    throw new Error('[[caiz:error.members-only-posting]]');
+  }
+  
+  return hookData;
+};
+
+/**
+ * フィルター: 返信作成制御
+ */
+plugin.filterPostCreate = async function (hookData) {
+  const { data } = hookData;
+  const { uid, tid } = data;
+  
+  winston.info(`[plugin/caiz] Filtering post creation for uid: ${uid}, tid: ${tid}`);
+  
+  if (!uid) {
+    winston.info('[plugin/caiz] Anonymous user cannot create posts in communities');
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  // Get topic data to find category
+  const Topics = require.main.require('./src/topics');
+  const topic = await Topics.getTopicData(tid);
+  
+  if (!topic || !topic.cid) {
+    winston.warn(`[plugin/caiz] Topic ${tid} not found or missing category`);
+    return hookData;
+  }
+  
+  // Check if user has posting permission
+  const hasPermission = await canPost(uid, topic.cid);
+  if (!hasPermission) {
+    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid})`);
+    throw new Error('[[caiz:error.members-only-posting]]');
+  }
+  
+  return hookData;
+};
 sockets.caiz = {};
 sockets.caiz.createCommunity = Community.Create;
 sockets.caiz.followCommunity = Community.Follow;
@@ -53,4 +111,22 @@ sockets.caiz.getMembers = Community.GetMembers;
 sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
+sockets.caiz.canPost = async function (socket, data) {
+  const { uid } = socket;
+  const { cid } = data;
+  
+  winston.info(`[plugin/caiz] Socket canPost check for uid: ${uid}, cid: ${cid}`);
+  
+  if (!uid) {
+    return { canPost: false };
+  }
+  
+  try {
+    const hasPermission = await canPost(uid, cid);
+    return { canPost: hasPermission };
+  } catch (err) {
+    winston.error(`[plugin/caiz] Socket canPost error: ${err.message}`);
+    return { canPost: false };
+  }
+};
 module.exports = plugin;

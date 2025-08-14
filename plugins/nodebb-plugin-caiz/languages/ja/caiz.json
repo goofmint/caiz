@@ -12,6 +12,7 @@
   "follow_success": "フォローしました",
   "unfollow_success": "フォロー解除しました",
   "error.generic": "エラーが発生しました",
+  "error.members-only-posting": "このカテゴリへの投稿はコミュニティメンバーのみ可能です",
   "subcategory": {
     "announcements": "お知らせ",
     "announcements_description": "コミュニティからの重要なお知らせ",

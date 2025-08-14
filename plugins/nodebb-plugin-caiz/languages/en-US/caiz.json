@@ -12,6 +12,7 @@
   "follow_success": "Successfully followed",
   "unfollow_success": "Successfully unfollowed",
   "error.generic": "An error occurred",
+  "error.members-only-posting": "Only community members can post in this category",
   "global": {
     "header.categories": "Community"
   },

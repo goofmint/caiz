@@ -86,9 +86,87 @@ async function checkManagerPermission(uid, cid) {
   return data.isMemberOfGroup(uid, managerGroup);
 }
 
+/**
+ * ユーザーがコミュニティメンバーかチェック
+ * @param {number} uid - ユーザーID
+ * @param {number} cid - カテゴリID
+ * @returns {Promise<boolean>} メンバーである場合true
+ */
+async function isCommunityMember(uid, cid) {
+  if (!uid || !cid) {
+    return false;
+  }
+  
+  try {
+    // Get the top-level community category ID
+    const category = await Categories.getCategoryData(cid);
+    if (!category) {
+      return false;
+    }
+    
+    let communityCid = cid;
+    if (category.parentCid && category.parentCid !== 0) {
+      // This is a subcategory, get the parent community
+      const parentCategory = await Categories.getCategoryData(category.parentCid);
+      if (parentCategory && parentCategory.parentCid === 0) {
+        communityCid = category.parentCid;
+      }
+    }
+    
+    // Check if user is banned first
+    const bannedGroup = getGroupName(communityCid, GROUP_SUFFIXES.BANNED);
+    const isBanned = await data.isMemberOfGroup(uid, bannedGroup);
+    if (isBanned) {
+      winston.info(`[plugin/caiz] User ${uid} is banned from community ${communityCid}`);
+      return false;
+    }
+    
+    // Check owner, manager, or member groups
+    const ownerGroup = await data.getObjectField(`category:${communityCid}`, 'ownerGroup');
+    const managerGroup = getGroupName(communityCid, GROUP_SUFFIXES.MANAGERS);
+    const memberGroup = getGroupName(communityCid, GROUP_SUFFIXES.MEMBERS);
+    
+    const isOwner = ownerGroup && await data.isMemberOfGroup(uid, ownerGroup);
+    const isManager = await data.isMemberOfGroup(uid, managerGroup);
+    const isMember = await data.isMemberOfGroup(uid, memberGroup);
+    
+    const result = isOwner || isManager || isMember;
+    winston.info(`[plugin/caiz] User ${uid} community member status for ${communityCid}: ${result}`);
+    return result;
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error checking community membership: ${err.message}`);
+    return false;
+  }
+}
+
+/**
+ * ユーザーが投稿権限を持つかチェック
+ * @param {number} uid - ユーザーID
+ * @param {number} cid - カテゴリID
+ * @returns {Promise<boolean>} 投稿権限がある場合true
+ */
+async function canPost(uid, cid) {
+  if (!uid) {
+    winston.info(`[plugin/caiz] User not logged in, cannot post to ${cid}`);
+    return false;
+  }
+  
+  try {
+    // Check if user is a community member
+    const isMember = await isCommunityMember(uid, cid);
+    winston.info(`[plugin/caiz] User ${uid} post permission for ${cid}: ${isMember}`);
+    return isMember;
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error checking post permission: ${err.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   IsCommunityOwner,
   createCommunityGroup,
   checkOwnership,
-  checkManagerPermission
+  checkManagerPermission,
+  isCommunityMember,
+  canPost
 };
