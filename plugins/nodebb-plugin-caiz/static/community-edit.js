@@ -1651,6 +1651,9 @@ function initializeCommunityEditForm(cid) {
     // Initialize member management
     initializeMemberManagement(cid);
     
+    // Initialize danger zone for community deletion (no ownership check needed - modal is owner-only)
+    initializeDangerZone(cid);
+    
     // Load existing data
     loadCommunityEditData(cid).then(data => {
       console.log('[caiz] Loaded community data:', data);
@@ -2680,4 +2683,260 @@ function performRemoveMember(targetUid) {
     
     loadMembers(); // Reload the list
   });
+}
+
+// Danger Zone initialization - No ownership check needed since modal is owner-only
+function initializeDangerZone(cid) {
+  console.log('[caiz] Initializing danger zone for cid:', cid);
+  
+  // Wait for the general tab to be available
+  const checkGeneralTab = (attempts = 0) => {
+    const generalTab = document.getElementById('general-tab');
+    if (generalTab && attempts < 20) {
+      // Add danger zone to the general tab
+      addDangerZoneToGeneralTab(generalTab, cid);
+    } else if (attempts < 20) {
+      setTimeout(() => checkGeneralTab(attempts + 1), 100);
+    } else {
+      console.warn('[caiz] Could not find general tab for danger zone');
+    }
+  };
+  
+  checkGeneralTab();
+}
+
+function addDangerZoneToGeneralTab(generalTab, cid) {
+  // Check if danger zone already exists
+  if (generalTab.querySelector('.danger-zone')) {
+    return;
+  }
+  
+  // Create danger zone HTML
+  const dangerZoneHtml = `
+    <div class="danger-zone mt-5">
+      <div class="panel panel-danger">
+        <div class="panel-heading">
+          <h4 class="panel-title">
+            <i class="fa fa-exclamation-triangle text-danger"></i>
+            <span class="danger-zone-title">[[caiz:danger-zone.title]]</span>
+            <button class="btn btn-xs btn-link float-end" id="toggle-danger-zone">
+              <i class="fa fa-chevron-down"></i>
+            </button>
+          </h4>
+        </div>
+        <div class="panel-body danger-zone-content" style="display: none;">
+          <div class="alert alert-danger">
+            <strong>[[caiz:danger-zone.warning]]</strong>
+            <p>[[caiz:danger-zone.warning-description]]</p>
+          </div>
+          <div class="row">
+            <div class="col-md-8">
+              <h5>[[caiz:danger-zone.delete-community]]</h5>
+              <p class="text-muted">[[caiz:danger-zone.delete-description]]</p>
+            </div>
+            <div class="col-md-4 text-end">
+              <button class="btn btn-danger" id="delete-community-btn">
+                [[caiz:danger-zone.delete-button]]
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Append to general tab
+  generalTab.insertAdjacentHTML('beforeend', dangerZoneHtml);
+  
+  // Setup event handlers
+  setupDangerZoneHandlers(cid);
+  
+  // Translate the danger zone
+  if (typeof translator !== 'undefined') {
+    translator.translate(generalTab.querySelector('.danger-zone'));
+  }
+}
+
+function setupDangerZoneHandlers(cid) {
+  // Progressive disclosure toggle
+  const toggleBtn = document.getElementById('toggle-danger-zone');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const content = document.querySelector('.danger-zone-content');
+      const icon = this.querySelector('i');
+      
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.className = 'fa fa-chevron-up';
+      } else {
+        content.style.display = 'none';
+        icon.className = 'fa fa-chevron-down';
+      }
+    });
+  }
+  
+  // Delete button handler
+  const deleteBtn = document.getElementById('delete-community-btn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      showDeleteConfirmation(cid);
+    });
+  }
+}
+
+function showDeleteConfirmation(cid) {
+  // Get community data for confirmation
+  socket.emit('plugins.caiz.getCommunityData', { cid: cid }, function(err, data) {
+    if (err) {
+      console.error('[caiz] Error getting community data:', err);
+      if (typeof alerts !== 'undefined') {
+        alerts.error('Failed to load community data');
+      }
+      return;
+    }
+    
+    const communityName = data.name;
+    
+    // Create confirmation dialog
+    if (typeof bootbox !== 'undefined') {
+      bootbox.dialog({
+        title: '<span class="text-danger"><i class="fa fa-exclamation-triangle"></i> [[caiz:danger-zone.modal-title]]</span>',
+        message: `
+          <div class="delete-confirmation">
+            <div class="alert alert-danger">
+              <h5><i class="fa fa-exclamation-triangle"></i> [[caiz:danger-zone.confirm-title]]</h5>
+              <p>[[caiz:danger-zone.confirm-warning]]</p>
+              <ul>
+                <li>[[caiz:danger-zone.delete-subcategories]]</li>
+                <li>[[caiz:danger-zone.delete-topics]]</li>
+                <li>[[caiz:danger-zone.delete-members]]</li>
+                <li>[[caiz:danger-zone.delete-settings]]</li>
+              </ul>
+            </div>
+            <hr>
+            <p>[[caiz:danger-zone.type-name]]</p>
+            <p><strong>${escapeHtml(communityName)}</strong></p>
+            <input type="text" class="form-control mb-3" id="confirm-community-name" placeholder="[[caiz:danger-zone.type-name-placeholder]]">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="confirm-understand">
+              <label class="form-check-label" for="confirm-understand">
+                [[caiz:danger-zone.understand-permanent]]
+              </label>
+            </div>
+          </div>
+        `,
+        buttons: {
+          cancel: {
+            label: '[[global:cancel]]',
+            className: 'btn-secondary'
+          },
+          delete: {
+            label: '[[caiz:danger-zone.confirm-delete]]',
+            className: 'btn-danger',
+            callback: function() {
+              const typedName = document.getElementById('confirm-community-name').value;
+              const understood = document.getElementById('confirm-understand').checked;
+              
+              if (typedName !== communityName) {
+                if (typeof alerts !== 'undefined') {
+                  alerts.error('[[caiz:danger-zone.name-mismatch]]');
+                }
+                return false;
+              }
+              
+              if (!understood) {
+                if (typeof alerts !== 'undefined') {
+                  alerts.error('[[caiz:danger-zone.must-understand]]');
+                }
+                return false;
+              }
+              
+              executeDeletion(cid, communityName);
+              return true;
+            }
+          }
+        },
+        onEscape: true
+      });
+      
+      // Translate the dialog
+      setTimeout(() => {
+        if (typeof translator !== 'undefined') {
+          translator.translate(document.querySelector('.bootbox'));
+        }
+        
+        // Setup real-time validation
+        const deleteBtn = document.querySelector('.bootbox .btn-danger');
+        deleteBtn.disabled = true;
+        
+        function checkEnableDelete() {
+          const typedName = document.getElementById('confirm-community-name').value;
+          const understood = document.getElementById('confirm-understand').checked;
+          deleteBtn.disabled = !(typedName === communityName && understood);
+        }
+        
+        document.getElementById('confirm-community-name').addEventListener('input', checkEnableDelete);
+        document.getElementById('confirm-understand').addEventListener('change', checkEnableDelete);
+      }, 100);
+    }
+  });
+}
+
+function executeDeletion(cid, name) {
+  // Final confirmation
+  if (typeof bootbox !== 'undefined') {
+    bootbox.confirm({
+      title: '<span class="text-danger">[[caiz:danger-zone.final-confirm-title]]</span>',
+      message: '[[caiz:danger-zone.final-confirm-message]]',
+      buttons: {
+        confirm: {
+          label: '[[caiz:danger-zone.final-delete]]',
+          className: 'btn-danger'
+        },
+        cancel: {
+          label: '[[global:cancel]]',
+          className: 'btn-secondary'
+        }
+      },
+      callback: function(result) {
+        if (!result) {
+          return;
+        }
+        
+        // Show progress
+        if (typeof alerts !== 'undefined') {
+          alerts.info('[[caiz:danger-zone.deleting]]', '[[caiz:danger-zone.deleting-message]]');
+        }
+        
+        // Execute deletion
+        socket.emit('plugins.caiz.deleteCommunity', { cid: cid }, function(err, response) {
+          if (err) {
+            console.error('[caiz] Error deleting community:', err);
+            if (typeof alerts !== 'undefined') {
+              alerts.error(err.message || '[[caiz:danger-zone.delete-error]]');
+            }
+            return;
+          }
+          
+          if (typeof alerts !== 'undefined') {
+            alerts.success('[[caiz:danger-zone.delete-success]]');
+          }
+          
+          // Redirect to communities page
+          setTimeout(function() {
+            window.location.href = '/communities';
+          }, 2000);
+        });
+      }
+    });
+    
+    // Translate the final confirmation
+    setTimeout(() => {
+      if (typeof translator !== 'undefined') {
+        translator.translate(document.querySelector('.bootbox'));
+      }
+    }, 100);
+  }
 }
