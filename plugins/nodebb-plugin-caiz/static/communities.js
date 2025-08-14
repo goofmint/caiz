@@ -76,7 +76,17 @@ const addCommunity = (community, communityUl) => {
   let iconContent;
   let iconElement;
   
-  if (community.backgroundImage && isValidUrl(community.backgroundImage)) {
+  // Debug logging
+  console.log('[caiz] Community icon data:', {
+    name: community.name,
+    backgroundImage: community.backgroundImage,
+    icon: community.icon,
+    bgColor: community.bgColor,
+    isValidUrl: community.backgroundImage ? isValidUrl(community.backgroundImage) : 'no url'
+  });
+  
+  if (community.backgroundImage) {
+    // Try to use backgroundImage regardless of validation for now
     iconElement = document.createElement('img');
     iconElement.src = community.backgroundImage;
     iconElement.alt = safeName;
