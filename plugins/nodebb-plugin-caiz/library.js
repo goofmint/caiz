@@ -8,7 +8,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
-const { canPost } = require('./libs/community/permissions');
+const { IsFollowed } = require('./libs/community/core');
 
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
@@ -51,10 +51,10 @@ plugin.filterTopicCreate = async function (hookData) {
     throw new Error('[[error:not-logged-in]]');
   }
   
-  // Check if user has posting permission
-  const hasPermission = await canPost(uid, cid);
-  if (!hasPermission) {
-    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid}`);
+  // Check if user is following the community
+  const followResult = await IsFollowed({ uid }, { cid });
+  if (!followResult.isFollowed) {
+    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid} - not following community`);
     throw new Error('[[caiz:error.members-only-posting]]');
   }
   
@@ -84,10 +84,10 @@ plugin.filterPostCreate = async function (hookData) {
     return hookData;
   }
   
-  // Check if user has posting permission
-  const hasPermission = await canPost(uid, topic.cid);
-  if (!hasPermission) {
-    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid})`);
+  // Check if user is following the community
+  const followResult = await IsFollowed({ uid }, { cid: topic.cid });
+  if (!followResult.isFollowed) {
+    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid}) - not following community`);
     throw new Error('[[caiz:error.members-only-posting]]');
   }
   
@@ -111,22 +111,4 @@ sockets.caiz.getMembers = Community.GetMembers;
 sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
-sockets.caiz.canPost = async function (socket, data) {
-  const { uid } = socket;
-  const { cid } = data;
-  
-  winston.info(`[plugin/caiz] Socket canPost check for uid: ${uid}, cid: ${cid}`);
-  
-  if (!uid) {
-    return { canPost: false };
-  }
-  
-  try {
-    const hasPermission = await canPost(uid, cid);
-    return { canPost: hasPermission };
-  } catch (err) {
-    winston.error(`[plugin/caiz] Socket canPost error: ${err.message}`);
-    return { canPost: false };
-  }
-};
 module.exports = plugin;
