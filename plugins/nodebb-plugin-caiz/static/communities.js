@@ -25,7 +25,7 @@ const updateCommunities = async () => {
 };
 
 // Security utilities
-const escapeHtml = (text) => {
+const communitiesEscapeHtml = (text) => {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
@@ -57,7 +57,7 @@ const addCommunity = (community, communityUl) => {
   li.classList.add('nav-item', 'mx-2');
   
   // Sanitize community name
-  const safeName = escapeHtml(community.name || 'Unnamed Community');
+  const safeName = communitiesEscapeHtml(community.name || 'Unnamed Community');
   li.setAttribute('data-bs-original-title', safeName);
   
   // Sanitize colors
@@ -90,7 +90,7 @@ const addCommunity = (community, communityUl) => {
   // Create elements safely
   const link = document.createElement('a');
   link.className = 'nav-link navigation-link d-flex gap-2 justify-content-between align-items-center';
-  link.href = `/${escapeHtml(community.handle || '')}`;
+  link.href = `/${communitiesEscapeHtml(community.handle || '')}`;
   link.setAttribute('aria-label', safeName);
   
   const mainSpan = document.createElement('span');
