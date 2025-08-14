@@ -448,6 +448,200 @@ async function UpdateCommunityData(socket, dataToUpdate) {
   return { success: true };
 }
 
+async function DeleteCommunity(socket, { cid }) {
+  const { uid } = socket;
+  
+  winston.info(`[plugin/caiz] Deleting community cid: ${cid}, uid: ${uid}`);
+  
+  if (!uid) {
+    winston.error(`[plugin/caiz] Authentication required for deletion`);
+    throw new Error('Authentication required');
+  }
+  
+  if (!cid) {
+    winston.error(`[plugin/caiz] Community ID is required`);
+    throw new Error('Community ID is required');
+  }
+  
+  try {
+    // Check ownership
+    const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+    if (!ownerGroup) {
+      winston.error(`[plugin/caiz] No owner group found for community ${cid}`);
+      throw new Error('Community not found or not a community');
+    }
+    
+    const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+    if (!isOwner) {
+      winston.error(`[plugin/caiz] User ${uid} is not owner of community ${cid}`);
+      throw new Error('Permission denied - only owners can delete communities');
+    }
+    
+    // Get category data for logging
+    const categoryData = await data.getCategoryData(cid);
+    if (!categoryData) {
+      winston.error(`[plugin/caiz] Community ${cid} not found`);
+      throw new Error('Community not found');
+    }
+    
+    winston.info(`[plugin/caiz] Starting deletion of community "${categoryData.name}" (${cid})`);
+    
+    // Delete community and all related data
+    await deleteCommunityData(cid, uid);
+    
+    // Log the deletion
+    winston.info(`[plugin/caiz] Community "${categoryData.name}" (${cid}) successfully deleted by user ${uid}`);
+    
+    return { success: true, message: 'Community deleted successfully' };
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting community ${cid}: ${error.message}`);
+    throw error;
+  }
+}
+
+async function deleteCommunityData(cid, uid) {
+  winston.info(`[plugin/caiz] Starting comprehensive deletion for community ${cid}`);
+  
+  try {
+    const Categories = require.main.require('./src/categories');
+    const Topics = require.main.require('./src/topics');
+    const Posts = require.main.require('./src/posts');
+    const Groups = require.main.require('./src/groups');
+    const db = require.main.require('./src/database');
+    
+    // 1. Get all subcategories
+    const allCategoryData = await Categories.getAllCategoryFields(['cid', 'parentCid']);
+    const subcategories = allCategoryData.filter(cat => cat.parentCid == cid);
+    
+    winston.info(`[plugin/caiz] Found ${subcategories.length} subcategories to delete`);
+    
+    // 2. Delete all topics and posts in subcategories first
+    for (const subcat of subcategories) {
+      await deleteTopicsAndPosts(subcat.cid, uid);
+      await Categories.purge(subcat.cid, uid);
+    }
+    
+    // 3. Delete all topics and posts in main category
+    await deleteTopicsAndPosts(cid, uid);
+    
+    // 4. Clean up follow data
+    await cleanupFollowData(cid);
+    
+    // 5. Delete community groups
+    await deleteCommunityGroups(cid);
+    
+    // 6. Delete the main category
+    await Categories.purge(cid, uid);
+    
+    winston.info(`[plugin/caiz] Community ${cid} deletion completed successfully`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error during community deletion: ${error.message}`);
+    throw error;
+  }
+}
+
+async function deleteTopicsAndPosts(cid, uid) {
+  winston.info(`[plugin/caiz] Deleting topics and posts for category ${cid}`);
+  
+  try {
+    const Topics = require.main.require('./src/topics');
+    const Posts = require.main.require('./src/posts');
+    
+    // Get all topics in this category
+    const tids = await data.getSortedSetRange(`cid:${cid}:tids`, 0, -1);
+    
+    winston.info(`[plugin/caiz] Found ${tids.length} topics to delete in category ${cid}`);
+    
+    // Delete each topic and its posts
+    for (const tid of tids) {
+      try {
+        await Topics.purge(tid, uid);
+        winston.debug(`[plugin/caiz] Deleted topic ${tid}`);
+      } catch (err) {
+        winston.warn(`[plugin/caiz] Failed to delete topic ${tid}: ${err.message}`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed deletion of topics and posts for category ${cid}`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting topics and posts: ${error.message}`);
+    throw error;
+  }
+}
+
+async function cleanupFollowData(cid) {
+  winston.info(`[plugin/caiz] Cleaning up follow data for community ${cid}`);
+  
+  try {
+    const db = require.main.require('./src/database');
+    
+    // Find all users who follow this community
+    const followers = await db.getSortedSetRevRange(`cid:${cid}:uid:watch:state`, 0, -1);
+    
+    winston.info(`[plugin/caiz] Found ${followers.length} followers to clean up`);
+    
+    // Remove community from each user's followed list
+    for (const uid of followers) {
+      try {
+        await data.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
+        winston.debug(`[plugin/caiz] Removed community ${cid} from user ${uid} followed list`);
+      } catch (err) {
+        winston.warn(`[plugin/caiz] Failed to clean up follow data for user ${uid}: ${err.message}`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed cleanup of follow data for community ${cid}`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error cleaning up follow data: ${error.message}`);
+    throw error;
+  }
+}
+
+async function deleteCommunityGroups(cid) {
+  winston.info(`[plugin/caiz] Deleting community groups for ${cid}`);
+  
+  try {
+    const Groups = require.main.require('./src/groups');
+    
+    // Get owner group name first
+    const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+    
+    const groupsToDelete = [
+      ownerGroup,
+      getGroupName(cid, GROUP_SUFFIXES.MANAGERS),
+      getGroupName(cid, GROUP_SUFFIXES.MEMBERS),
+      getGroupName(cid, GROUP_SUFFIXES.BANNED)
+    ].filter(Boolean); // Remove null/undefined values
+    
+    winston.info(`[plugin/caiz] Deleting ${groupsToDelete.length} groups: ${groupsToDelete.join(', ')}`);
+    
+    // Delete each group
+    for (const groupName of groupsToDelete) {
+      try {
+        const exists = await Groups.exists(groupName);
+        if (exists) {
+          await Groups.destroy(groupName);
+          winston.debug(`[plugin/caiz] Deleted group: ${groupName}`);
+        } else {
+          winston.warn(`[plugin/caiz] Group ${groupName} does not exist, skipping`);
+        }
+      } catch (err) {
+        winston.warn(`[plugin/caiz] Failed to delete group ${groupName}: ${err.message}`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed deletion of community groups for ${cid}`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting community groups: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   createCommunity,
   getUserCommunities,
@@ -455,5 +649,6 @@ module.exports = {
   Unfollow,
   IsFollowed,
   GetCommunityData,
-  UpdateCommunityData
+  UpdateCommunityData,
+  DeleteCommunity
 };

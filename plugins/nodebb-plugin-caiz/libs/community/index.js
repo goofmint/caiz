@@ -18,6 +18,7 @@ module.exports = {
   IsFollowed: core.IsFollowed,
   GetCommunityData: core.GetCommunityData,
   UpdateCommunityData: core.UpdateCommunityData,
+  DeleteCommunity: core.DeleteCommunity,
   
   // Member operations
   GetMembers: members.GetMembers,

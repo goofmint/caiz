@@ -122,6 +122,10 @@ class Community extends Base {
     return community.RemoveMember(socket, data);
   }
 
+  static async DeleteCommunity(socket, data) {
+    return community.DeleteCommunity(socket, data);
+  }
+
   // Expose helper methods for external use
   static async customizeIndexLink(data) {
     return community.customizeIndexLink(data);

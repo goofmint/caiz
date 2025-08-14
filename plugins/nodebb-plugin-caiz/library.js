@@ -111,4 +111,5 @@ sockets.caiz.getMembers = Community.GetMembers;
 sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
+sockets.caiz.deleteCommunity = Community.DeleteCommunity;
 module.exports = plugin;
