@@ -2751,10 +2751,13 @@ function addDangerZoneToGeneralTab(generalTab, cid) {
   // Setup event handlers
   setupDangerZoneHandlers(cid);
   
-  // Translate the danger zone
-  if (typeof translator !== 'undefined') {
-    translator.translate(generalTab.querySelector('.danger-zone'));
-  }
+  // Translate the danger zone using NodeBB's translator
+  require(['translator'], function(translator) {
+    const dangerZone = generalTab.querySelector('.danger-zone');
+    if (dangerZone && translator) {
+      translator.translate(dangerZone);
+    }
+  });
 }
 
 function setupDangerZoneHandlers(cid) {
@@ -2861,24 +2864,35 @@ function showDeleteConfirmation(cid) {
         onEscape: true
       });
       
-      // Translate the dialog
+      // Translate the dialog using NodeBB's translator and setup validation
       setTimeout(() => {
-        if (typeof translator !== 'undefined') {
-          translator.translate(document.querySelector('.bootbox'));
-        }
-        
-        // Setup real-time validation
-        const deleteBtn = document.querySelector('.bootbox .btn-danger');
-        deleteBtn.disabled = true;
-        
-        function checkEnableDelete() {
-          const typedName = document.getElementById('confirm-community-name').value;
-          const understood = document.getElementById('confirm-understand').checked;
-          deleteBtn.disabled = !(typedName === communityName && understood);
-        }
-        
-        document.getElementById('confirm-community-name').addEventListener('input', checkEnableDelete);
-        document.getElementById('confirm-understand').addEventListener('change', checkEnableDelete);
+        require(['translator'], function(translator) {
+          const bootboxDialog = document.querySelector('.bootbox');
+          if (bootboxDialog && translator) {
+            translator.translate(bootboxDialog);
+          }
+          
+          // Setup real-time validation
+          const deleteBtn = document.querySelector('.bootbox .btn-danger');
+          if (deleteBtn) {
+            deleteBtn.disabled = true;
+            
+            function checkEnableDelete() {
+              const nameInput = document.getElementById('confirm-community-name');
+              const understandCheck = document.getElementById('confirm-understand');
+              if (nameInput && understandCheck) {
+                const typedName = nameInput.value;
+                const understood = understandCheck.checked;
+                deleteBtn.disabled = !(typedName === communityName && understood);
+              }
+            }
+            
+            const nameInput = document.getElementById('confirm-community-name');
+            const understandCheck = document.getElementById('confirm-understand');
+            if (nameInput) nameInput.addEventListener('input', checkEnableDelete);
+            if (understandCheck) understandCheck.addEventListener('change', checkEnableDelete);
+          }
+        });
       }, 100);
     }
   });
@@ -2934,9 +2948,12 @@ function executeDeletion(cid, name) {
     
     // Translate the final confirmation
     setTimeout(() => {
-      if (typeof translator !== 'undefined') {
-        translator.translate(document.querySelector('.bootbox'));
-      }
+      require(['translator'], function(translator) {
+        const bootboxDialog = document.querySelector('.bootbox');
+        if (bootboxDialog && translator) {
+          translator.translate(bootboxDialog);
+        }
+      });
     }, 100);
   }
 }
