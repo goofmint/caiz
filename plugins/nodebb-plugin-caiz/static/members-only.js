@@ -46,7 +46,7 @@ console.log('[caiz] members-only.js loaded');
     }
 
     // フォロー状態をチェック
-    socket.emit('plugins.caiz.isFollowed', { cid: cid }, function (err, data) {
+    socket.emit('plugins.caiz.getMemberRole', { cid: cid }, function (err, data) {
       console.log('[caiz] Socket response - err:', err, 'data:', data);
       
       if (err) {
@@ -61,14 +61,15 @@ console.log('[caiz] members-only.js loaded');
         return;
       }
 
-      console.log('[caiz] Follow status result:', data.isFollowed);
+      console.log('[caiz] Member role result:', data.role);
       
-      if (data.isFollowed) {
-        console.log('[caiz] User is following - showing posting elements');
+      // メンバー（owner, manager, member）なら投稿可能
+      if (data.role && data.role !== 'guest' && data.role !== 'banned') {
+        console.log('[caiz] User is a member - showing posting elements');
         hideRestrictionMessage();
         togglePostingElements(true);
       } else {
-        console.log('[caiz] User is not following - hiding posting elements and showing restriction message');
+        console.log('[caiz] User is not a member - hiding posting elements and showing restriction message');
         togglePostingElements(false);
         showRestrictionMessage(cid);
       }

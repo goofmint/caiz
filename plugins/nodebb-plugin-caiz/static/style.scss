@@ -342,7 +342,7 @@
   }
 
   .sidebar-menu {
-    background-color: var(--bs-tertiary-bg, #f8f9fa);
+    background-color: var(--bs-body-bg, #ffffff);
     min-height: 100%;
     
     .list-group-item {
@@ -375,7 +375,7 @@
       }
       
       &:hover:not(.active) {
-        background-color: var(--bs-secondary-bg, #e9ecef);
+        background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.1);
         transform: translateX(5px);
       }
       
@@ -442,8 +442,8 @@
     
     .sidebar-menu {
       min-height: auto;
-      background-color: #ffffff;
-      border-bottom: 1px solid #dee2e6;
+      background-color: var(--bs-body-bg, #ffffff);
+      border-bottom: 1px solid var(--bs-border-color, #dee2e6);
       
       .list-group {
         flex-direction: row;
@@ -478,7 +478,7 @@
         
         &:hover:not(.active) {
           transform: none;
-          background-color: #f8f9fa;
+          background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.1);
         }
       }
     }
@@ -539,7 +539,7 @@
   
   &.dragging {
     opacity: 0.5;
-    background-color: var(--bs-tertiary-bg, #f8f9fa);
+    background-color: var(--bs-secondary-bg, #e9ecef);
     transform: scale(0.98);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 1000;
@@ -566,7 +566,7 @@
   }
   
   &:hover:not(.dragging) {
-    background-color: var(--bs-secondary-bg, #f8f9fa);
+    background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.05);
   }
 }
 
@@ -584,7 +584,7 @@
       background-color: transparent;
       
       thead {
-        background-color: var(--bs-tertiary-bg, #f8f9fa);
+        background-color: var(--bs-secondary-bg, #e9ecef);
         border-bottom: 2px solid var(--bs-border-color, #dee2e6);
         
         th {
@@ -671,7 +671,7 @@
     color: var(--bs-body-color, #212529);
     
     .card-header {
-      background-color: var(--bs-tertiary-bg, #f8f9fa);
+      background-color: var(--bs-secondary-bg, #e9ecef);
       border-bottom: 1px solid var(--bs-border-color, #dee2e6);
       padding: 1rem 1.25rem;
       
@@ -821,7 +821,7 @@
       background-color: transparent;
       
       thead {
-        background-color: var(--bs-tertiary-bg, #f8f9fa);
+        background-color: var(--bs-secondary-bg, #e9ecef);
         border-bottom: 2px solid var(--bs-border-color, #dee2e6);
         
         th {
@@ -845,7 +845,7 @@
           }
           
           &:hover {
-            background-color: var(--bs-secondary-bg, #f8f9fa);
+            background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.05);
           }
           
           td {
@@ -918,7 +918,7 @@
     color: var(--bs-body-color, #212529);
     
     .card-header {
-      background-color: var(--bs-tertiary-bg, #f8f9fa);
+      background-color: var(--bs-secondary-bg, #e9ecef);
       border-bottom: 1px solid var(--bs-border-color, #dee2e6);
       padding: 1rem 1.25rem;
       
@@ -1155,7 +1155,7 @@ html body[data-bs-theme="dark"] #add-member-form-container .card .card-header,
 /* Input group for search */
 .input-group {
   .input-group-text {
-    background-color: var(--bs-tertiary-bg, #f8f9fa);
+    background-color: var(--bs-secondary-bg, #e9ecef);
     border-color: var(--bs-border-color, #ced4da);
     color: var(--bs-secondary-color, #6c757d);
     

@@ -152,65 +152,102 @@ const initializeFollowButton = async (cid) => {
   let followStatus = false;
 
   const changeButtonLabel = () => {
-    const key = followStatus ? 'caiz:unfollow' : 'caiz:follow';
-    followButton.text(getText(key));
+    let buttonText;
+    
+    switch (userRole) {
+      case 'owner':
+        buttonText = 'Owner';
+        break;
+      case 'manager':
+        buttonText = 'Manager';
+        break;
+      case 'member':
+        buttonText = 'Member';
+        break;
+      case 'banned':
+        buttonText = 'Banned';
+        break;
+      case 'guest':
+      default:
+        buttonText = getText('caiz:follow'); // "Become Member"
+        break;
+    }
+    
+    followButton.text(buttonText);
+    
+    // Disable button for owner and banned users (manager can leave)
+    if (userRole === 'owner' || userRole === 'banned') {
+      followButton.prop('disabled', true);
+      followButton.css('cursor', 'not-allowed');
+    } else {
+      followButton.prop('disabled', false);
+      followButton.css('cursor', 'pointer');
+    }
+    
     if (typeof updateCommunities !== 'undefined') {
       updateCommunities();
     }
   };
 
-  // Get initial follow status
-  socket.emit('plugins.caiz.isFollowed', { cid }, function (err, response) {
+  // Get initial follow status and user role
+  let userRole = 'guest';
+  socket.emit('plugins.caiz.getMemberRole', { cid }, function (err, response) {
     if (err) {
       console.error('[caiz] Error getting follow status:', err);
-      return alert({
-        type: 'error',
-        message: err.message || getText('caiz:error.generic'),
-        timeout: 3000,
-      });
+      if (typeof alerts !== 'undefined') {
+        alerts.error(err.message || getText('caiz:error.generic'));
+      }
+      return;
     }
     
-    followStatus = response.isFollowed;
+    userRole = response.role || 'guest';
+    followStatus = (userRole !== 'guest' && userRole !== 'banned');
     changeButtonLabel();
-    console.log('[caiz] Follow status updated:', followStatus);
+    console.log('[caiz] Membership status updated - role:', userRole);
   });
 
   // Remove existing event handlers to prevent duplicates
   followButton.off('mouseenter mouseleave click');
 
-  // Add hover effects
+  // Add hover effects only for actionable roles
   followButton.on('mouseenter', () => {
-    const key = followStatus ? 'caiz:unfollowing' : 'caiz:following';
-    followButton.text(getText(key));
+    if (userRole === 'guest') {
+      followButton.text(getText('caiz:follow')); // "メンバーになる" のまま
+    } else if (userRole === 'member' || userRole === 'manager') {
+      followButton.text(getText('caiz:unfollowing')); // "メンバー解除"
+    }
   });
 
   followButton.on('mouseleave', () => {
-    const key = followStatus ? 'caiz:unfollow' : 'caiz:follow';
-    followButton.text(getText(key));
+    changeButtonLabel(); // Reset to proper label
   });
 
   // Add click handler
   followButton.on('click', () => {
-    const action = followStatus ? 
+    // Only allow action for guest (join), member (leave), or manager (leave)
+    if (userRole !== 'guest' && userRole !== 'member' && userRole !== 'manager') {
+      return; // No action for owner, banned
+    }
+    
+    const action = (userRole === 'member' || userRole === 'manager') ? 
       'plugins.caiz.unfollowCommunity' : 
       'plugins.caiz.followCommunity';
       
     socket.emit(action, { cid }, function (err, response) {
       if (err) {
-        console.error('[caiz] Follow action error:', err);
-        return alert({
-          type: 'error',
-          message: err.message || getText('caiz:error.generic'),
-          timeout: 3000,
-        });
+        console.error('[caiz] Membership action error:', err);
+        if (typeof alerts !== 'undefined') {
+          alerts.error(err.message || getText('caiz:error.generic'));
+        }
+        return;
       }
       
-      followStatus = response.isFollowed;
-      alert({
-        type: 'success',
-        message: getText(followStatus ? 'caiz:follow_success' : 'caiz:unfollow_success'),
-        timeout: 3000,
-      });
+      userRole = response.role || 'guest';
+      followStatus = (userRole !== 'guest' && userRole !== 'banned');
+      if (typeof alerts !== 'undefined') {
+        const successKey = (userRole === 'member' || userRole === 'manager' || userRole === 'owner') ? 'caiz:follow_success' : 'caiz:unfollow_success';
+        alerts.success(getText(successKey));
+      }
       changeButtonLabel();
       console.log('[caiz] Follow status changed to:', followStatus);
     });
@@ -284,6 +321,8 @@ const openCommunityEditModal = async (cid) => {
     
     // Initialize the form when modal is shown
     $(modalElement).on('shown.bs.modal.communityEdit', function () {
+      // Re-initialize modal navigation to ensure events are properly bound
+      initializeModalNavigation();
       CommunityEditForm.initializeCommunityEditForm(cid);
     });
     

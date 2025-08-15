@@ -26,12 +26,12 @@
     {{{ if canManage }}}
     <div class="btn-group btn-group-sm">
       <select class="form-select form-select-sm member-role-select" data-uid="{uid}" style="width: auto;">
-        <option value="">[[caiz:members.change-role]]</option>
+        <option value="">{changeRoleText}</option>
         {{{ each roleOptions }}}
-        <option value="{@value}">{@key}</option>
+        <option value="{./value}">{./text}</option>
         {{{ end }}}
       </select>
-      <button type="button" class="btn btn-outline-danger btn-sm member-remove-btn" data-uid="{uid}" data-username="{username}" title="[[caiz:members.remove]]">
+      <button type="button" class="btn btn-outline-danger btn-sm member-remove-btn" data-uid="{uid}" data-username="{username}" title="{removeText}">
         <i class="fa fa-trash"></i>
       </button>
     </div>

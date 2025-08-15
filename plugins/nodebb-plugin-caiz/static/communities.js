@@ -355,21 +355,8 @@ const getCaizAlert = async () => {
   };
 };
 
-// DOMContentLoadedでも初期化（初回ロード時用）
+// DOMContentLoadedでは初期化のみ（updateCommunitiesはajaxifyで実行）
 document.addEventListener('DOMContentLoaded', function () {
-  if (!app.user || !app.user.uid) {
-    console.log('[caiz] User not logged in, skipping community sidebar initialization');
-    return;
-  }
-  
-  const sidebar = document.querySelector('nav[component="sidebar-communities"]');
-  if (sidebar) {
-    updateCommunities();
-    $('[component="community/toggle"]').on('click', toggleCommunity);
-    
-    restoreSidebarState();
-  }
-  
   // Initialize modal functionality
   initCommunityCreateModal();
 });
