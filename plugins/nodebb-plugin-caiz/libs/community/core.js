@@ -233,10 +233,27 @@ async function getUserCommunities(uid) {
   const categoryData = await data.getCategoriesData(watchedCids);
   winston.info(`[plugin/caiz] Category data retrieved: ${categoryData.length} items`);
   
-  // Filter to top-level categories only
-  const communities = categoryData.filter(cat => cat && cat.parentCid === 0);
+  // Filter out null entries (deleted categories) and get only top-level categories
+  const communities = categoryData.filter(cat => {
+    if (!cat) {
+      winston.info(`[plugin/caiz] Skipping null category entry`);
+      return false;
+    }
+    if (!cat.cid) {
+      winston.info(`[plugin/caiz] Skipping category with no cid`);
+      return false;
+    }
+    return cat.parentCid === 0;
+  });
+  
   winston.info(`[plugin/caiz] Filtered to ${communities.length} top-level communities`);
-  winston.info(`[plugin/caiz] All category data:`, categoryData.map(c => ({ cid: c.cid, name: c.name, parentCid: c.parentCid })));
+  if (communities.length > 0) {
+    winston.info(`[plugin/caiz] Valid communities:`, communities.map(c => ({ 
+      cid: c.cid, 
+      name: c.name, 
+      parentCid: c.parentCid 
+    })));
+  }
   
   return communities;
 }
@@ -577,21 +594,28 @@ async function cleanupFollowData(cid) {
   
   try {
     const db = require.main.require('./src/database');
+    const user = require.main.require('./src/user');
     
-    // Find all users who follow this community
-    const followers = await db.getSortedSetRevRange(`cid:${cid}:uid:watch:state`, 0, -1);
+    // Get all users to check their followed_cats
+    const allUids = await user.getUidsFromSet('users:joindate', 0, -1);
     
-    winston.info(`[plugin/caiz] Found ${followers.length} followers to clean up`);
+    winston.info(`[plugin/caiz] Checking ${allUids.length} users for followed_cats cleanup`);
     
     // Remove community from each user's followed list
-    for (const uid of followers) {
+    let cleanedCount = 0;
+    for (const uid of allUids) {
       try {
-        await data.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
-        winston.debug(`[plugin/caiz] Removed community ${cid} from user ${uid} followed list`);
+        const removed = await data.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
+        if (removed) {
+          cleanedCount++;
+          winston.debug(`[plugin/caiz] Removed community ${cid} from user ${uid} followed list`);
+        }
       } catch (err) {
         winston.warn(`[plugin/caiz] Failed to clean up follow data for user ${uid}: ${err.message}`);
       }
     }
+    
+    winston.info(`[plugin/caiz] Cleaned up follow data for ${cleanedCount} users`);
     
     winston.info(`[plugin/caiz] Completed cleanup of follow data for community ${cid}`);
     

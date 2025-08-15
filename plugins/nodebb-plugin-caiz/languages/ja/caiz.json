@@ -19,6 +19,23 @@
   "login": "ログイン",
   "join-community": "メンバーになる",
   "join-community-confirm": "コミュニティ「%1」のページに移動してメンバーになりますか？",
+  "community": {
+    "edit-info": "コミュニティ情報を編集",
+    "edit-description": "コミュニティの基本情報（名前、スラッグ、説明、ロゴ）を編集します。",
+    "name": "コミュニティ名",
+    "description": "説明",
+    "logo-type": "ロゴタイプ",
+    "use-icon": "アイコンを使用",
+    "use-image": "画像を使用",
+    "icon": "アイコン",
+    "select-icon": "アイコンを選択",
+    "icon-color": "アイコン色",
+    "icon-bg-color": "背景色",
+    "logo": "ロゴ画像",
+    "current-logo": "現在のロゴ",
+    "new-logo": "新しいロゴ",
+    "save-changes": "変更を保存"
+  },
   "danger-zone": {
     "title": "デンジャーゾーン",
     "warning": "警告",
@@ -56,5 +73,42 @@
     "questions_description": "困ったことがあれば気軽にご相談ください",
     "resources": "資料・情報共有",
     "resources_description": "有用な情報や資料の共有場所"
+  },
+  "members": {
+    "change-role": "ロール変更",
+    "remove": "削除",
+    "owner": "オーナー",
+    "manager": "マネージャー", 
+    "member": "メンバー",
+    "banned": "BAN",
+    "demote-to-manager": "マネージャーに降格",
+    "demote-to-member": "メンバーに降格",
+    "promote-to-owner": "オーナーに昇格",
+    "promote-to-manager": "マネージャーに昇格",
+    "ban-user": "BANする",
+    "change-role-confirm": "{username}のロールを{role}に変更してもよろしいですか？",
+    "remove-member-confirm": "{username}をこのコミュニティから削除してもよろしいですか？この操作は取り消せません。",
+    "remove-member-title": "メンバーの削除"
+  },
+  "categories": {
+    "delete-confirm": "カテゴリ「{name}」を削除してもよろしいですか？この操作は取り消せません。",
+    "delete-title": "カテゴリの削除",
+    "save-success": "カテゴリを保存しました",
+    "delete-success": "カテゴリを削除しました", 
+    "reorder-success": "カテゴリの順序を変更しました",
+    "save-error": "カテゴリの保存に失敗しました",
+    "delete-error": "カテゴリの削除に失敗しました",
+    "reorder-error": "カテゴリの並び替えに失敗しました",
+    "load-error": "カテゴリの読み込みに失敗しました",
+    "render-error": "カテゴリの表示に失敗しました"
+  },
+  "common": {
+    "save-success": "保存しました",
+    "delete-success": "削除しました",
+    "update-success": "更新しました",
+    "load-error": "データの読み込みに失敗しました",
+    "save-error": "データの保存に失敗しました",
+    "delete-error": "削除に失敗しました",
+    "generic-error": "エラーが発生しました"
   }
 }

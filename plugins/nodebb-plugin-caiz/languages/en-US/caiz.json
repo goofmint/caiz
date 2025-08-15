@@ -19,6 +19,23 @@
   "login": "Login",
   "join-community": "Become Member",
   "join-community-confirm": "Would you like to go to the \"%1\" community page to become a member?",
+  "community": {
+    "edit-info": "Edit Community Information",
+    "edit-description": "Edit basic community information including name, slug, description, and logo.",
+    "name": "Community Name",
+    "description": "Description",
+    "logo-type": "Logo Type",
+    "use-icon": "Use Icon",
+    "use-image": "Use Image",
+    "icon": "Icon",
+    "select-icon": "Select Icon",
+    "icon-color": "Icon Color",
+    "icon-bg-color": "Background Color",
+    "logo": "Logo Image",
+    "current-logo": "Current Logo",
+    "new-logo": "New Logo",
+    "save-changes": "Save Changes"
+  },
   "global": {
     "header.categories": "Community"
   },
@@ -73,5 +90,42 @@
     "questions_description": "Feel free to ask questions or seek advice",
     "resources": "Resources & Information",
     "resources_description": "A place to share useful information and resources"
+  },
+  "members": {
+    "change-role": "Change Role",
+    "remove": "Remove",
+    "owner": "Owner",
+    "manager": "Manager", 
+    "member": "Member",
+    "banned": "Banned",
+    "demote-to-manager": "Demote to Manager",
+    "demote-to-member": "Demote to Member",
+    "promote-to-owner": "Promote to Owner",
+    "promote-to-manager": "Promote to Manager",
+    "ban-user": "Ban User",
+    "change-role-confirm": "Are you sure you want to change {username}'s role to {role}?",
+    "remove-member-confirm": "Are you sure you want to remove {username} from this community? This action cannot be undone.",
+    "remove-member-title": "Remove Member"
+  },
+  "categories": {
+    "delete-confirm": "Are you sure you want to delete the category \"{name}\"? This action cannot be undone.",
+    "delete-title": "Delete Category",
+    "save-success": "Category saved successfully",
+    "delete-success": "Category deleted successfully",
+    "reorder-success": "Categories reordered successfully",
+    "save-error": "Failed to save category",
+    "delete-error": "Failed to delete category",
+    "reorder-error": "Failed to reorder categories",
+    "load-error": "Failed to load categories",
+    "render-error": "Failed to render categories"
+  },
+  "common": {
+    "save-success": "Successfully saved",
+    "delete-success": "Successfully deleted",
+    "update-success": "Successfully updated",
+    "load-error": "Failed to load data",
+    "save-error": "Failed to save data",
+    "delete-error": "Failed to delete",
+    "generic-error": "An error occurred"
   }
 }

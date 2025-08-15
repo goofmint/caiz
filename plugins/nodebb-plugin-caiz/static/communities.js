@@ -289,10 +289,7 @@ const initCommunityCreateModal = () => {
       const result = await response.json();
       
       // Close modal
-      const bsModal = bootstrap.Modal.getInstance(modal);
-      if (bsModal) {
-        bsModal.hide();
-      } else {
+      if (typeof $ !== 'undefined' && $.fn.modal) {
         $(modal).modal('hide');
       }
       
