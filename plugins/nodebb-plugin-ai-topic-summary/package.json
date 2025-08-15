@@ -1,0 +1,26 @@
+{
+  "name": "nodebb-plugin-ai-topic-summary",
+  "version": "1.0.0",
+  "description": "Automatically generate AI-powered summaries for NodeBB topics",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goofmint/caiz"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "ai",
+    "summary",
+    "gemini"
+  ],
+  "author": "MOONGIFT",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/goofmint/caiz/issues"
+  },
+  "readme": "README.md",
+  "dependencies": {
+    "@google/genai": "^1.14.0"
+  }
+}
