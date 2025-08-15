@@ -15,8 +15,8 @@ const DEPRECATED_followInitializer = async () => {
     'caiz:following',
   ];
   if (followButton.length === 0) return;
-  const { alert } = await getAlert();
-  const translator = await getTranslate();
+  const alert = await getModalAlert();
+  const translator = await getModalTranslate();
   const messages = Object.fromEntries(await Promise.all(messageKeys.map(key => new Promise((resolve) => translator.translate(`[[${key}]]`, (t) => resolve([key, t]))))))
   const cid = followButton.attr('data-cid');
   const follow = {

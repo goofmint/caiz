@@ -9,7 +9,6 @@
             </div>
             <div class="modal-body">
                 <form id="community-create-form">
-                    <!-- CSRFトークン（重要） -->
                     <input type="hidden" name="_csrf" value="{config.csrf_token}" />
                     <div class="form-group">
                         <label for="community-name">[[caiz:community_name]]</label>
@@ -19,7 +18,6 @@
                         <label for="community-description">[[caiz:community_description]]</label>
                         <textarea class="form-control" id="community-description" name="description" rows="3"></textarea>
                     </div>
-                    <!-- 必要に応じて他のフィールドを追加 -->
                 </form>
             </div>
             <div class="modal-footer">

@@ -1,6 +1,8 @@
 const winston = require.main.require('winston');
 const path = require('path');
 const Privileges = require.main.require('./src/privileges');
+const Categories = require.main.require('./src/categories');
+const Groups = require.main.require('./src/groups');
 const user = require.main.require('./src/user');
 const meta = require.main.require('./src/meta');
 const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
@@ -88,7 +90,6 @@ async function createCommunity(uid, { name, description }) {
   
   // Save the owner group name in category data
   await data.setObjectField(`category:${cid}`, 'ownerGroup', ownerGroupName);
-  await data.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), cid);
 
   await Privileges.categories.give(ownerPrivileges, cid, ownerGroupName);
   // Set up privileges
@@ -223,22 +224,56 @@ async function createCommunity(uid, { name, description }) {
 
 async function getUserCommunities(uid) {
   winston.info(`[plugin/caiz] getUserCommunities for uid: ${uid}`);
-  const watchedCids = await data.getSortedSetRange(`uid:${uid}:followed_cats`, 0, -1);
-  winston.info(`[plugin/caiz] Found ${watchedCids.length} watched categories: ${JSON.stringify(watchedCids)}`);
   
-  if (!watchedCids || watchedCids.length === 0) {
+  if (!uid) {
     return [];
   }
   
-  const categoryData = await data.getCategoriesData(watchedCids);
-  winston.info(`[plugin/caiz] Category data retrieved: ${categoryData.length} items`);
+  // Get all categories to check membership
+  const allCategoryFields = await Categories.getAllCategoryFields(['cid', 'name', 'parentCid', 'slug', 'icon', 'backgroundImage', 'color', 'bgColor']);
+  if (!allCategoryFields || allCategoryFields.length === 0) {
+    winston.warn(`[plugin/caiz] No categories found`);
+    return [];
+  }
+  
+  winston.info(`[plugin/caiz] Found ${allCategoryFields.length} total categories`);
+  const allCategories = allCategoryFields;
   
   // Filter to top-level categories only
-  const communities = categoryData.filter(cat => cat && cat.parentCid === 0);
-  winston.info(`[plugin/caiz] Filtered to ${communities.length} top-level communities`);
-  winston.info(`[plugin/caiz] All category data:`, categoryData.map(c => ({ cid: c.cid, name: c.name, parentCid: c.parentCid })));
+  const topLevelCategories = allCategories.filter(cat => cat && cat.parentCid === 0);
+  winston.info(`[plugin/caiz] Found ${topLevelCategories.length} top-level categories: ${topLevelCategories.map(c => `${c.cid}:${c.name}`).join(', ')}`);
   
-  return communities;
+  // Check membership for each community
+  const userCommunities = [];
+  for (const category of topLevelCategories) {
+    winston.info(`[plugin/caiz] Checking membership for user ${uid} in category ${category.cid} (${category.name})`);
+    const role = await getUserRole(uid, category.cid);
+    winston.info(`[plugin/caiz] User ${uid} role in category ${category.cid}: ${role}`);
+    if (role !== 'guest') {
+      winston.info(`[plugin/caiz] User ${uid} is ${role} in community ${category.cid} (${category.name}) - ADDING TO LIST`);
+      // Add handle for URL generation
+      let handle;
+      if (category.slug) {
+        // Extract handle from slug (format: "cid/handle")
+        const slugParts = category.slug.split('/');
+        handle = slugParts.length > 1 ? slugParts[1] : slugParts[0];
+      } else {
+        // Fallback: generate from name
+        handle = category.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+      }
+      
+      const communityData = {
+        ...category,
+        handle: handle
+      };
+      userCommunities.push(communityData);
+    } else {
+      winston.info(`[plugin/caiz] User ${uid} is guest in category ${category.cid} - NOT ADDING`);
+    }
+  }
+  
+  winston.info(`[plugin/caiz] User ${uid} is member of ${userCommunities.length} communities`);
+  return userCommunities;
 }
 
 async function Follow(socket, { cid }) {
@@ -250,38 +285,27 @@ async function Follow(socket, { cid }) {
   // Find the parent category to follow
   const targetCid = await getParentCategory(cid);
   
-  // Add to followed categories (parent category only)
-  await data.sortedSetAdd(`uid:${uid}:followed_cats`, Date.now(), targetCid);
+  // Ensure community groups exist (for old communities)
+  await ensureCommunityGroups(targetCid);
   
-  // Check if user is already a member of any community group (use parent category)
-  const memberGroups = [
-    await data.getObjectField(`category:${targetCid}`, 'ownerGroup'),
-    getGroupName(targetCid, GROUP_SUFFIXES.MANAGERS),
-    getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS),
-    getGroupName(targetCid, GROUP_SUFFIXES.BANNED)
-  ];
+  // Check if user is already a member using common function
+  const currentRole = await getUserRole(uid, targetCid);
   
-  let isAlreadyMember = false;
-  for (const groupName of memberGroups) {
-    if (groupName && await data.groupExists(groupName) && await data.isMemberOfGroup(uid, groupName)) {
-      winston.info(`[plugin/caiz] User ${uid} is already member of group ${groupName}`);
-      isAlreadyMember = true;
-      break;
-    }
+  if (currentRole !== 'guest') {
+    winston.info(`[plugin/caiz] User ${uid} is already a ${currentRole}`);
+    return { role: currentRole };
   }
   
-  // If not already a member, add to members group (use parent category)
-  if (!isAlreadyMember) {
-    const memberGroupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
-    if (await data.groupExists(memberGroupName)) {
-      await data.joinGroup(memberGroupName, uid);
-      winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
-    } else {
-      winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${targetCid}`);
-    }
+  // Add to members group (use parent category)
+  const memberGroupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
+  if (await Groups.exists(memberGroupName)) {
+    await Groups.join(memberGroupName, uid);
+    winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
+  } else {
+    winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${targetCid}`);
   }
   
-  return { isFollowed: true };
+  return { role: 'member' };
 }
 
 async function Unfollow(socket, { cid }) {
@@ -290,40 +314,84 @@ async function Unfollow(socket, { cid }) {
   
   winston.info(`[plugin/caiz] User ${uid} unfollowing community ${cid}`);
   
-  // Remove from followed categories
-  await data.sortedSetRemove(`uid:${uid}:followed_cats`, cid);
+  // Find the parent category
+  const targetCid = await getParentCategory(cid);
   
-  // Check if user is just a regular member (not owner/manager) and remove them
-  const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
-  const managerGroup = getGroupName(cid, GROUP_SUFFIXES.MANAGERS);
-  const memberGroup = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
+  // Check current membership using common function
+  const currentRole = await getUserRole(uid, targetCid);
   
-  const isOwner = ownerGroup && await data.groupExists(ownerGroup) && await data.isMemberOfGroup(uid, ownerGroup);
-  const isManager = await data.groupExists(managerGroup) && await data.isMemberOfGroup(uid, managerGroup);
-  
-  // Only remove regular members, not owners or managers
-  if (!isOwner && !isManager) {
-    if (await data.groupExists(memberGroup) && await data.isMemberOfGroup(uid, memberGroup)) {
-      await data.leaveGroup(memberGroup, uid);
-      winston.info(`[plugin/caiz] Removed user ${uid} from member group ${memberGroup}`);
-    }
-  } else {
-    winston.info(`[plugin/caiz] User ${uid} is owner/manager, not removing from member groups`);
+  if (currentRole === 'guest') {
+    winston.info(`[plugin/caiz] User ${uid} is not a member of community ${targetCid}`);
+    return { role: 'guest' };
   }
   
-  return { isFollowed: false };
+  // Check if owner can leave (only if there are other owners)
+  if (currentRole === 'owner') {
+    const categoryData = await Categories.getCategoryData(targetCid);
+    const ownerGroup = categoryData && categoryData.ownerGroup;
+    
+    if (ownerGroup) {
+      const ownerMembers = await Groups.getMembers(ownerGroup, 0, -1);
+      if (ownerMembers.length <= 1) {
+        throw new Error('Cannot leave community as the sole owner. Transfer ownership first.');
+      }
+    }
+  }
+  
+  // Remove from appropriate group
+  let groupName;
+  if (currentRole === 'manager') {
+    groupName = getGroupName(targetCid, GROUP_SUFFIXES.MANAGERS);
+  } else if (currentRole === 'member') {
+    groupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
+  }
+  
+  if (groupName && await Groups.exists(groupName)) {
+    await Groups.leave(groupName, uid);
+    winston.info(`[plugin/caiz] Removed user ${uid} from group ${groupName}`);
+  }
+  
+  return { role: 'guest' };
 }
 
-async function IsFollowed(socket, { cid }) {
+// 共通関数：ユーザーのロールを取得
+async function getUserRole(uid, targetCid) {
+  if (!uid) return 'guest';
+  
+  // Get category data to find owner group
+  const categoryData = await Categories.getCategoryData(targetCid);
+  const ownerGroup = categoryData && categoryData.ownerGroup;
+  
+  // Define group names
+  const managerGroup = getGroupName(targetCid, GROUP_SUFFIXES.MANAGERS);
+  const memberGroup = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
+  const bannedGroup = getGroupName(targetCid, GROUP_SUFFIXES.BANNED);
+  
+  // Check memberships using Groups API
+  const isOwner = ownerGroup && await Groups.exists(ownerGroup) && await Groups.isMember(uid, ownerGroup);
+  const isManager = await Groups.exists(managerGroup) && await Groups.isMember(uid, managerGroup);
+  const isMember = await Groups.exists(memberGroup) && await Groups.isMember(uid, memberGroup);
+  const isBanned = await Groups.exists(bannedGroup) && await Groups.isMember(uid, bannedGroup);
+  
+  if (isOwner) return 'owner';
+  if (isManager) return 'manager';
+  if (isMember) return 'member';
+  if (isBanned) return 'banned';
+  return 'guest';
+}
+
+async function GetMemberRole(socket, { cid }) {
   const { uid } = socket;
-  if (!uid) return { isFollowed: false };
   
   // Find the parent category
   const targetCid = await getParentCategory(cid);
   
-  const isFollowed = await data.sortedSetScore(`uid:${uid}:followed_cats`, targetCid);
-  winston.info(`[plugin/caiz] Follow status check - uid: ${uid}, targetCid: ${targetCid}, result: ${isFollowed !== null}`);
-  return { isFollowed: isFollowed !== null };
+  // Use common function
+  const role = await getUserRole(uid, targetCid);
+  
+  winston.info(`[plugin/caiz] Membership check - uid: ${uid}, targetCid: ${targetCid}, role: ${role}`);
+  
+  return { role };
 }
 
 async function GetCommunityData(socket, { cid }) {
@@ -448,12 +516,177 @@ async function UpdateCommunityData(socket, dataToUpdate) {
   return { success: true };
 }
 
+async function DeleteCommunity(socket, { cid }) {
+  const { uid } = socket;
+  
+  winston.info(`[plugin/caiz] Deleting community cid: ${cid}, uid: ${uid}`);
+  
+  if (!uid) {
+    winston.error(`[plugin/caiz] Authentication required for deletion`);
+    throw new Error('Authentication required');
+  }
+  
+  if (!cid) {
+    winston.error(`[plugin/caiz] Community ID is required`);
+    throw new Error('Community ID is required');
+  }
+  
+  try {
+    // Check ownership
+    const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+    if (!ownerGroup) {
+      winston.error(`[plugin/caiz] No owner group found for community ${cid}`);
+      throw new Error('Community not found or not a community');
+    }
+    
+    const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+    if (!isOwner) {
+      winston.error(`[plugin/caiz] User ${uid} is not owner of community ${cid}`);
+      throw new Error('Permission denied - only owners can delete communities');
+    }
+    
+    // Get category data for logging
+    const categoryData = await data.getCategoryData(cid);
+    if (!categoryData) {
+      winston.error(`[plugin/caiz] Community ${cid} not found`);
+      throw new Error('Community not found');
+    }
+    
+    winston.info(`[plugin/caiz] Starting deletion of community "${categoryData.name}" (${cid})`);
+    
+    // Delete community and all related data
+    await deleteCommunityData(cid, uid);
+    
+    // Log the deletion
+    winston.info(`[plugin/caiz] Community "${categoryData.name}" (${cid}) successfully deleted by user ${uid}`);
+    
+    return { success: true, message: 'Community deleted successfully' };
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting community ${cid}: ${error.message}`);
+    throw error;
+  }
+}
+
+async function deleteCommunityData(cid, uid) {
+  winston.info(`[plugin/caiz] Starting comprehensive deletion for community ${cid}`);
+  
+  try {
+    const Categories = require.main.require('./src/categories');
+    const Topics = require.main.require('./src/topics');
+    const Posts = require.main.require('./src/posts');
+    const Groups = require.main.require('./src/groups');
+    const db = require.main.require('./src/database');
+    
+    // 1. Get all subcategories
+    const allCategoryData = await Categories.getAllCategoryFields(['cid', 'parentCid']);
+    const subcategories = allCategoryData.filter(cat => cat.parentCid == cid);
+    
+    winston.info(`[plugin/caiz] Found ${subcategories.length} subcategories to delete`);
+    
+    // 2. Delete all topics and posts in subcategories first
+    for (const subcat of subcategories) {
+      await deleteTopicsAndPosts(subcat.cid, uid);
+      await Categories.purge(subcat.cid, uid);
+    }
+    
+    // 3. Delete all topics and posts in main category
+    await deleteTopicsAndPosts(cid, uid);
+    
+    // 4. Delete community groups
+    await deleteCommunityGroups(cid);
+    
+    // 5. Delete the main category
+    await Categories.purge(cid, uid);
+    
+    winston.info(`[plugin/caiz] Community ${cid} deletion completed successfully`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error during community deletion: ${error.message}`);
+    throw error;
+  }
+}
+
+async function deleteTopicsAndPosts(cid, uid) {
+  winston.info(`[plugin/caiz] Deleting topics and posts for category ${cid}`);
+  
+  try {
+    const Topics = require.main.require('./src/topics');
+    const Posts = require.main.require('./src/posts');
+    
+    // Get all topics in this category
+    const tids = await data.getSortedSetRange(`cid:${cid}:tids`, 0, -1);
+    
+    winston.info(`[plugin/caiz] Found ${tids.length} topics to delete in category ${cid}`);
+    
+    // Delete each topic and its posts
+    for (const tid of tids) {
+      try {
+        await Topics.purge(tid, uid);
+        winston.debug(`[plugin/caiz] Deleted topic ${tid}`);
+      } catch (err) {
+        winston.warn(`[plugin/caiz] Failed to delete topic ${tid}: ${err.message}`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed deletion of topics and posts for category ${cid}`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting topics and posts: ${error.message}`);
+    throw error;
+  }
+}
+
+
+async function deleteCommunityGroups(cid) {
+  winston.info(`[plugin/caiz] Deleting community groups for ${cid}`);
+  
+  try {
+    const Groups = require.main.require('./src/groups');
+    
+    // Get owner group name first
+    const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
+    
+    const groupsToDelete = [
+      ownerGroup,
+      getGroupName(cid, GROUP_SUFFIXES.MANAGERS),
+      getGroupName(cid, GROUP_SUFFIXES.MEMBERS),
+      getGroupName(cid, GROUP_SUFFIXES.BANNED)
+    ].filter(Boolean); // Remove null/undefined values
+    
+    winston.info(`[plugin/caiz] Deleting ${groupsToDelete.length} groups: ${groupsToDelete.join(', ')}`);
+    
+    // Delete each group
+    for (const groupName of groupsToDelete) {
+      try {
+        const exists = await Groups.exists(groupName);
+        if (exists) {
+          await Groups.destroy(groupName);
+          winston.debug(`[plugin/caiz] Deleted group: ${groupName}`);
+        } else {
+          winston.warn(`[plugin/caiz] Group ${groupName} does not exist, skipping`);
+        }
+      } catch (err) {
+        winston.warn(`[plugin/caiz] Failed to delete group ${groupName}: ${err.message}`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed deletion of community groups for ${cid}`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error deleting community groups: ${error.message}`);
+    throw error;
+  }
+}
+
 module.exports = {
   createCommunity,
   getUserCommunities,
   Follow,
   Unfollow,
-  IsFollowed,
+  GetMemberRole,
+  getUserRole,
   GetCommunityData,
-  UpdateCommunityData
+  UpdateCommunityData,
+  DeleteCommunity
 };

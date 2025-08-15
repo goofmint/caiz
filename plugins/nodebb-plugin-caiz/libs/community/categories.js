@@ -1,5 +1,7 @@
 const winston = require.main.require('winston');
-const data = require('./data');
+const Categories = require.main.require('./src/categories');
+const Groups = require.main.require('./src/groups');
+const db = require.main.require('./src/database');
 
 /**
  * Subcategory management functionality
@@ -14,25 +16,21 @@ async function GetSubCategories(socket, { cid }) {
   }
   
   // Check ownership
-  const ownerGroup = await data.getObjectField(`category:${cid}`, 'ownerGroup');
-  const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+  const categoryData = await Categories.getCategoryData(cid);
+  const ownerGroup = categoryData.ownerGroup;
+  const isOwner = await Groups.isMember(uid, ownerGroup);
   
   if (!isOwner) {
     throw new Error('Permission denied');
   }
   
-  // Get subcategories
-  const subcategoryIds = await data.getSortedSetRange(`cid:${cid}:children`, 0, -1);
-  if (!subcategoryIds.length) {
-    return [];
-  }
+  // Get subcategories using Categories API
+  const children = await Categories.getChildren([cid], uid);
+  const subcategories = children[0] || [];
   
-  const subcategories = await data.getCategoriesData(subcategoryIds);
-  
-  // Sort by order and return relevant fields
+  // Categories.getChildren already returns them in the correct order
   return subcategories
     .filter(cat => cat && !cat.disabled)
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(cat => ({
       cid: cat.cid,
       name: cat.name,
@@ -62,8 +60,9 @@ async function CreateSubCategory(socket, dataInput) {
   }
   
   // Check ownership
-  const ownerGroup = await data.getObjectField(`category:${parentCid}`, 'ownerGroup');
-  const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+  const parentData = await Categories.getCategoryData(parentCid);
+  const ownerGroup = parentData.ownerGroup;
+  const isOwner = await Groups.isMember(uid, ownerGroup);
   
   if (!isOwner) {
     throw new Error('Permission denied');
@@ -96,7 +95,7 @@ async function CreateSubCategory(socket, dataInput) {
   if (color) categoryData.color = color;
   if (bgColor) categoryData.bgColor = bgColor;
   
-  const newCategory = await data.createCategory(categoryData);
+  const newCategory = await Categories.create(categoryData);
   winston.info(`[plugin/caiz] Subcategory created: ${newCategory.cid}`);
   
   return {
@@ -117,7 +116,7 @@ async function CreateSubCategory(socket, dataInput) {
 
 async function UpdateSubCategory(socket, dataInput) {
   winston.info(`[plugin/caiz] Updating subcategory: ${dataInput.cid}, uid: ${socket.uid}`);
-  winston.info(`[plugin/caiz] Update data:`, JSON.stringify(dataInput, null, 2));
+  winston.info(`[plugin/caiz] Update data:`, dataInput);
   
   const { uid } = socket;
   const { cid, parentCid, name, description, icon, color, bgColor } = dataInput;
@@ -131,15 +130,16 @@ async function UpdateSubCategory(socket, dataInput) {
   }
   
   // Check ownership of parent community
-  const ownerGroup = await data.getObjectField(`category:${parentCid}`, 'ownerGroup');
-  const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+  const parentCategoryData = await Categories.getCategoryData(parentCid);
+  const ownerGroup = parentCategoryData.ownerGroup;
+  const isOwner = await Groups.isMember(uid, ownerGroup);
   
   if (!isOwner) {
     throw new Error('Permission denied');
   }
   
   // Verify subcategory exists and belongs to parent
-  const subcategory = await data.getCategoryData(cid);
+  const subcategory = await Categories.getCategoryData(cid);
   if (!subcategory || subcategory.parentCid != parentCid) {
     throw new Error('Subcategory not found or access denied');
   }
@@ -165,9 +165,12 @@ async function UpdateSubCategory(socket, dataInput) {
   if (color !== undefined) updateData.color = color || '';
   if (bgColor !== undefined) updateData.bgColor = bgColor || '';
   
-  // Update category
-  const modifiedData = { [cid]: updateData };
-  await data.updateCategory(modifiedData);
+  // Update category using proper NodeBB Categories API
+  winston.info(`[plugin/caiz] Updating category ${cid} with data:`, updateData);
+  
+  // Use the correct Categories.update method: modified object with cid as key
+  const modified = { [cid]: updateData };
+  await Categories.update(modified);
   
   winston.info(`[plugin/caiz] Subcategory updated: ${cid}`);
   
@@ -184,33 +187,34 @@ async function DeleteSubCategory(socket, { cid, parentCid }) {
   }
   
   // Check ownership of parent community
-  const ownerGroup = await data.getObjectField(`category:${parentCid}`, 'ownerGroup');
-  const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+  const parentCategoryData = await Categories.getCategoryData(parentCid);
+  const ownerGroup = parentCategoryData.ownerGroup;
+  const isOwner = await Groups.isMember(uid, ownerGroup);
   
   if (!isOwner) {
     throw new Error('Permission denied');
   }
   
   // Verify subcategory exists and belongs to parent
-  const subcategory = await data.getCategoryData(cid);
+  const subcategory = await Categories.getCategoryData(cid);
   if (!subcategory || subcategory.parentCid != parentCid) {
     throw new Error('Subcategory not found or access denied');
   }
   
   // Check if category has any topics
-  const topicCount = await data.sortedSetCard(`cid:${cid}:tids`);
+  const topicCount = await db.sortedSetCard(`cid:${cid}:tids`);
   if (topicCount > 0) {
     throw new Error(`Cannot delete category with ${topicCount} topics. Please move or delete topics first.`);
   }
   
   // Check if category has any subcategories
-  const subcategoryCount = await data.sortedSetCard(`cid:${cid}:children`);
+  const subcategoryCount = await db.sortedSetCard(`cid:${cid}:children`);
   if (subcategoryCount > 0) {
     throw new Error('Cannot delete category with subcategories. Please delete subcategories first.');
   }
   
   // Delete the category
-  await data.purgeCategory(cid, uid);
+  await Categories.purge(cid, uid);
   
   winston.info(`[plugin/caiz] Subcategory deleted: ${cid}`);
   
@@ -228,15 +232,17 @@ async function ReorderSubCategories(socket, { parentCid, categoryIds }) {
   }
   
   // Check ownership of parent community
-  const ownerGroup = await data.getObjectField(`category:${parentCid}`, 'ownerGroup');
-  const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+  const parentCategoryData = await Categories.getCategoryData(parentCid);
+  const ownerGroup = parentCategoryData.ownerGroup;
+  const isOwner = await Groups.isMember(uid, ownerGroup);
   
   if (!isOwner) {
     throw new Error('Permission denied');
   }
   
   // Verify all categories belong to this parent
-  const existingSubcategories = await GetSubCategories(socket, { cid: parentCid });
+  const children = await Categories.getChildren([parentCid], uid);
+  const existingSubcategories = children[0] || [];
   const existingIds = existingSubcategories.map(cat => parseInt(cat.cid));
   const requestedIds = categoryIds.map(id => parseInt(id));
   
@@ -252,24 +258,25 @@ async function ReorderSubCategories(socket, { parentCid, categoryIds }) {
   }
   
   try {
-    // Update order for each category
-    const updates = {};
-    
+    // Update order for each category using direct database access
     for (let i = 0; i < categoryIds.length; i++) {
       const cid = parseInt(categoryIds[i]);
       const newOrder = i + 1;
-      updates[cid] = { order: newOrder };
+      
+      winston.info(`[plugin/caiz] Updating category ${cid} to order ${newOrder}`);
+      
+      // Set the order field directly in the database
+      await db.setObjectField(`category:${cid}`, 'order', newOrder);
+      winston.info(`[plugin/caiz] Set order ${newOrder} for category ${cid}`);
     }
-    
-    // Apply updates using Categories.update
-    await data.updateCategory(updates);
     
     winston.info(`[plugin/caiz] Subcategories reordered successfully for parent: ${parentCid}`);
     
     return { success: true };
   } catch (error) {
     winston.error(`[plugin/caiz] Error reordering subcategories:`, error);
-    throw new Error('Failed to reorder categories');
+    winston.error(`[plugin/caiz] Error stack:`, error.stack);
+    throw new Error(`Failed to reorder categories: ${error.message}`);
   }
 }
 

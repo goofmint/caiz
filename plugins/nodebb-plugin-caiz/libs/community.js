@@ -70,8 +70,8 @@ class Community extends Base {
     return community.Unfollow(socket, data);
   }
 
-  static async IsFollowed(socket, data) {
-    return community.IsFollowed(socket, data);
+  static async GetMemberRole(socket, data) {
+    return community.GetMemberRole(socket, data);
   }
 
   static async IsCommunityOwner(socket, data) {
@@ -120,6 +120,10 @@ class Community extends Base {
 
   static async RemoveMember(socket, data) {
     return community.RemoveMember(socket, data);
+  }
+
+  static async DeleteCommunity(socket, data) {
+    return community.DeleteCommunity(socket, data);
   }
 
   // Expose helper methods for external use

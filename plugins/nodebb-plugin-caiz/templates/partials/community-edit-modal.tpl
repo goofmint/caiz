@@ -2,51 +2,145 @@
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="community-edit-modal-label">Edit Community</h5>
+        <h5 class="modal-title" id="community-edit-modal-label">[[caiz:edit-community]]</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body p-0">
-        <div class="row g-0 h-100">
+      <div class="modal-body p-0" style="max-height: 80vh; overflow: hidden;">
+        <div class="row g-0" style="height: 80vh;">
           <!-- Left Sidebar (30%) -->
-          <div class="col-md-4 sidebar-menu border-end">
+          <div class="col-md-4 sidebar-menu border-end" style="height: 100%;">
             <div class="list-group list-group-flush">
               <a href="#" class="list-group-item list-group-item-action active" data-tab="general">
-                <i class="fa fa-edit me-2"></i>Edit
+                <i class="fa fa-edit me-2"></i>[[caiz:edit]]
               </a>
               <a href="#" class="list-group-item list-group-item-action" data-tab="categories">
-                <i class="fa fa-folder me-2"></i>Categories
+                <i class="fa fa-folder me-2"></i>[[caiz:categories]]
               </a>
               <a href="#" class="list-group-item list-group-item-action" data-tab="members">
-                <i class="fa fa-users me-2"></i>Members
+                <i class="fa fa-users me-2"></i>[[caiz:members]]
               </a>
             </div>
           </div>
           <!-- Right Content Area (70%) -->
-          <div class="col-md-8 content-area">
-            <div class="tab-content p-4">
+          <div class="col-md-8 content-area" style="height: 100%; overflow-y: auto;">
+            <div class="tab-content p-4" style="padding-bottom: 100px !important;">
               <div class="tab-pane fade show active" id="general-tab">
-                <h6 class="mb-3">Edit Community Information</h6>
-                <p class="text-muted">Edit basic community information including name, slug, description, and logo.</p>
-                <div class="alert alert-info">
-                  <i class="fa fa-info-circle me-2"></i>
-                  This form will be dynamically loaded when the modal opens.
-                </div>
+                <!-- IMPORT partials/community-edit-form.tpl -->
               </div>
               <div class="tab-pane fade" id="categories-tab">
-                <h6 class="mb-3">Category Management</h6>
-                <p class="text-muted">This feature will be implemented in future tasks.</p>
-                <div class="alert alert-info">
-                  <i class="fa fa-info-circle me-2"></i>
-                  Functionality for adding, editing, and deleting subcategories within the community will be added here.
+                <h6 class="mb-3">[[caiz:category-management]]</h6>
+                <div id="categories-loading" style="display: none;">
+                  <i class="fa fa-spinner fa-spin"></i> [[caiz:loading-categories]]
                 </div>
+                <div id="categories-empty" style="display: none;">
+                  <p class="text-muted">[[caiz:no-categories-yet]]</p>
+                </div>
+                <div id="categories-content" style="display: none;">
+                  <table class="table">
+                    <tbody id="categories-table-body"></tbody>
+                  </table>
+                </div>
+                <div id="category-form-container" style="display: none;">
+                  <form id="category-form">
+                    <input type="hidden" id="category-form-cid" name="cid">
+                    <h5 id="category-form-title">[[caiz:add-category]]</h5>
+                    
+                    <div class="mb-3">
+                      <label for="category-form-name" class="form-label">[[caiz:name]]</label>
+                      <input type="text" id="category-form-name" name="name" class="form-control" placeholder="[[caiz:category-name]]" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="category-form-description" class="form-label">[[caiz:description]]</label>
+                      <textarea id="category-form-description" name="description" class="form-control" placeholder="[[caiz:category-description]]" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label class="form-label">[[caiz:icon-colors]]</label>
+                      <div class="d-flex align-items-center gap-2 mb-2">
+                        <div id="category-selected-icon" class="fa fa-folder fa-lg me-2" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;"></div>
+                        <label for="category-form-color" class="form-label mb-0 me-2">[[caiz:text]]:</label>
+                        <input type="color" id="category-form-color" name="color" value="#000000" class="form-control form-control-color me-2" style="width: 40px; height: 30px;">
+                        <label for="category-form-bg-color" class="form-label mb-0 me-2">[[caiz:background]]:</label>
+                        <input type="color" id="category-form-bg-color" name="bgColor" value="#ffffff" class="form-control form-control-color" style="width: 40px; height: 30px;">
+                      </div>
+                      <button type="button" id="category-icon-select" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa fa-search me-1"></i>[[caiz:select-icon]]
+                      </button>
+                      <input type="hidden" id="category-form-icon" name="icon" value="fa-folder">
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                      <button type="button" id="cancel-category-form" class="btn btn-outline-secondary">
+                        <i class="fa fa-times me-1"></i>[[caiz:cancel]]
+                      </button>
+                      <button type="submit" class="btn btn-primary">
+                        <span class="category-form-btn-spinner spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                        <span class="category-form-btn-text">[[caiz:add-category]]</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                <button id="add-category-btn" class="btn btn-primary">[[caiz:add-category]]</button>
               </div>
               <div class="tab-pane fade" id="members-tab">
-                <h6 class="mb-3">Member Management</h6>
-                <p class="text-muted">This feature will be implemented in future tasks.</p>
-                <div class="alert alert-info">
-                  <i class="fa fa-info-circle me-2"></i>
-                  Member role management functionality (Owner, Manager, Member, Ban) will be added here.
+                <h6 class="mb-3">[[caiz:member-management]]</h6>
+                
+                <!-- Member Filter Section -->
+                <div id="members-filter" style="display: none;">
+                  <div class="mb-3">
+                    <input type="text" id="member-search" class="form-control" placeholder="[[caiz:filter-members]]">
+                  </div>
                 </div>
+                
+                <div id="members-loading" style="display: none;">
+                  <i class="fa fa-spinner fa-spin"></i> [[caiz:loading-members]]
+                </div>
+                <div id="members-empty" style="display: none;">
+                  <p class="text-muted">[[caiz:no-members-yet]]</p>
+                </div>
+                <div id="members-content" style="display: none;">
+                  <div id="members-list">
+                    <table class="table">
+                      <tbody id="members-table-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+                
+                <!-- Add Member Form -->
+                <div id="member-form-container" style="display: none;">
+                  <form id="member-form">
+                    <input type="hidden" id="member-form-uid">
+                    <h5 id="member-form-title">[[caiz:add-member]]</h5>
+                    
+                    <div class="mb-3">
+                      <label for="add-member-username" class="form-label">[[caiz:username]]</label>
+                      <input type="text" id="add-member-username" name="username" class="form-control" placeholder="[[caiz:enter-username]]" required>
+                      <div id="username-suggestions" class="dropdown-menu" style="display: none; position: absolute; width: 100%;"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <label for="member-role" class="form-label">[[caiz:role]]</label>
+                      <select id="member-role" name="role" class="form-select">
+                        <option value="member">[[caiz:member]]</option>
+                        <option value="manager">[[caiz:manager]]</option>
+                        <option value="owner">[[caiz:owner]]</option>
+                      </select>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                      <button type="button" id="cancel-member-form" class="btn btn-outline-secondary">
+                        <i class="fa fa-times me-1"></i>[[caiz:cancel]]
+                      </button>
+                      <button type="submit" class="btn btn-primary">
+                        <span class="member-form-btn-spinner spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                        <span class="member-form-btn-text">[[caiz:add-member]]</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                
+                <button id="add-member-btn" class="btn btn-primary">[[caiz:add-member]]</button>
               </div>
             </div>
           </div>

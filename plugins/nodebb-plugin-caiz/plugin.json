@@ -9,7 +9,15 @@
     "static/modal.js",
     "static/follow.js",
     "static/communities.js",
-    "static/community-edit.js",
+    "static/community-edit-utils.js",
+    "static/community-edit-danger.js",
+    "static/community-edit-member-actions.js",
+    "static/community-edit-members.js",
+    "static/community-edit-category-actions.js",
+    "static/community-edit-categories.js",
+    "static/community-edit-form-utils.js",
+    "static/community-edit-form.js",
+    "static/community-edit-core.js",
     "static/members-only.js"
   ],
   "scss": [
@@ -31,6 +39,10 @@
     {
       "hook": "filter:category.get",
       "method": "customizeCategoryLink"
+    },
+    {
+      "hook": "filter:category.build",
+      "method": "filterCategoryBuild"
     },
     {
       "hook": "filter:middleware.renderHeader",

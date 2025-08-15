@@ -1,13 +1,13 @@
 /*global $, config, app, ajaxify, socket*/
 'use strict';
 
-async function getAlert() {
+async function getModalAlert() {
     return new Promise((resolve, reject) => {
         require(['alerts'], resolve);
     });
 }
 
-async function getTranslate() {
+async function getModalTranslate() {
     return new Promise((resolve, reject) => {
         require(['translator'], resolve);
     });
@@ -31,7 +31,7 @@ $(document).ready(function () {
         }, {}); // フォームデータをオブジェクトに変換
 
         // 簡単なクライアントサイドバリデーション (任意)
-        const { alert } = await getAlert();
+        const alert = await getModalAlert();
         if (!formData.name) {
             alert({
                 type: 'warning',

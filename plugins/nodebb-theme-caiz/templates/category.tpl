@@ -90,3 +90,7 @@
 	<!-- IMPORT partials/paginator.tpl -->
 </noscript>
 {{{ end }}}
+
+{{{ if (!parent && isOwner) }}}
+<!-- IMPORT partials/community-edit-modal.tpl -->
+{{{ end }}}
