@@ -4,3 +4,4 @@ bak
 upload.tag.gz
 backup.sql
 .env
+plugins/nodebb-plugin-ai-topic-summary/node_modules
