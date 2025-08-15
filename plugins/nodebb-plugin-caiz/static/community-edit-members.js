@@ -11,22 +11,52 @@ function initializeMemberManagement(cid) {
 }
 
 function setupMemberEventHandlers() {
-  // Add member button
+  console.log('[caiz] Setting up member event handlers');
+  
+  // Remove existing event listeners to prevent duplicates
   const addBtn = document.getElementById('add-member-btn');
   if (addBtn) {
-    addBtn.addEventListener('click', () => showAddMemberForm());
+    // Clone to remove all event listeners
+    const newAddBtn = addBtn.cloneNode(true);
+    addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+    
+    // Add fresh event listener
+    newAddBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('[caiz] Add member button clicked');
+      if (typeof showAddMemberForm === 'function') {
+        showAddMemberForm();
+      } else if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.showAddMemberForm) {
+        CommunityEditMemberActions.showAddMemberForm();
+      } else {
+        console.error('[caiz] showAddMemberForm function not found');
+      }
+    });
   }
   
   // Cancel add member form
-  const cancelBtns = document.querySelectorAll('#cancel-add-member, #cancel-add-member-btn');
+  const cancelBtns = document.querySelectorAll('#cancel-member-form, #cancel-add-member-btn');
   cancelBtns.forEach(btn => {
-    btn.addEventListener('click', () => hideAddMemberForm());
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof hideAddMemberForm === 'function') {
+        hideAddMemberForm();
+      } else if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.hideAddMemberForm) {
+        CommunityEditMemberActions.hideAddMemberForm();
+      }
+    });
   });
   
   // Add member form submit
-  const form = document.getElementById('add-member-form');
+  const form = document.getElementById('member-form');
   if (form) {
-    form.addEventListener('submit', handleAddMemberSubmit);
+    form.addEventListener('submit', function(e) {
+      if (typeof handleAddMemberSubmit === 'function') {
+        handleAddMemberSubmit(e);
+      } else if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.handleAddMemberSubmit) {
+        CommunityEditMemberActions.handleAddMemberSubmit(e);
+      }
+    });
   }
   
   // Member search input
@@ -131,6 +161,7 @@ async function renderMembers() {
   const loadingEl = document.getElementById('members-loading');
   const emptyEl = document.getElementById('members-empty');
   const contentEl = document.getElementById('members-content');
+  const filterEl = document.getElementById('members-filter');
   const tableBody = document.getElementById('members-table-body');
   
   if (loadingEl) loadingEl.style.display = 'none';
@@ -139,12 +170,14 @@ async function renderMembers() {
     console.log('[caiz] DEBUG: No members, showing empty state');
     if (emptyEl) emptyEl.style.display = 'block';
     if (contentEl) contentEl.style.display = 'none';
+    if (filterEl) filterEl.style.display = 'none';
     return;
   }
   
   console.log('[caiz] DEBUG: Members found, showing content');
   if (emptyEl) emptyEl.style.display = 'none';
   if (contentEl) contentEl.style.display = 'block';
+  if (filterEl) filterEl.style.display = 'block';
   
   // Check if tableBody exists
   if (!tableBody) {
@@ -159,7 +192,55 @@ async function renderMembers() {
         const decodedUsername = CommunityEditUtils.decodeHTMLEntities(member.username || '');
         const roleClass = CommunityEditUtils.getRoleClass(member.role);
         const canManage = CommunityEditUtils.canManageMember(member);
-        const roleOptions = CommunityEditUtils.getRoleOptions(member.role, member.uid);
+        const rawRoleOptions = CommunityEditUtils.getRoleOptions(member.role, member.uid);
+        
+        // Translate role options properly
+        const roleOptions = await Promise.all(
+          rawRoleOptions.map(async (option) => {
+            const translatedText = await new Promise((resolve) => {
+              require(['translator'], function(translator) {
+                console.log('[caiz] DEBUG: Translating option key:', option.key);
+                translator.translate(option.key, function(translated) {
+                  console.log('[caiz] DEBUG: Translation result:', option.key, '->', translated);
+                  resolve(translated);
+                });
+              });
+            });
+            return {
+              value: option.value,
+              text: translatedText
+            };
+          })
+        );
+        
+        console.log('[caiz] DEBUG: Final roleOptions:', roleOptions);
+        
+        // Translate role display name for current role
+        const roleDisplayNameKey = CommunityEditUtils.getRoleDisplayName(member.role);
+        const roleDisplayName = await new Promise((resolve) => {
+          require(['translator'], function(translator) {
+            translator.translate(roleDisplayNameKey, function(translated) {
+              resolve(translated);
+            });
+          });
+        });
+        
+        // Translate template strings manually
+        const changeRoleText = await new Promise((resolve) => {
+          require(['translator'], function(translator) {
+            translator.translate('[[caiz:change-role]]', function(translated) {
+              resolve(translated);
+            });
+          });
+        });
+        
+        const removeText = await new Promise((resolve) => {
+          require(['translator'], function(translator) {
+            translator.translate('[[caiz:remove]]', function(translated) {
+              resolve(translated);
+            });
+          });
+        });
         
         // Prepare template data
         const templateData = {
@@ -169,11 +250,13 @@ async function renderMembers() {
           picture: member.picture,
           firstLetter: decodedUsername.charAt(0).toUpperCase(),
           roleClass: roleClass,
-          roleDisplayName: CommunityEditUtils.getRoleDisplayName(member.role),
+          roleDisplayName: roleDisplayName,
           joindate: CommunityEditUtils.formatDate(member.joindate),
           lastonline: CommunityEditUtils.formatDate(member.lastonline),
           canManage: canManage,
-          roleOptions: roleOptions
+          roleOptions: roleOptions,
+          changeRoleText: changeRoleText,
+          removeText: removeText
         };
         
         // Render template
@@ -362,3 +445,20 @@ window.CommunityEditMembers = {
 // Also expose for tab switching
 window.setupMemberEventHandlers = setupMemberEventHandlers;
 window.loadMembers = loadMembers;
+
+// Expose member action functions globally
+window.showAddMemberForm = function() {
+  if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.showAddMemberForm) {
+    CommunityEditMemberActions.showAddMemberForm();
+  }
+};
+window.hideAddMemberForm = function() {
+  if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.hideAddMemberForm) {
+    CommunityEditMemberActions.hideAddMemberForm();
+  }
+};
+window.handleAddMemberSubmit = function(e) {
+  if (typeof CommunityEditMemberActions !== 'undefined' && CommunityEditMemberActions.handleAddMemberSubmit) {
+    CommunityEditMemberActions.handleAddMemberSubmit(e);
+  }
+};

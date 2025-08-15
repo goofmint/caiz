@@ -37,13 +37,14 @@ function getRoleClass(role) {
 }
 
 function getRoleDisplayName(role) {
-  const names = {
-    owner: 'Owner',
-    manager: 'Manager',
-    member: 'Member',
-    banned: 'Banned'
+  // Return translation key for proper localization
+  const translationKeys = {
+    owner: '[[caiz:owner]]',
+    manager: '[[caiz:manager]]',
+    member: '[[caiz:member]]',
+    banned: '[[caiz:banned]]'
   };
-  return names[role] || role;
+  return translationKeys[role] || role;
 }
 
 function canManageMember(member) {
@@ -76,20 +77,20 @@ function getRoleOptions(currentRole, memberUid) {
     if (isCurrentUser && currentRole === 'owner') {
       // Special case: if current user is owner, only show demote options
       // (backend will check if there are other owners before allowing this)
-      options.push({ value: 'manager', key: '[[caiz:members.demote-to-manager]]' });
-      options.push({ value: 'member', key: '[[caiz:members.demote-to-member]]' });
+      options.push({ value: 'manager', key: '[[caiz:demote-to-manager]]' });
+      options.push({ value: 'member', key: '[[caiz:demote-to-member]]' });
     } else {
       // For other users
-      if (currentRole !== 'owner') options.push({ value: 'owner', key: '[[caiz:members.promote-to-owner]]' });
-      if (currentRole !== 'manager') options.push({ value: 'manager', key: '[[caiz:members.promote-to-manager]]' });
-      if (currentRole !== 'member') options.push({ value: 'member', key: '[[caiz:members.member]]' });
+      if (currentRole !== 'owner') options.push({ value: 'owner', key: '[[caiz:promote-to-owner]]' });
+      if (currentRole !== 'manager') options.push({ value: 'manager', key: '[[caiz:promote-to-manager]]' });
+      if (currentRole !== 'member') options.push({ value: 'member', key: '[[caiz:member]]' });
       
       // For banned role, exclude current user (owners cannot ban themselves)
-      if (currentRole !== 'banned') options.push({ value: 'banned', key: '[[caiz:members.ban-user]]' });
+      if (currentRole !== 'banned') options.push({ value: 'banned', key: '[[caiz:ban-user]]' });
     }
   } else if (currentUserRole === 'manager') {
-    if (currentRole !== 'member') options.push({ value: 'member', key: '[[caiz:members.member]]' });
-    if (currentRole !== 'banned' && !isCurrentUser) options.push({ value: 'banned', key: '[[caiz:members.ban-user]]' });
+    if (currentRole !== 'member') options.push({ value: 'member', key: '[[caiz:member]]' });
+    if (currentRole !== 'banned' && !isCurrentUser) options.push({ value: 'banned', key: '[[caiz:ban-user]]' });
   }
   
   return options;
