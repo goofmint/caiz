@@ -4,6 +4,8 @@
 
 NodeBBコミュニティのトピック（スレッド）における投稿の流れをAIで自動要約し、新しい参加者や後から参加するユーザーが議論の流れを素早く把握できる機能を設計します。
 
+Caizに依存せず、新しいプラグインとして作成する。
+
 ## 機能仕様
 
 ### コア機能
@@ -16,10 +18,11 @@ NodeBBコミュニティのトピック（スレッド）における投稿の�
 ### 1. 要約生成システム
 
 #### トリガー条件
+
 - トピック内の投稿数が10の倍数に達した時点で自動実行
-- 手動要約実行機能（コミュニティ管理者のみ）
 
 #### 要約対象
+
 - トピック作成から最新投稿まで全ての投稿を対象
 - 削除された投稿は除外
 - モデレーション待ちの投稿は除外
@@ -53,6 +56,9 @@ class TopicSummaryGenerator {
 ### 2. データベース設計
 
 #### topic_summaries テーブル
+
+SQLは書かず、NodeBBのAPIを利用する。
+
 ```sql
 CREATE TABLE topic_summaries (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -72,7 +78,7 @@ CREATE TABLE topic_summaries (
 - 折りたたみ可能なカードUI形式
 
 #### 表示条件
-- 投稿数が10以上のトピックのみ表示
+
 - 要約が生成されているトピックのみ表示
 
 #### UI要素
@@ -103,64 +109,12 @@ class SummaryUIComponent {
 
 ### 4. API設計
 
-#### WebSocket Events
-```javascript
-// Client → Server
-socket.emit('plugins.caiz.generateTopicSummary', {
-  topicId: number,
-  forceRegenerate: boolean
-});
-
-// Server → Client  
-socket.emit('plugins.caiz.topicSummaryGenerated', {
-  topicId: number,
-  summary: string,
-  postCount: number,
-  generatedAt: timestamp
-});
-
-socket.emit('plugins.caiz.topicSummaryError', {
-  topicId: number,
-  error: string
-});
-```
-
-#### REST API Endpoints
-```javascript
-// Interface only - implementation TBD
-class SummaryAPIController {
-  /**
-   * Get topic summary
-   * GET /api/v3/topics/:topicId/summary
-   */
-  async getTopicSummary(req, res) {
-    // Return existing summary or generate new one
-  }
-
-  /**
-   * Manually trigger summary generation (admin only)
-   * POST /api/v3/topics/:topicId/summary
-   */
-  async generateTopicSummary(req, res) {
-    // Force regenerate summary for topic
-  }
-
-  /**
-   * Delete topic summary (admin only)  
-   * DELETE /api/v3/topics/:topicId/summary
-   */
-  async deleteTopicSummary(req, res) {
-    // Remove existing summary
-  }
-}
-```
+投稿完了時のフックで、自動生成を行う。該当スレッドの件数をチェックし、10の倍数であれば要約を生成する。
 
 ### 5. 権限・セキュリティ
 
 #### アクセス制御
-- 要約表示: トピック閲覧権限に準拠
-- 手動要約生成: コミュニティ管理者のみ
-- 要約削除: システム管理者のみ
+- 要約表示: トピック閲覧権限に準拠（バンされているユーザーは不可）
 
 #### データ保護
 - 要約テキストにはユーザーの個人情報を含めない
@@ -177,24 +131,17 @@ class SummaryAPIController {
 - 要約表示時のリアルタイム生成は避ける
 
 #### リソース最適化
-- 同時要約生成数の制限（キューイング）
+
 - AI API呼び出し回数の制御
 
 ## 技術的制約
 
 ### AI API連携
-- OpenAI GPT-4 または Claude API使用予定
-- API呼び出し制限とコスト管理
-- レート制限への対応
+
+- Gemini 2.5 FlashまたはGemini 2.5 Flash-Liteを利用
 
 ### NodeBB統合
+
 - 既存のプラグインシステムとの互換性維持
 - NodeBBのテンプレートエンジンとの統合
-- 多言語対応（日本語要約生成）
-
-## 今後の拡張可能性
-
-- 要約品質の学習・改善機能
-- ユーザーによる要約評価システム
-- 要約スタイルのカスタマイズ
-- 他言語での要約生成対応
+- 多言語対応（投稿の言語で、生成する要約の言語を判定）
