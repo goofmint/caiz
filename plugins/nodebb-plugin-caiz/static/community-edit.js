@@ -2711,52 +2711,15 @@ function addDangerZoneToGeneralTab(generalTab, cid) {
     return;
   }
   
-  // Create danger zone HTML
-  const dangerZoneHtml = `
-    <div class="danger-zone mt-5">
-      <div class="panel panel-danger">
-        <div class="panel-heading">
-          <h4 class="panel-title">
-            <i class="fa fa-exclamation-triangle text-danger"></i>
-            <span class="danger-zone-title">[[caiz:danger-zone.title]]</span>
-            <button class="btn btn-xs btn-link float-end" id="toggle-danger-zone">
-              <i class="fa fa-chevron-down"></i>
-            </button>
-          </h4>
-        </div>
-        <div class="panel-body danger-zone-content" style="display: none;">
-          <div class="alert alert-danger">
-            <strong>[[caiz:danger-zone.warning]]</strong>
-            <p>[[caiz:danger-zone.warning-description]]</p>
-          </div>
-          <div class="row">
-            <div class="col-md-8">
-              <h5>[[caiz:danger-zone.delete-community]]</h5>
-              <p class="text-muted">[[caiz:danger-zone.delete-description]]</p>
-            </div>
-            <div class="col-md-4 text-end">
-              <button class="btn btn-danger" id="delete-community-btn">
-                [[caiz:danger-zone.delete-button]]
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Append to general tab
-  generalTab.insertAdjacentHTML('beforeend', dangerZoneHtml);
-  
-  // Setup event handlers
-  setupDangerZoneHandlers(cid);
-  
-  // Translate the danger zone using NodeBB's translator
-  require(['translator'], function(translator) {
-    const dangerZone = generalTab.querySelector('.danger-zone');
-    if (dangerZone && translator) {
-      translator.translate(dangerZone);
-    }
+  // Load danger zone template
+  require(['benchpress'], function(benchpress) {
+    app.parseAndTranslate('partials/danger-zone', {}, function(html) {
+      // Append to general tab
+      generalTab.insertAdjacentHTML('beforeend', html);
+      
+      // Setup event handlers after DOM insertion
+      setupDangerZoneHandlers(cid);
+    });
   });
 }
 
@@ -2802,34 +2765,16 @@ function showDeleteConfirmation(cid) {
     
     const communityName = data.name;
     
-    // Create confirmation dialog
-    if (typeof bootbox !== 'undefined') {
-      bootbox.dialog({
-        title: '<span class="text-danger"><i class="fa fa-exclamation-triangle"></i> [[caiz:danger-zone.modal-title]]</span>',
-        message: `
-          <div class="delete-confirmation">
-            <div class="alert alert-danger">
-              <h5><i class="fa fa-exclamation-triangle"></i> [[caiz:danger-zone.confirm-title]]</h5>
-              <p>[[caiz:danger-zone.confirm-warning]]</p>
-              <ul>
-                <li>[[caiz:danger-zone.delete-subcategories]]</li>
-                <li>[[caiz:danger-zone.delete-topics]]</li>
-                <li>[[caiz:danger-zone.delete-members]]</li>
-                <li>[[caiz:danger-zone.delete-settings]]</li>
-              </ul>
-            </div>
-            <hr>
-            <p>[[caiz:danger-zone.type-name]]</p>
-            <p><strong>${escapeHtml(communityName)}</strong></p>
-            <input type="text" class="form-control mb-3" id="confirm-community-name" placeholder="[[caiz:danger-zone.type-name-placeholder]]">
-            <div class="form-check">
-              <input type="checkbox" class="form-check-input" id="confirm-understand">
-              <label class="form-check-label" for="confirm-understand">
-                [[caiz:danger-zone.understand-permanent]]
-              </label>
-            </div>
-          </div>
-        `,
+    // Load confirmation dialog template
+    app.parseAndTranslate('partials/delete-confirmation', { 
+      communityName: communityName 
+    }, function(html) {
+      
+      // Create confirmation dialog using rendered template
+      if (typeof bootbox !== 'undefined') {
+        bootbox.dialog({
+          title: '[[caiz:danger-zone.modal-title]]',
+          message: html,
         buttons: {
           cancel: {
             label: '[[global:cancel]]',
@@ -2864,36 +2809,29 @@ function showDeleteConfirmation(cid) {
         onEscape: true
       });
       
-      // Translate the dialog using NodeBB's translator and setup validation
+      // Setup real-time validation after dialog is shown
       setTimeout(() => {
-        require(['translator'], function(translator) {
-          const bootboxDialog = document.querySelector('.bootbox');
-          if (bootboxDialog && translator) {
-            translator.translate(bootboxDialog);
-          }
+        const deleteBtn = document.querySelector('.bootbox .btn-danger');
+        if (deleteBtn) {
+          deleteBtn.disabled = true;
           
-          // Setup real-time validation
-          const deleteBtn = document.querySelector('.bootbox .btn-danger');
-          if (deleteBtn) {
-            deleteBtn.disabled = true;
-            
-            function checkEnableDelete() {
-              const nameInput = document.getElementById('confirm-community-name');
-              const understandCheck = document.getElementById('confirm-understand');
-              if (nameInput && understandCheck) {
-                const typedName = nameInput.value;
-                const understood = understandCheck.checked;
-                deleteBtn.disabled = !(typedName === communityName && understood);
-              }
-            }
-            
+          function checkEnableDelete() {
             const nameInput = document.getElementById('confirm-community-name');
             const understandCheck = document.getElementById('confirm-understand');
-            if (nameInput) nameInput.addEventListener('input', checkEnableDelete);
-            if (understandCheck) understandCheck.addEventListener('change', checkEnableDelete);
+            if (nameInput && understandCheck) {
+              const typedName = nameInput.value;
+              const understood = understandCheck.checked;
+              deleteBtn.disabled = !(typedName === communityName && understood);
+            }
           }
-        });
+          
+          const nameInput = document.getElementById('confirm-community-name');
+          const understandCheck = document.getElementById('confirm-understand');
+          if (nameInput) nameInput.addEventListener('input', checkEnableDelete);
+          if (understandCheck) understandCheck.addEventListener('change', checkEnableDelete);
+        }
       }, 100);
+      });
     }
   });
 }
@@ -2946,14 +2884,5 @@ function executeDeletion(cid, name) {
       }
     });
     
-    // Translate the final confirmation
-    setTimeout(() => {
-      require(['translator'], function(translator) {
-        const bootboxDialog = document.querySelector('.bootbox');
-        if (bootboxDialog && translator) {
-          translator.translate(bootboxDialog);
-        }
-      });
-    }, 100);
   }
 }
