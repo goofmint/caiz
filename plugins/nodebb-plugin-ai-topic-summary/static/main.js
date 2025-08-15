@@ -1,73 +1,110 @@
 // AI Topic Summary - Client Side Code
 
+'use strict';
+
+/* globals $, ajaxify, app, window */
+
+console.log('[AI Topic Summary] Script loading...');
+
 $(document).ready(function() {
-  // Initialize summary display on topic pages
-  if (ajaxify.data.template.topic) {
+  console.log('[AI Topic Summary] Document ready');
+  
+  // Check if we're already on a topic page
+  if (ajaxify.data.template && ajaxify.data.template.topic) {
+    console.log('[AI Topic Summary] Already on topic page, initializing');
     initializeTopicSummary();
   }
 });
 
+$(window).on('action:ajaxify.end', function(evt, data) {
+  console.log('[AI Topic Summary] ajaxify.end triggered, template:', data.tpl);
+  // Initialize summary display on topic pages
+  if (data.tpl === 'topic') {
+    console.log('[AI Topic Summary] Topic page detected via ajaxify, initializing summary');
+    setTimeout(function() {
+      initializeTopicSummary();
+    }, 100); // Small delay to ensure DOM is ready
+  }
+});
+
 function initializeTopicSummary() {
-  const topicData = ajaxify.data;
+  console.log('[AI Topic Summary] initializeTopicSummary called');
   
-  if (!topicData.aiSummary) {
+  if (!ajaxify || !ajaxify.data) {
+    console.error('[AI Topic Summary] ajaxify.data not available');
     return;
   }
+  
+  const topicData = ajaxify.data;
+  console.log('[AI Topic Summary] Topic data available:', !!topicData);
+  console.log('[AI Topic Summary] Topic template:', topicData.template);
+  console.log('[AI Topic Summary] Full topic data:', topicData);
+  
+  if (!topicData.aiSummary) {
+    console.log('[AI Topic Summary] No AI summary available for this topic');
+    return;
+  }
+  
+  console.log('[AI Topic Summary] AI summary found:', topicData.aiSummary);
 
   // Create and insert summary card
-  const summaryCard = createSummaryCard(topicData.aiSummary, topicData.tid);
-  
-  // Insert before the first post
-  const firstPost = $('.posts .post-row').first();
-  if (firstPost.length) {
-    summaryCard.insertBefore(firstPost);
-  } else {
-    // Fallback: insert at top of posts container
-    const postsContainer = $('.posts');
-    if (postsContainer.length) {
-      postsContainer.prepend(summaryCard);
+  console.log('[AI Topic Summary] Creating summary card');
+  createSummaryCard(topicData.aiSummary, topicData.tid).then(function(summaryCard) {
+    console.log('[AI Topic Summary] Summary card created successfully');
+    
+    // Insert before the first post
+    const firstPost = $('.posts .post-row').first();
+    if (firstPost.length) {
+      console.log('[AI Topic Summary] Inserting summary before first post');
+      summaryCard.insertBefore(firstPost);
+    } else {
+      // Fallback: insert at top of posts container
+      const postsContainer = $('.posts');
+      if (postsContainer.length) {
+        console.log('[AI Topic Summary] Inserting summary at top of posts container');
+        postsContainer.prepend(summaryCard);
+      } else {
+        console.error('[AI Topic Summary] No posts container found!');
+      }
     }
-  }
 
-  // Initialize event handlers
-  initializeSummaryEvents();
+    // Initialize event handlers
+    console.log('[AI Topic Summary] Initializing event handlers');
+    initializeSummaryEvents();
+  }).catch(function(err) {
+    console.error('[AI Topic Summary] Failed to create summary card:', err);
+  });
 }
 
 function createSummaryCard(summaryData, topicId) {
+  console.log('[AI Topic Summary] createSummaryCard called with:', { summaryData, topicId });
   const isCollapsed = getSummaryPreference() === 'collapsed';
+  console.log('[AI Topic Summary] User preference - collapsed:', isCollapsed);
   
-  const card = $(`
-    <div class="ai-summary-card ${isCollapsed ? 'collapsed' : ''}" data-tid="${topicId}">
-      <div class="ai-summary-header">
-        <h6 class="ai-summary-title">
-          <i class="fas fa-robot ai-summary-icon"></i>
-          <span>AI Summary</span>
-        </h6>
-        <i class="fas fa-chevron-down ai-summary-toggle ${isCollapsed ? 'collapsed' : ''}"></i>
-      </div>
-      <div class="ai-summary-content">
-        <div class="ai-summary-text">
-          ${escapeHtml(summaryData.text)}
-        </div>
-        <div class="ai-summary-meta">
-          <div class="ai-summary-meta-left">
-            <span><i class="fas fa-comments me-1"></i>${summaryData.postCount} posts summarized</span>
-            <span><i class="fas fa-clock me-1"></i>${formatDate(summaryData.generatedAt)}</span>
-          </div>
-          <div class="ai-summary-meta-right">
-            <span class="ai-summary-badge">${summaryData.aiModel}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `);
-
-  return card;
+  // Use templates.parse to render the template
+  return new Promise((resolve, reject) => {
+    const templateData = {
+      tid: topicId,
+      text: escapeHtml(summaryData.text),
+      postCount: summaryData.postCount,
+      formattedDate: formatDate(summaryData.generatedAt),
+      aiModel: summaryData.aiModel,
+      collapsed: isCollapsed
+    };
+    console.log('[AI Topic Summary] Template data:', templateData);
+    
+    app.parseAndTranslate('summary-card', templateData, function(html) {
+      console.log('[AI Topic Summary] Template rendered, HTML length:', html.length);
+      resolve($(html));
+    });
+  });
 }
 
 function initializeSummaryEvents() {
+  console.log('[AI Topic Summary] Setting up event handlers');
   // Toggle summary visibility
   $(document).off('click.aiSummary').on('click.aiSummary', '.ai-summary-header', function(e) {
+    console.log('[AI Topic Summary] Summary header clicked');
     e.preventDefault();
     
     const card = $(this).closest('.ai-summary-card');
@@ -129,58 +166,10 @@ function formatDate(timestamp) {
   }
 }
 
-// Manual summary generation (for moderators)
-function generateSummaryManual(topicId) {
-  if (!topicId || !app.user.uid) {
-    return;
-  }
-
-  // Show loading state
-  const button = $(`.generate-summary-btn[data-tid="${topicId}"]`);
-  if (button.length) {
-    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Generating...');
-  }
-
-  // Make API call
-  $.ajax({
-    url: `/api/v3/plugins/ai-topic-summary/generate/${topicId}`,
-    type: 'POST',
-    headers: {
-      'X-CSRF-Token': $('meta[name="csrf-token"]').attr('content')
-    },
-    success: function(data) {
-      if (data && data.summaryText) {
-        // Reload page to show new summary
-        ajaxify.refresh();
-      }
-    },
-    error: function(xhr) {
-      let errorMsg = 'Failed to generate summary';
-      try {
-        const response = JSON.parse(xhr.responseText);
-        if (response.error) {
-          errorMsg = response.error;
-        }
-      } catch (e) {
-        // Use default error message
-      }
-      
-      if (typeof alerts !== 'undefined') {
-        alerts.error(errorMsg);
-      } else {
-        console.error('AI Summary Error:', errorMsg);
-      }
-    },
-    complete: function() {
-      // Reset button state
-      if (button.length) {
-        button.prop('disabled', false).html('<i class="fas fa-robot me-1"></i>Generate Summary');
-      }
-    }
-  });
-}
-
 // Export for global access
 window.AiTopicSummary = {
-  generateManual: generateSummaryManual
+  initialize: initializeTopicSummary
 };
+
+console.log('[AI Topic Summary] Script loaded and ready');
+

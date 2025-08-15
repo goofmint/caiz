@@ -2,10 +2,6 @@ const winston = require.main.require('winston');
 const data = require('./data');
 const { ROLES, ROLE_ORDER, GROUP_SUFFIXES, getGroupName } = require('./shared/constants');
 
-/**
- * Member management functionality
- */
-
 async function GetMembers(socket, { cid }) {
   winston.info(`[plugin/caiz] Getting members for cid: ${cid}, uid: ${socket.uid}`);
   
@@ -97,12 +93,12 @@ async function GetMembers(socket, { cid }) {
   }
 }
 
-async function AddMember(socket, { cid, username }) {
-  winston.info(`[plugin/caiz] Adding member ${username} to cid: ${cid}, uid: ${socket.uid}`);
+async function AddMember(socket, { cid, username, role }) {
+  winston.info(`[plugin/caiz] Adding member ${username} with role ${role} to cid: ${cid}, uid: ${socket.uid}`);
   
   const { uid } = socket;
-  if (!uid || !username) {
-    throw new Error('Authentication and username required');
+  if (!uid || !username || !role) {
+    throw new Error('Authentication, username, and role required');
   }
   
   // Check permissions (owner or manager can add members)
@@ -142,11 +138,25 @@ async function AddMember(socket, { cid, username }) {
     // Get additional user data
     const userData = await data.getUserFields(targetUid, ['username', 'userslug', 'picture', 'lastonline', 'status']);
     
-    // Add user to members group
-    const memberGroupName = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
-    await data.joinGroup(memberGroupName, targetUid);
+    // Add user to appropriate group based on role
+    let targetGroupName;
+    switch (role) {
+      case 'owner':
+        targetGroupName = ownerGroup;
+        break;
+      case 'manager':
+        targetGroupName = managerGroup;
+        break;
+      case 'member':
+        targetGroupName = getGroupName(cid, GROUP_SUFFIXES.MEMBERS);
+        break;
+      default:
+        throw new Error(`Invalid role: ${role}`);
+    }
     
-    winston.info(`[plugin/caiz] User ${username} added to community ${cid}`);
+    await data.joinGroup(targetGroupName, targetUid);
+    
+    winston.info(`[plugin/caiz] User ${username} added to community ${cid} with role ${role} (group: ${targetGroupName})`);
     
     return {
       success: true,
@@ -190,20 +200,19 @@ async function ChangeMemberRole(socket, { cid, targetUid, newRole }) {
     throw new Error('Permission denied - only owners can assign owner or banned roles');
   }
   
+  // Check if trying to change owner role when they are the last owner
+  const isTargetOwner = await data.isMemberOfGroup(targetUid, ownerGroup);
+  if (isTargetOwner && newRole !== ROLES.OWNER) {
+    const ownerMembers = await data.getGroupMembers(ownerGroup);
+    if (ownerMembers.length <= 1) {
+      throw new Error('Cannot change role of the last owner of the community');
+    }
+  }
+  
   // Check if user is trying to change their own role inappropriately
   if (uid === targetUid) {
-    const currentUserRole = await getUserRole(uid, cid);
-    
-    // Owners can only demote themselves if there are other owners
-    if (currentUserRole === ROLES.OWNER && newRole !== ROLES.OWNER) {
-      const ownerMembers = await data.getGroupMembers(ownerGroup);
-      if (ownerMembers.length <= 1) {
-        throw new Error('Cannot remove the last owner of the community');
-      }
-    }
-    
     // Non-owners cannot promote themselves
-    if (currentUserRole !== ROLES.OWNER && (newRole === ROLES.OWNER || newRole === ROLES.MANAGER)) {
+    if (!isTargetOwner && (newRole === ROLES.OWNER || newRole === ROLES.MANAGER)) {
       throw new Error('Cannot promote yourself');
     }
   }

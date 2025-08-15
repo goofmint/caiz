@@ -1,6 +1,6 @@
 // AI Topic Summary - Admin Panel
 
-define('admin/plugins/ai-topic-summary', ['settings'], function (settings) {
+define('admin/plugins/ai-topic-summary', ['settings', 'alerts'], function (settings, alerts) {
   'use strict';
 
   const AiTopicSummary = {};
@@ -26,22 +26,23 @@ define('admin/plugins/ai-topic-summary', ['settings'], function (settings) {
     const originalText = button.text();
     
     button.prop('disabled', true).text('Saving...');
-
-    settings.save('ai-topic-summary', $('.ai-summary-settings'), function() {
+    
+    // Collect form data
+    const formData = {};
+    $('.ai-summary-settings').find('[data-key]').each(function() {
+      const $this = $(this);
+      const key = $this.attr('data-key');
+      const value = $this.val();
+      formData[key] = value;
+    });
+    
+    window.socket.emit('plugins.aiTopicSummary.saveSettings', formData, function(err, data) {
       button.prop('disabled', false).text(originalText);
       
-      if (typeof app !== 'undefined' && app.alertSuccess) {
-        app.alertSuccess('Settings saved successfully');
-      } else if (typeof alerts !== 'undefined') {
-        alerts.success('Settings saved successfully');
-      }
-    }, function(err) {
-      button.prop('disabled', false).text(originalText);
-      
-      if (typeof app !== 'undefined' && app.alertError) {
-        app.alertError(err.message || 'Failed to save settings');
-      } else if (typeof alerts !== 'undefined') {
+      if (err) {
         alerts.error(err.message || 'Failed to save settings');
+      } else {
+        alerts.success('Settings saved successfully!');
       }
     });
   }
@@ -50,56 +51,22 @@ define('admin/plugins/ai-topic-summary', ['settings'], function (settings) {
     const apiKey = $('#gemini-api-key').val();
     
     if (!apiKey || !apiKey.trim()) {
-      if (typeof app !== 'undefined' && app.alertError) {
-        app.alertError('Please enter a Gemini API key first');
-      } else if (typeof alerts !== 'undefined') {
-        alerts.error('Please enter a Gemini API key first');
-      }
+      alerts.error('Please enter a Gemini API key first');
       return;
     }
 
     const button = $('#test-connection');
-    const originalText = button.text();
+    const originalText = button.html();
     
     button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Testing...');
 
-    // Test with a simple prompt
-    $.ajax({
-      url: '/api/v3/plugins/ai-topic-summary/test',
-      type: 'POST',
-      data: {
-        apiKey: apiKey
-      },
-      headers: {
-        'X-CSRF-Token': $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function(data) {
-        button.prop('disabled', false).text(originalText);
-        
-        if (typeof app !== 'undefined' && app.alertSuccess) {
-          app.alertSuccess('Connection successful! Gemini API is working.');
-        } else if (typeof alerts !== 'undefined') {
-          alerts.success('Connection successful! Gemini API is working.');
-        }
-      },
-      error: function(xhr) {
-        button.prop('disabled', false).text(originalText);
-        
-        let errorMsg = 'Connection failed';
-        try {
-          const response = JSON.parse(xhr.responseText);
-          if (response.error) {
-            errorMsg = response.error;
-          }
-        } catch (e) {
-          // Use default error message
-        }
-        
-        if (typeof app !== 'undefined' && app.alertError) {
-          app.alertError(errorMsg);
-        } else if (typeof alerts !== 'undefined') {
-          alerts.error(errorMsg);
-        }
+    window.socket.emit('plugins.aiTopicSummary.testConnection', { apiKey: apiKey }, function(err, data) {
+      button.prop('disabled', false).html(originalText);
+      
+      if (err) {
+        alerts.error(err.message || 'Connection failed');
+      } else {
+        alerts.success('Connection successful! Gemini API is working.');
       }
     });
   }

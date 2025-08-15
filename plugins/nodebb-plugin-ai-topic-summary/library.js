@@ -9,7 +9,7 @@ const user = require.main.require('./src/user');
 const privileges = require.main.require('./src/privileges');
 const meta = require.main.require('./src/meta');
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 
 const plugin = module.exports;
 
@@ -20,42 +20,155 @@ plugin.onAppLoad = async function (params) {
   const { app, router, middleware } = params;
 
   // Initialize Gemini AI
-  const apiKey = await meta.settings.get('ai-topic-summary');
-  if (apiKey && apiKey.geminiApiKey) {
-    genAI = new GoogleGenerativeAI(apiKey.geminiApiKey);
+  const settings = await meta.settings.get('ai-topic-summary');
+  if (settings && settings.geminiApiKey) {
+    genAI = new GoogleGenAI({apiKey: settings.geminiApiKey});
     winston.info('[plugin/ai-topic-summary] Gemini AI initialized');
+  } else {
+    winston.warn('[plugin/ai-topic-summary] Gemini API key not configured');
   }
 
   // Admin routes
   router.get('/admin/plugins/ai-topic-summary', middleware.admin.buildHeader, renderAdminPage);
   router.get('/api/admin/plugins/ai-topic-summary', renderAdminPage);
   
-  // API routes
-  router.post('/api/v3/plugins/ai-topic-summary/settings', middleware.requireUser, middleware.admin.requireAdminOrGlobalMod, saveSettings);
-  router.post('/api/v3/plugins/ai-topic-summary/generate/:tid', middleware.requireUser, generateSummaryManual);
-  router.get('/api/v3/plugins/ai-topic-summary/:tid', middleware.requireUser, getSummary);
+  
+  // Register WebSocket handlers
+  const sockets = require.main.require('./src/socket.io/plugins');
+  sockets.aiTopicSummary = {};
+  
+  // Save settings via WebSocket
+  sockets.aiTopicSummary.saveSettings = async function (socket, data) {
+    if (!socket.uid) {
+      throw new Error('[[error:not-logged-in]]');
+    }
+    
+    const isAdmin = await user.isAdministrator(socket.uid);
+    if (!isAdmin) {
+      throw new Error('[[error:no-privileges]]');
+    }
+    
+    await meta.settings.set('ai-topic-summary', data);
+    
+    // Reinitialize Gemini AI if API key changed
+    if (data.geminiApiKey) {
+      genAI = new GoogleGenAI({apiKey: data.geminiApiKey});
+      winston.info('[plugin/ai-topic-summary] Gemini AI reinitialized with new API key');
+    }
+    
+    return { success: true };
+  };
+  
+  // Test connection via WebSocket
+  sockets.aiTopicSummary.testConnection = async function (socket, data) {
+    if (!socket.uid) {
+      throw new Error('[[error:not-logged-in]]');
+    }
+    
+    const isAdmin = await user.isAdministrator(socket.uid);
+    if (!isAdmin) {
+      throw new Error('[[error:no-privileges]]');
+    }
+    
+    if (!data.apiKey) {
+      throw new Error('API key is required');
+    }
+    
+    try {
+      // Test the API key
+      const testGenAI = new GoogleGenAI({apiKey: data.apiKey});
+      const result = await testGenAI.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: 'Hello'
+      });
+      
+      if (result.text) {
+        return { success: true };
+      } else {
+        throw new Error('Failed to connect to Gemini API');
+      }
+    } catch (err) {
+      winston.error('[plugin/ai-topic-summary] Error testing connection:', err);
+      throw new Error('Invalid API key or connection failed');
+    }
+  };
+  
+  // Get summary via WebSocket
+  sockets.aiTopicSummary.getSummary = async function (socket, data) {
+    if (!socket.uid) {
+      throw new Error('[[error:not-logged-in]]');
+    }
+    
+    const tid = parseInt(data.tid, 10);
+    if (!tid) {
+      throw new Error('Invalid topic ID');
+    }
+    
+    // Check read permissions
+    const canRead = await privileges.topics.can('topics:read', tid, socket.uid);
+    if (!canRead) {
+      throw new Error('[[error:no-privileges]]');
+    }
+    
+    const summary = await getSummaryFromDB(tid);
+    if (!summary) {
+      throw new Error('Summary not found');
+    }
+    
+    return summary;
+  };
+};
+
+// Hook: Add admin menu
+plugin.addAdminMenu = async function (header) {
+  header.plugins.push({
+    route: '/plugins/ai-topic-summary',
+    icon: 'fa-robot',
+    name: 'AI Topic Summary'
+  });
+  return header;
 };
 
 // Hook: Post creation - trigger summary generation
 plugin.onPostCreate = async function (data) {
   try {
     const { post } = data;
+    winston.info(`[plugin/ai-topic-summary] onPostCreate triggered for post ${post?.pid} in topic ${post?.tid}`);
     if (!post || !post.tid) return data;
 
     // Get topic post count
     const topicData = await topics.getTopicData(post.tid);
     if (!topicData || !topicData.postcount) return data;
 
-    // Check if we should generate summary (every 10 posts)
-    if (topicData.postcount % 10 === 0) {
-      winston.info(`[plugin/ai-topic-summary] Triggering summary generation for topic ${post.tid} (${topicData.postcount} posts)`);
+    // Get trigger count from settings
+    const settings = await meta.settings.get('ai-topic-summary');
+    if (!settings || !settings.triggerCount) {
+      winston.error('[plugin/ai-topic-summary] Settings not configured properly');
+      return data;
+    }
+    const triggerCount = parseInt(settings.triggerCount, 10);
+    
+    // Check if we should generate summary
+    if (topicData.postcount % triggerCount === 0) {
+      winston.info(`[plugin/ai-topic-summary] *** SUMMARY TRIGGER HIT *** Topic ${post.tid} has ${topicData.postcount} posts (trigger: every ${triggerCount} posts)`);
       
       // Generate summary in background
       process.nextTick(() => {
-        generateSummary(post.tid).catch(err => {
-          winston.error('[plugin/ai-topic-summary] Error generating summary:', err);
-        });
+        winston.info(`[plugin/ai-topic-summary] Starting background summary generation for topic ${post.tid}`);
+        generateSummary(post.tid)
+          .then(summary => {
+            if (summary) {
+              winston.info(`[plugin/ai-topic-summary] Summary generated successfully for topic ${post.tid}`);
+            } else {
+              winston.warn(`[plugin/ai-topic-summary] Summary generation returned null for topic ${post.tid}`);
+            }
+          })
+          .catch(err => {
+            winston.error('[plugin/ai-topic-summary] Error generating summary:', err);
+          });
       });
+    } else {
+      winston.info(`[plugin/ai-topic-summary] Not generating summary - post count ${topicData.postcount} not divisible by ${triggerCount}`);
     }
 
     return data;
@@ -69,17 +182,22 @@ plugin.onPostCreate = async function (data) {
 plugin.onTopicGet = async function (data) {
   try {
     const { topic } = data;
+    winston.info(`[plugin/ai-topic-summary] onTopicGet triggered for topic ${topic?.tid}`);
     if (!topic || !topic.tid) return data;
 
     // Get existing summary
     const summary = await getSummaryFromDB(topic.tid);
     if (summary) {
+      winston.info(`[plugin/ai-topic-summary] Found existing summary for topic ${topic.tid}`);
       topic.aiSummary = {
         text: summary.summaryText,
         postCount: summary.postCount,
         generatedAt: summary.generatedAt,
         aiModel: summary.aiModel
       };
+      winston.info(`[plugin/ai-topic-summary] Attached summary to topic data:`, topic.aiSummary);
+    } else {
+      winston.info(`[plugin/ai-topic-summary] No summary found for topic ${topic.tid}`);
     }
 
     return data;
@@ -91,6 +209,7 @@ plugin.onTopicGet = async function (data) {
 
 // Generate AI summary for a topic
 async function generateSummary(tid) {
+  winston.info(`[plugin/ai-topic-summary] generateSummary called for topic ${tid}`);
   try {
     if (!genAI) {
       winston.warn('[plugin/ai-topic-summary] Gemini AI not initialized');
@@ -111,13 +230,20 @@ async function generateSummary(tid) {
       return null;
     }
 
-    // Detect language and generate summary
-    const language = detectLanguage(content);
-    const prompt = createSummaryPrompt(content, language);
+    // Generate summary prompt
+    const prompt = createSummaryPrompt(content);
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(prompt);
-    const summaryText = result.response.text();
+    const settings = await meta.settings.get('ai-topic-summary');
+    if (!settings || !settings.aiModel) {
+      winston.error('[plugin/ai-topic-summary] AI model not configured');
+      return null;
+    }
+    const modelName = settings.aiModel;
+    const result = await genAI.models.generateContent({
+      model: modelName,
+      contents: prompt
+    });
+    const summaryText = result.text;
 
     if (!summaryText) {
       winston.warn(`[plugin/ai-topic-summary] Empty summary generated for topic ${tid}`);
@@ -130,12 +256,12 @@ async function generateSummary(tid) {
       summaryText: summaryText,
       postCount: posts.length,
       generatedAt: Date.now(),
-      aiModel: 'gemini-1.5-flash'
+      aiModel: modelName
     };
 
     await saveSummaryToDB(summary);
     
-    winston.info(`[plugin/ai-topic-summary] Generated summary for topic ${tid} (${posts.length} posts)`);
+    winston.info(`[plugin/ai-topic-summary] *** SUMMARY SAVED *** Topic ${tid} (${posts.length} posts) - Summary: ${summaryText.substring(0, 100)}...`);
     return summary;
   } catch (err) {
     winston.error(`[plugin/ai-topic-summary] Error generating summary for topic ${tid}:`, err);
@@ -160,31 +286,14 @@ async function getTopicPosts(tid) {
   }
 }
 
-// Detect content language (simple heuristic)
-function detectLanguage(content) {
-  // Simple Japanese detection - look for Hiragana/Katakana/Kanji characters
-  const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
-  return japaneseRegex.test(content) ? 'ja' : 'en';
-}
-
-// Create summary prompt based on language
-function createSummaryPrompt(content, language) {
-  const prompts = {
-    ja: `以下の議論の流れを簡潔にまとめてください。重要なポイントや議論の結論があれば含めてください。個人名やユーザー名は除外してください。
-
-内容:
-${content}
-
-要約:`,
-    en: `Please provide a concise summary of the following discussion. Include important points and conclusions if any. Exclude personal names or usernames.
+// Create summary prompt
+function createSummaryPrompt(content) {
+  return `Please provide a concise summary of the following discussion in the same language as the content. Include important points and conclusions if any. Exclude personal names or usernames. Keep the summary brief and focused on the main topics.
 
 Content:
 ${content}
 
-Summary:`
-  };
-
-  return prompts[language] || prompts.en;
+Summary:`;
 }
 
 // Database operations
@@ -218,70 +327,3 @@ async function renderAdminPage(req, res) {
   });
 }
 
-async function saveSettings(req, res) {
-  try {
-    const settings = req.body;
-    await meta.settings.set('ai-topic-summary', settings);
-    
-    // Reinitialize Gemini AI if API key changed
-    if (settings.geminiApiKey) {
-      genAI = new GoogleGenerativeAI(settings.geminiApiKey);
-      winston.info('[plugin/ai-topic-summary] Gemini AI reinitialized with new API key');
-    }
-    
-    res.json({ success: true });
-  } catch (err) {
-    winston.error('[plugin/ai-topic-summary] Error saving settings:', err);
-    res.status(500).json({ error: err.message });
-  }
-}
-
-async function generateSummaryManual(req, res) {
-  try {
-    const tid = parseInt(req.params.tid, 10);
-    if (!tid) {
-      return res.status(400).json({ error: 'Invalid topic ID' });
-    }
-
-    // Check permissions
-    const canModerate = await privileges.topics.canModerate(tid, req.uid);
-    if (!canModerate) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    const summary = await generateSummary(tid);
-    if (!summary) {
-      return res.status(500).json({ error: 'Failed to generate summary' });
-    }
-
-    res.json(summary);
-  } catch (err) {
-    winston.error('[plugin/ai-topic-summary] Error in manual summary generation:', err);
-    res.status(500).json({ error: err.message });
-  }
-}
-
-async function getSummary(req, res) {
-  try {
-    const tid = parseInt(req.params.tid, 10);
-    if (!tid) {
-      return res.status(400).json({ error: 'Invalid topic ID' });
-    }
-
-    // Check read permissions
-    const canRead = await privileges.topics.can('topics:read', tid, req.uid);
-    if (!canRead) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    const summary = await getSummaryFromDB(tid);
-    if (!summary) {
-      return res.status(404).json({ error: 'Summary not found' });
-    }
-
-    res.json(summary);
-  } catch (err) {
-    winston.error('[plugin/ai-topic-summary] Error getting summary:', err);
-    res.status(500).json({ error: err.message });
-  }
-}

@@ -289,10 +289,7 @@ const initCommunityCreateModal = () => {
       const result = await response.json();
       
       // Close modal
-      const bsModal = bootstrap.Modal.getInstance(modal);
-      if (bsModal) {
-        bsModal.hide();
-      } else {
+      if (typeof $ !== 'undefined' && $.fn.modal) {
         $(modal).modal('hide');
       }
       
@@ -358,21 +355,8 @@ const getCaizAlert = async () => {
   };
 };
 
-// DOMContentLoadedでも初期化（初回ロード時用）
+// DOMContentLoadedでは初期化のみ（updateCommunitiesはajaxifyで実行）
 document.addEventListener('DOMContentLoaded', function () {
-  if (!app.user || !app.user.uid) {
-    console.log('[caiz] User not logged in, skipping community sidebar initialization');
-    return;
-  }
-  
-  const sidebar = document.querySelector('nav[component="sidebar-communities"]');
-  if (sidebar) {
-    updateCommunities();
-    $('[component="community/toggle"]').on('click', toggleCommunity);
-    
-    restoreSidebarState();
-  }
-  
   // Initialize modal functionality
   initCommunityCreateModal();
 });

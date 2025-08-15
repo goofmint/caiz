@@ -13,6 +13,9 @@
   "scripts": [
     "static/main.js"
   ],
+  "clientScripts": [
+    "static/main.js"
+  ],
   "languages": "languages",
   "hooks": [
     {
@@ -26,10 +29,17 @@
     {
       "hook": "static:app.load",
       "method": "onAppLoad"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminMenu"
     }
   ],
+  "templates": "./templates",
+  "modules": {
+    "../admin/plugins/ai-topic-summary.js": "static/admin.js"
+  },
   "acpScripts": [
     "static/admin.js"
-  ],
-  "templates": "templates"
+  ]
 }

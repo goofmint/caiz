@@ -21,12 +21,6 @@
   },
   "readme": "README.md",
   "dependencies": {
-    "@google/generative-ai": "^0.21.0"
-  },
-  "peerDependencies": {
-    "nodebb": ">=1.19.0"
-  },
-  "nbbpm": {
-    "compatibility": "^1.19.0 || ^2.0.0 || ^3.0.0"
+    "@google/genai": "^1.14.0"
   }
 }

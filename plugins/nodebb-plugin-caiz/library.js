@@ -8,7 +8,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
-const { IsFollowed } = require('./libs/community/core');
+const { GetMemberRole } = require('./libs/community/core');
 
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
@@ -38,6 +38,33 @@ plugin.customizeSidebarCommunities = Header.customizeSidebarCommunities;
 plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
 
 /**
+ * フィルター: カテゴリーページでオーナー情報を追加
+ */
+plugin.filterCategoryBuild = async function (hookData) {
+  const { templateData } = hookData;
+  const { uid } = hookData.req;
+  
+  if (!uid || !templateData.cid || templateData.parentCid !== 0) {
+    return hookData;
+  }
+  
+  try {
+    const data = require('./libs/community/data');
+    const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
+    
+    if (ownerGroup) {
+      const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+      templateData.isOwner = isOwner;
+      winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+    }
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
+  }
+  
+  return hookData;
+};
+
+/**
  * フィルター: トピック作成制御
  */
 plugin.filterTopicCreate = async function (hookData) {
@@ -51,10 +78,10 @@ plugin.filterTopicCreate = async function (hookData) {
     throw new Error('[[error:not-logged-in]]');
   }
   
-  // Check if user is following the community
-  const followResult = await IsFollowed({ uid }, { cid });
-  if (!followResult.isFollowed) {
-    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid} - not following community`);
+  // Check if user is a member of the community
+  const memberResult = await GetMemberRole({ uid }, { cid });
+  if (memberResult.role === 'guest' || memberResult.role === 'banned') {
+    winston.info(`[plugin/caiz] User ${uid} denied topic creation in category ${cid} - role: ${memberResult.role}`);
     throw new Error('[[caiz:error.members-only-posting]]');
   }
   
@@ -84,10 +111,10 @@ plugin.filterPostCreate = async function (hookData) {
     return hookData;
   }
   
-  // Check if user is following the community
-  const followResult = await IsFollowed({ uid }, { cid: topic.cid });
-  if (!followResult.isFollowed) {
-    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid}) - not following community`);
+  // Check if user is a member of the community
+  const memberResult = await GetMemberRole({ uid }, { cid: topic.cid });
+  if (memberResult.role === 'guest' || memberResult.role === 'banned') {
+    winston.info(`[plugin/caiz] User ${uid} denied post creation in topic ${tid} (category ${topic.cid}) - role: ${memberResult.role}`);
     throw new Error('[[caiz:error.members-only-posting]]');
   }
   
@@ -97,7 +124,7 @@ sockets.caiz = {};
 sockets.caiz.createCommunity = Community.Create;
 sockets.caiz.followCommunity = Community.Follow;
 sockets.caiz.unfollowCommunity = Community.Unfollow;
-sockets.caiz.isFollowed = Community.IsFollowed;
+sockets.caiz.getMemberRole = Community.GetMemberRole;
 sockets.caiz.getCommunities = Community.User;
 sockets.caiz.isCommunityOwner = Community.IsCommunityOwner;
 sockets.caiz.getCommunityData = Community.GetCommunityData;
@@ -111,4 +138,5 @@ sockets.caiz.getMembers = Community.GetMembers;
 sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
+sockets.caiz.deleteCommunity = Community.DeleteCommunity;
 module.exports = plugin;
