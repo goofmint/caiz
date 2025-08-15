@@ -1,0 +1,35 @@
+{
+  "id": "nodebb-plugin-ai-topic-summary",
+  "name": "NodeBB AI Topic Summary",
+  "description": "Automatically generate AI-powered summaries for NodeBB topics",
+  "url": "https://github.com/goofmint/caiz",
+  "library": "./library.js",
+  "staticDirs": {
+    "static": "./static"
+  },
+  "css": [
+    "static/style.css"
+  ],
+  "scripts": [
+    "static/main.js"
+  ],
+  "languages": "languages",
+  "hooks": [
+    {
+      "hook": "filter:post.create",
+      "method": "onPostCreate"
+    },
+    {
+      "hook": "filter:topic.get",
+      "method": "onTopicGet"
+    },
+    {
+      "hook": "static:app.load",
+      "method": "onAppLoad"
+    }
+  ],
+  "acpScripts": [
+    "static/admin.js"
+  ],
+  "templates": "templates"
+}
