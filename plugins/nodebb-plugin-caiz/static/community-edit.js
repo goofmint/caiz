@@ -268,53 +268,24 @@ $(document).ready(function() {
 
 // Modal Management Functions
 const openCommunityEditModal = async (cid) => {
-  console.log('[caiz] Opening edit modal for community', cid);
+  console.log('[caiz] Opening community edit modal for cid:', cid);
   
-  try {
-    // Use NodeBB's bootbox for modal if available
-    if (typeof bootbox !== 'undefined') {
-      console.log('[caiz] Using NodeBB bootbox modal');
-      await openBootboxModal(cid);
-    } else {
-      console.log('[caiz] Bootbox not available, using custom modal');
-      await openCustomModal(cid);
-    }
-  } catch (error) {
-    console.error('[caiz] Error opening modal:', error);
-    // Fallback to simple modal
-    await openCustomModal(cid);
+  const modalElement = document.getElementById('community-edit-modal');
+  if (!modalElement) {
+    console.error('[caiz] Community edit modal not found in DOM');
+    return;
   }
+  
+  // Show the modal using Bootstrap
+  const modal = new bootstrap.Modal(modalElement);
+  modal.show();
+  
+  // Initialize the form when modal is shown
+  modalElement.addEventListener('shown.bs.modal', function () {
+    initializeCommunityEditForm(cid);
+  }, { once: true });
 };
 
-const openBootboxModal = async (cid) => {
-  const modalHtml = await getModalHtml(cid);
-  
-  const modal = bootbox.dialog({
-    title: 'Edit Community',
-    message: modalHtml,
-    size: 'extra-large',
-    backdrop: true,
-    onEscape: true,
-    buttons: {
-      close: {
-        label: 'Close',
-        className: 'btn-secondary',
-        callback: function () {
-          console.log('[caiz] Modal closed via button');
-        }
-      }
-    }
-  });
-  
-  // Initialize navigation and form after modal is shown
-  modal.on('shown.bs.modal', function () {
-    initializeModalNavigation();
-    resetModalToFirstTab();
-    initializeCommunityEditForm(cid);
-  });
-  
-  console.log('[caiz] Bootbox modal opened for cid:', cid);
-};
 
 const openCustomModal = async (cid) => {
   // Ensure modal template is loaded

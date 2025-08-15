@@ -33,6 +33,10 @@
       "method": "customizeCategoryLink"
     },
     {
+      "hook": "filter:category.build",
+      "method": "filterCategoryBuild"
+    },
+    {
       "hook": "filter:middleware.renderHeader",
       "method": "customizeSidebarCommunities"
     },

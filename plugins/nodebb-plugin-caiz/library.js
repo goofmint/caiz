@@ -38,6 +38,33 @@ plugin.customizeSidebarCommunities = Header.customizeSidebarCommunities;
 plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
 
 /**
+ * フィルター: カテゴリーページでオーナー情報を追加
+ */
+plugin.filterCategoryBuild = async function (hookData) {
+  const { templateData } = hookData;
+  const { uid } = hookData.req;
+  
+  if (!uid || !templateData.cid || templateData.parentCid !== 0) {
+    return hookData;
+  }
+  
+  try {
+    const data = require('./libs/community/data');
+    const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
+    
+    if (ownerGroup) {
+      const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+      templateData.isOwner = isOwner;
+      winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+    }
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
+  }
+  
+  return hookData;
+};
+
+/**
  * フィルター: トピック作成制御
  */
 plugin.filterTopicCreate = async function (hookData) {
