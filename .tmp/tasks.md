@@ -43,3 +43,29 @@
 - [x] コミュニティ一覧のサイドバーで、画像の場合に何も表示されないので修正
 - [x] コミュニティ一覧のサイドバーで、開閉した状態について、ブラウザを再読込しても維持してほしい
 - [x] 自分しかコミュニティオーナーがいない場合、メンバーを抜けることは不可
+- [ ] /recent と /popular /unread で、コミュニティ名を表示する
+- [ ] /communities を2列表示に（画面幅による）
+- [ ] /communities ではMarkdown禁止に
+
+# 第2フェーズ
+
+- MCPサーバー
+- 追加レンダリング
+  - [ ] Mermaid
+  - [ ] MathJax
+  - [ ] KaTeX
+  - [ ] PlantUML
+- API用トークンの管理
+- Webhook
+- 埋め込み
+  - YouTube
+  - X
+  - GitHub Snippet
+  - URLのOGP表示
+- 連携
+  - [ ] Slack
+  - [ ] Discord
+  - [ ] Microsoft Teams
+- 配信
+  - [ ] RTMP受信
+- コミュニティごとの未読表示

@@ -5,3 +5,5 @@ upload.tag.gz
 backup.sql
 .env
 plugins/nodebb-plugin-ai-topic-summary/node_modules
+.dev.env
+plugins/nodebb-plugin-s3-uploads
