@@ -20,6 +20,18 @@
 				{{{ end }}}
 			</div>
 			<div class="flex-grow-1 d-flex flex-wrap gap-1 position-relative">
+				{{{ if ./community }}}
+					<a href="{config.relative_path}/{./community.handle}" class="badge fw-normal text-decoration-none text-reset d-inline-flex align-items-center gap-1" style="font-size: larger">
+						{{{ if ./community.image }}}
+						<img src="{./community.image}" alt="{./community.name}" class="rounded-1" style="width: 16px; height: 16px; object-fit: cover;">
+						{{{ else }}}
+						{{{ if ./community.icon }}}
+						<i class="fa {./community.icon}" style="color: {./community.color}; width: 16px; height: 16px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center;"></i>
+						{{{ end }}}
+						{{{ end }}}
+						<span>{./community.name}</span>
+					</a>
+				{{{ end }}}
 				<h3 component="topic/header" class="title text-break fs-5 fw-semibold m-0 tracking-tight w-100 {{{ if showSelect }}}me-4 me-lg-0{{{ end }}}">
 					<a class="text-reset" href="{{{ if topics.noAnchor }}}#{{{ else }}}{config.relative_path}/topic/{./slug}{{{ if ./bookmark }}}/{./bookmark}{{{ end }}}{{{ end }}}">{./title}</a>
 				</h3>

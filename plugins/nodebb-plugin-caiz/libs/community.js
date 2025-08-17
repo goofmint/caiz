@@ -147,6 +147,11 @@ class Community extends Base {
   static async createCommunityGroup(name, description, ownerUid, privateFlag, hidden) {
     return community.createCommunityGroup(name, description, ownerUid, privateFlag, hidden);
   }
+
+  // Filter method for topics build
+  static async filterTopicsBuild(hookData) {
+    return community.filterTopicsBuild(hookData);
+  }
 }
 
 module.exports = Community;

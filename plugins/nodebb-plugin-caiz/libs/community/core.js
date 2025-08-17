@@ -679,6 +679,102 @@ async function deleteCommunityGroups(cid) {
   }
 }
 
+/**
+ * トピック一覧にコミュニティ情報を追加するフィルター
+ */
+async function filterTopicsBuild(hookData) {
+  try {
+    winston.info(`[plugin/caiz] *** filterTopicsBuild called ***`);
+    winston.info(`[plugin/caiz] hookData keys: ${Object.keys(hookData)}`);
+    // JSONが大きすぎる場合があるので、サンプルだけログ出力
+    const sampleData = {
+      req_url: hookData.req?.url,
+      req_method: hookData.req?.method,
+      templateData_keys: hookData.templateData ? Object.keys(hookData.templateData) : 'no templateData',
+      topics_count: hookData.templateData?.topics?.length || 0
+    };
+    winston.info(`[plugin/caiz] hookData sample: ${JSON.stringify(sampleData, null, 2)}`);
+    
+    // hookDataは { req, res, templateData } の形式
+    const { templateData } = hookData;
+    
+    if (!templateData || !templateData.topics || !Array.isArray(templateData.topics) || templateData.topics.length === 0) {
+      winston.info(`[plugin/caiz] No topics found in templateData`);
+      return hookData;
+    }
+    
+    const topics = templateData.topics;
+    
+    winston.info(`[plugin/caiz] *** Filtering ${topics.length} topics to add community info ***`);
+    
+    // 各トピックにコミュニティ情報を追加
+    for (const topic of topics) {
+      winston.info(`[plugin/caiz] Processing topic ${topic.tid || 'unknown'}, cid: ${topic.cid}, has category: ${!!topic.category}`);
+      
+      if (topic.cid && topic.category) {
+        try {
+          winston.info(`[plugin/caiz] Topic ${topic.tid} - category name: ${topic.category.name}, parentCid: ${topic.category.parentCid}`);
+          
+          // コミュニティカテゴリ（parentCid = 0）を取得
+          const parentCid = await getParentCategory(topic.cid);
+          winston.info(`[plugin/caiz] Topic ${topic.tid} - parent category ID: ${parentCid}`);
+          
+          if (parentCid && parentCid !== topic.cid) {
+            // 親カテゴリの情報を取得
+            const Categories = require.main.require('./src/categories');
+            const parentCategory = await Categories.getCategoryData(parentCid);
+            
+            winston.info(`[plugin/caiz] Topic ${topic.tid} - parent category data: ${JSON.stringify(parentCategory)}`);
+            
+            if (parentCategory) {
+              // コミュニティ情報を追加
+              topic.community = {
+                cid: parentCategory.cid,
+                name: parentCategory.name,
+                slug: parentCategory.slug,
+                handle: parentCategory.handle,
+                bgColor: parentCategory.bgColor,
+                color: parentCategory.color,
+                icon: parentCategory.icon,
+                image: parentCategory.backgroundImage
+              };
+              
+              winston.info(`[plugin/caiz] *** ADDED COMMUNITY INFO for topic ${topic.tid}: ${parentCategory.name} (handle: ${parentCategory.handle}, backgroundImage: ${parentCategory.backgroundImage}, icon: ${parentCategory.icon}) ***`);
+            }
+          } else if (parentCid === topic.cid) {
+            // これ自体がコミュニティカテゴリの場合
+            topic.community = {
+              cid: topic.category.cid,
+              name: topic.category.name,
+              slug: topic.category.slug,
+              handle: topic.category.handle,
+              bgColor: topic.category.bgColor,
+              color: topic.category.color,
+              icon: topic.category.icon,
+              image: topic.category.backgroundImage
+            };
+            
+            winston.info(`[plugin/caiz] *** ADDED COMMUNITY INFO for topic ${topic.tid}: ${topic.category.name} (root category, handle: ${topic.category.handle}, backgroundImage: ${topic.category.backgroundImage}, icon: ${topic.category.icon}) ***`);
+          } else {
+            winston.info(`[plugin/caiz] Topic ${topic.tid} - no community info added (parentCid: ${parentCid}, topic.cid: ${topic.cid})`);
+          }
+        } catch (err) {
+          winston.warn(`[plugin/caiz] Error adding community info for topic ${topic.tid}: ${err.message}`);
+        }
+      } else {
+        winston.info(`[plugin/caiz] Topic ${topic.tid || 'unknown'} - skipped (missing cid or category)`);
+      }
+    }
+    
+    winston.info(`[plugin/caiz] Completed filtering topics with community info`);
+    
+  } catch (error) {
+    winston.error(`[plugin/caiz] Error in filterTopicsBuild: ${error.message}`);
+  }
+  
+  return hookData;
+}
+
 module.exports = {
   createCommunity,
   getUserCommunities,
@@ -688,5 +784,6 @@ module.exports = {
   getUserRole,
   GetCommunityData,
   UpdateCommunityData,
-  DeleteCommunity
+  DeleteCommunity,
+  filterTopicsBuild
 };

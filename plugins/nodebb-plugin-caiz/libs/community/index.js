@@ -43,5 +43,6 @@ module.exports = {
   // Helper operations
   getCommunity: helpers.getCommunity,
   customizeIndexLink: helpers.customizeIndexLink,
-  createCommunityLink: helpers.createCommunityLink
+  createCommunityLink: helpers.createCommunityLink,
+  filterTopicsBuild: core.filterTopicsBuild
 };
