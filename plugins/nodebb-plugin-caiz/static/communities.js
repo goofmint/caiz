@@ -1,11 +1,24 @@
+// フラグで重複実行を防ぐ
+let isUpdatingCommunities = false;
+
 const updateCommunities = async () => {
-  console.log('[caiz] updateCommunities called');
+  console.log('[caiz] updateCommunities called, isUpdating:', isUpdatingCommunities);
+  
+  // 既に実行中の場合はスキップ
+  if (isUpdatingCommunities) {
+    console.log('[caiz] Already updating communities, skipping');
+    return;
+  }
+  
   const communityUl = document.querySelector('nav[component="sidebar-communities"] ul');
   console.log('[caiz] Found communityUl:', communityUl);
   if (!communityUl) {
     console.log('[caiz] No sidebar-communities element found, skipping');
     return;
   }
+  
+  isUpdatingCommunities = true;
+  
   // remove all children
   communityUl.innerHTML = '';
   console.log('[caiz] Emitting getCommunities socket call');
@@ -13,11 +26,15 @@ const updateCommunities = async () => {
   // Check if socket is available
   if (typeof socket === 'undefined') {
     console.error('[caiz] Socket is undefined, cannot load communities');
+    isUpdatingCommunities = false;
     return;
   }
   
   socket.emit('plugins.caiz.getCommunities', {}, async function (err, communities) {
     console.log('[caiz] getCommunities response - err:', err, 'communities:', communities);
+    // フラグをリセット
+    isUpdatingCommunities = false;
+    
     if (err) {
       console.error('[caiz] Error loading communities:', err);
       const { alert } = await getCaizAlert();
@@ -86,8 +103,8 @@ const addCommunity = (community, communityUl) => {
   const li = document.createElement('li');
   li.classList.add('nav-item', 'mx-2');
   
-  // Sanitize community name
-  const safeName = communitiesEscapeHtml(community.name || 'Unnamed Community');
+  // Use decoded community name (NodeBB already handles server-side escaping)
+  const safeName = decodeHtmlEntities(community.name || 'Unnamed Community');
   li.setAttribute('data-bs-original-title', safeName);
   
   // Sanitize colors
@@ -123,7 +140,7 @@ const addCommunity = (community, communityUl) => {
   // Create elements safely
   const link = document.createElement('a');
   link.className = 'nav-link navigation-link d-flex gap-2 justify-content-between align-items-center';
-  link.href = `/${communitiesEscapeHtml(community.handle || '')}`;
+  link.href = `/${decodeHtmlEntities(community.handle || '')}`;
   link.setAttribute('aria-label', safeName);
   
   const mainSpan = document.createElement('span');
@@ -145,6 +162,7 @@ const addCommunity = (community, communityUl) => {
   
   const nameSpan = document.createElement('span');
   nameSpan.className = 'nav-text small visible-open fw-semibold text-truncate';
+  // Use textContent to safely set text without HTML interpretation
   nameSpan.textContent = safeName;
   
   const badgeSpan2 = document.createElement('span');
@@ -214,7 +232,9 @@ const restoreSidebarState = () => {
 };
 
 // NodeBBのajaxifyフックを使用してページ遷移時に実行
-$(window).on('action:ajaxify.end', function () {
+// offを使って既存のイベントハンドラーを削除してから登録
+$(window).off('action:ajaxify.end.communities').on('action:ajaxify.end.communities', function () {
+  console.log('[caiz] ajaxify.end.communities triggered');
   if (!app.user || !app.user.uid) {
     console.log('[caiz] User not logged in, skipping community sidebar initialization');
     return;
@@ -223,6 +243,7 @@ $(window).on('action:ajaxify.end', function () {
   // コミュニティサイドバーが存在する場合のみ処理
   const sidebar = document.querySelector('nav[component="sidebar-communities"]');
   if (sidebar) {
+    console.log('[caiz] Sidebar found, calling updateCommunities');
     updateCommunities();
     
     // トグルボタンのイベントを再設定
@@ -230,6 +251,8 @@ $(window).on('action:ajaxify.end', function () {
     
     // ユーザー設定に基づいてサイドバーの状態を復元
     restoreSidebarState();
+  } else {
+    console.log('[caiz] Sidebar not found');
   }
   
   // Initialize modal functionality on each page load
@@ -350,7 +373,7 @@ const getCaizAlert = async () => {
   // Fallback to browser alert
   return {
     alert: ({ message }) => {
-      alert(message);
+      window.alert(message);
     }
   };
 };

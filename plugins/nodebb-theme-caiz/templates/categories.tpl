@@ -8,11 +8,13 @@
 		{{{ if pagination.pages.length }}}
 		<div><!-- IMPORT partials/category/selector-dropdown-left.tpl --></div>
 		{{{ end }}}
-		<ul class="categories-list list-unstyled" itemscope itemtype="http://www.schema.org/ItemList">
+		<div class="categories-list row row-cols-1 row-cols-md-2 g-3" itemscope itemtype="http://www.schema.org/ItemList">
 			{{{ each categories }}}
-			<!-- IMPORT partials/categories/item.tpl -->
+			<div class="col">
+				<!-- IMPORT partials/categories/item.tpl -->
+			</div>
 			{{{ end }}}
-		</ul>
+		</div>
 
 		<!-- IMPORT partials/paginator.tpl -->
 	</div>
