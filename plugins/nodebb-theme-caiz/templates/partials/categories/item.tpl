@@ -1,4 +1,4 @@
-<div component="categories/category" data-cid="{./cid}" class="w-100 border rounded-3 p-3 h-100 d-flex flex-column category-{./cid} {./unread-class}">
+<div component="categories/category" data-cid="{./cid}" class="w-100 p-3 h-100 d-flex flex-column category-{./cid} {./unread-class}">
 	<meta itemprop="name" content="{./name}">
 
 	<div class="d-flex flex-grow-1 gap-2 gap-lg-3">

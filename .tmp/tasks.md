@@ -49,6 +49,8 @@
 - [x] /communities を2列表示に（画面幅による）
 - [x] /communities ではMarkdown禁止に
 
+- [ ] categories/categoryに余計なborderがついているので削除
+
 # 第2フェーズ
 
 - MCPサーバー
