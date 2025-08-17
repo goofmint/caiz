@@ -71,6 +71,10 @@
     {
       "hook": "filter:unread.build",
       "method": "filterTopicsBuild"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminNavigation"
     }
   ]
 }

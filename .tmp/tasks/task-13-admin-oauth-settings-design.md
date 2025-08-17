@@ -25,10 +25,8 @@ NodeBB管理画面の「Plugins」→「Caiz」セクションに、OAuth設定�
   - Bot Token
   - リダイレクトURL（表示のみ）
 
-### 2. 設定の保存と暗号化
+### 2. 設定の保存
 
-- 機密情報（Secret、Token）は暗号化して保存
-- 設定変更時の検証機能
 - テスト接続機能
 
 ## データベース設計
@@ -84,6 +82,8 @@ GET /admin/plugins/caiz/oauth
 ## フロントエンド設計
 
 ### 管理画面テンプレート
+
+ラベルは、NodeBB標準の国際化対応を行う。
 
 ```html
 <!-- templates/admin/plugins/caiz-oauth.tpl -->
@@ -290,9 +290,7 @@ plugin.defineRoutes = function (data, callback) {
 
 ## セキュリティ考慮事項
 
-- Client SecretとBot Tokenは必ず暗号化して保存
 - 管理者権限のチェックを厳格に実施
-- 設定変更時の監査ログ記録
 - リダイレクトURLの検証
 - レート制限の実装
 
@@ -328,6 +326,5 @@ plugin.defineRoutes = function (data, callback) {
 
 - [ ] 管理画面へのアクセス権限確認
 - [ ] 設定の保存と読み込み
-- [ ] 機密情報の暗号化確認
 - [ ] 接続テスト機能の動作確認
 - [ ] エラーハンドリング

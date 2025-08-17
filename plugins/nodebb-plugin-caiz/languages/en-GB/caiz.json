@@ -183,5 +183,29 @@
   "notify-new-post": "New post",
   "notify-member-join": "Member joined",
   "notify-member-leave": "Member left",
-  "save-settings": "Save Settings"
+  "save-settings": "Save Settings",
+  "admin": {
+    "oauth-settings": "OAuth Settings",
+    "client-id": "Client ID",
+    "client-secret": "Client Secret",
+    "signing-secret": "Signing Secret",
+    "bot-token": "Bot Token",
+    "redirect-url": "Redirect URL",
+    "enter-to-change": "Enter to change",
+    "only-enter-to-change": "Only enter if you want to change",
+    "add-url-to-slack": "Add this URL to your Slack App settings",
+    "add-url-to-discord": "Add this URL to your Discord App settings",
+    "save": "Save",
+    "test-connection": "Test Connection",
+    "setup-guide": "Setup Guide",
+    "slack-app-setup": "Slack App Setup",
+    "discord-bot-setup": "Discord Bot Setup",
+    "access": "access",
+    "click-create-app": "Click \"Create New App\"",
+    "add-oauth-scopes": "Add required scopes in OAuth & Permissions",
+    "set-redirect-url": "Set redirect URL",
+    "click-new-application": "Click \"New Application\"",
+    "get-bot-token": "Get token from Bot section",
+    "set-oauth2-redirect": "Set redirect URL in OAuth2"
+  }
 }

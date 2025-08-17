@@ -2,6 +2,7 @@
 require('./libs/benchpress');
 const winston = require.main.require('winston');
 const sockets = require.main.require('./src/socket.io/plugins');
+const privileges = require.main.require('./src/privileges');
 const plugin = {};
 const Base = require('./libs/base');
 const Community = require('./libs/community');
@@ -29,6 +30,13 @@ plugin.init = async function (params) {
   router.get('/:handle/:cid-:slug', middleware.buildHeader, Category.Index);
   // e.g /javascript/7-general-discussion-fea61ee9
   router.get('/:handle/:cid-:slug/:topicId-:topicSlug', middleware.buildHeader, Topic.Index);
+  
+  // Admin routes for OAuth settings
+  const routeHelpers = require.main.require('./src/routes/helpers');
+  
+  routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-oauth', [], (req, res) => {
+    res.render('admin/plugins/caiz-oauth', {});
+  });
 };
 
 plugin.customizeCategoriesLink = Community.customizeIndexLink;
@@ -121,6 +129,20 @@ plugin.filterPostCreate = async function (hookData) {
   
   return hookData;
 };
+
+/**
+ * Add admin navigation for OAuth settings
+ */
+plugin.addAdminNavigation = function (header, callback) {
+  header.plugins.push({
+    route: '/plugins/caiz-oauth',
+    icon: 'fa-key',
+    name: 'Caiz OAuth Settings'
+  });
+  
+  callback(null, header);
+};
+
 sockets.caiz = {};
 sockets.caiz.createCommunity = Community.Create;
 sockets.caiz.followCommunity = Community.Follow;
@@ -140,4 +162,51 @@ sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
 sockets.caiz.deleteCommunity = Community.DeleteCommunity;
+
+// Admin socket handlers for OAuth settings
+const oauthSettings = require('./libs/oauth-settings');
+const adminSockets = require.main.require('./src/socket.io/admin');
+
+adminSockets.plugins = adminSockets.plugins || {};
+adminSockets.plugins.caiz = adminSockets.plugins.caiz || {};
+
+adminSockets.plugins.caiz.getOAuthSettings = async function(socket) {
+  // Check admin privileges
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  return await oauthSettings.getAllSettings();
+};
+
+adminSockets.plugins.caiz.saveOAuthSettings = async function(socket, data) {
+  // Check admin privileges
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  if (!data || !data.platform || !data.settings) {
+    throw new Error('Invalid parameters');
+  }
+  
+  await oauthSettings.saveSettings(data.platform, data.settings);
+  return { success: true };
+};
+
+adminSockets.plugins.caiz.testOAuthConnection = async function(socket, data) {
+  // Check admin privileges
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  if (!data || !data.platform) {
+    throw new Error('Invalid parameters');
+  }
+  
+  return await oauthSettings.testConnection(data.platform);
+};
+
 module.exports = plugin;

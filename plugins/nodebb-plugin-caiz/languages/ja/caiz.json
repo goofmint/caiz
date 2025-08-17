@@ -166,5 +166,29 @@
   "notify-new-post": "新規投稿",
   "notify-member-join": "メンバー参加",
   "notify-member-leave": "メンバー退出",
-  "save-settings": "設定を保存"
+  "save-settings": "設定を保存",
+  "admin": {
+    "oauth-settings": "OAuth設定",
+    "client-id": "クライアントID",
+    "client-secret": "クライアントシークレット",
+    "signing-secret": "署名シークレット",
+    "bot-token": "Botトークン",
+    "redirect-url": "リダイレクトURL",
+    "enter-to-change": "変更する場合のみ入力",
+    "only-enter-to-change": "変更する場合のみ入力してください",
+    "add-url-to-slack": "Slack Appの設定でこのURLを追加してください",
+    "add-url-to-discord": "Discord Appの設定でこのURLを追加してください",
+    "save": "保存",
+    "test-connection": "接続テスト",
+    "setup-guide": "設定ガイド",
+    "slack-app-setup": "Slack App作成手順",
+    "discord-bot-setup": "Discord Bot作成手順",
+    "access": "にアクセス",
+    "click-create-app": "「Create New App」をクリック",
+    "add-oauth-scopes": "OAuth & Permissionsで必要なスコープを追加",
+    "set-redirect-url": "リダイレクトURLを設定",
+    "click-new-application": "「New Application」をクリック",
+    "get-bot-token": "Botセクションでトークンを取得",
+    "set-oauth2-redirect": "OAuth2でリダイレクトURLを設定"
+  }
 }
