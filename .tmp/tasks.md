@@ -43,9 +43,11 @@
 - [x] コミュニティ一覧のサイドバーで、画像の場合に何も表示されないので修正
 - [x] コミュニティ一覧のサイドバーで、開閉した状態について、ブラウザを再読込しても維持してほしい
 - [x] 自分しかコミュニティオーナーがいない場合、メンバーを抜けることは不可
-- [ ] /recent と /popular /unread で、コミュニティ名を表示する
-- [ ] /communities を2列表示に（画面幅による）
-- [ ] /communities ではMarkdown禁止に
+- [x] コミュニティ作成時に `Uncaught (in promise) TypeError: alert is not a function    at Socket.eval (scripts-client.js:2151:17)`
+- [x] コミュニティ名に `/` を含むと、コミュニティ作成エラー（実際には作成できている）
+- [x] /recent と /popular /unread で、コミュニティ名を表示する
+- [x] /communities を2列表示に（画面幅による）
+- [x] /communities ではMarkdown禁止に
 
 # 第2フェーズ
 

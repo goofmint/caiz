@@ -172,7 +172,11 @@ console.log('[caiz] members-only.js loaded');
     window.socket.emit('plugins.caiz.followCommunity', { cid: cid }, function (err, response) {
       if (err) {
         console.error('[caiz] Follow action error:', err);
-        alert('エラーが発生しました');
+        if (typeof app !== 'undefined' && app.alertError) {
+          app.alertError('エラーが発生しました');
+        } else {
+          window.alert('エラーが発生しました');
+        }
         return;
       }
       
