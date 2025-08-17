@@ -49,10 +49,16 @@
 - [x] /communities を2列表示に（画面幅による）
 - [x] /communities ではMarkdown禁止に
 
-- [ ] categories/categoryに余計なborderがついているので削除
+- [x] 11: categories/categoryに余計なborderがついているので削除
 
 # 第2フェーズ
 
+- 通知設定
+  - [ ] コミュニティ編集モーダルに通知設定を追加
+  - [ ] SlackのOAuth認証
+  - [ ] DiscordのOAuth認証
+  - [ ] Slackの通知先設定
+  - [ ] Discordの通知先設定
 - MCPサーバー
 - 追加レンダリング
   - [ ] Mermaid
@@ -66,10 +72,7 @@
   - X
   - GitHub Snippet
   - URLのOGP表示
-- 連携
-  - [ ] Slack
-  - [ ] Discord
-  - [ ] Microsoft Teams
 - 配信
   - [ ] RTMP受信
 - コミュニティごとの未読表示
+- 自動翻訳
