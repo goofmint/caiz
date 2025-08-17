@@ -150,5 +150,21 @@
   },
   "success": {
     "role-updated": "メンバーの役割が正常に更新されました"
-  }
+  },
+  "notifications": "通知設定",
+  "notification-settings": "通知設定",
+  "slack-notifications": "Slack通知",
+  "enable-slack-notifications": "Slack通知を有効にする",
+  "connect-to-slack": "Slackに接続",
+  "discord-notifications": "Discord通知",
+  "enable-discord-notifications": "Discord通知を有効にする",
+  "connect-to-discord": "Discordに接続",
+  "notification-channel": "通知先チャンネル",
+  "select-channel": "チャンネルを選択",
+  "notification-events": "通知イベント",
+  "notify-new-topic": "新規トピック作成",
+  "notify-new-post": "新規投稿",
+  "notify-member-join": "メンバー参加",
+  "notify-member-leave": "メンバー退出",
+  "save-settings": "設定を保存"
 }

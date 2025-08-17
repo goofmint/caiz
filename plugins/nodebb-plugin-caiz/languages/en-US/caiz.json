@@ -167,5 +167,21 @@
   },
   "success": {
     "role-updated": "Member role updated successfully"
-  }
+  },
+  "notifications": "Notifications",
+  "notification-settings": "Notification Settings",
+  "slack-notifications": "Slack Notifications",
+  "enable-slack-notifications": "Enable Slack notifications",
+  "connect-to-slack": "Connect to Slack",
+  "discord-notifications": "Discord Notifications",
+  "enable-discord-notifications": "Enable Discord notifications",
+  "connect-to-discord": "Connect to Discord",
+  "notification-channel": "Notification Channel",
+  "select-channel": "Select channel",
+  "notification-events": "Notification Events",
+  "notify-new-topic": "New topic created",
+  "notify-new-post": "New post",
+  "notify-member-join": "Member joined",
+  "notify-member-leave": "Member left",
+  "save-settings": "Save Settings"
 }

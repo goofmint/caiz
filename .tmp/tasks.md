@@ -59,6 +59,7 @@
   - [ ] DiscordのOAuth認証
   - [ ] Slackの通知先設定
   - [ ] Discordの通知先設定
+  - [ ] Slack、Discordアプリに必要な設定を管理画面で行えるようにする
 - MCPサーバー
 - 追加レンダリング
   - [ ] Mermaid

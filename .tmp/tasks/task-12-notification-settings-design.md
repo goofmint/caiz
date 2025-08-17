@@ -16,12 +16,19 @@
 
 - Slack通知の有効/無効
 - Discord通知の有効/無効
-- 通知するイベントの選択（新規トピック、新規投稿、メンバー参加など）
+- 通知するイベントの選択
+  - 新規トピック
+  - 新規投稿
+  - メンバー参加
+  - メンバー退出
+- 通知先チャンネルの設定
 
 ### 2. OAuth認証
 
 #### Slack OAuth
 - Slack App設定による認証フロー
+  - Slack Appは共通で作成し、各コミュニティで利用
+    - Slack Appに必要な情報は管理画面で設定
 - 必要なスコープ：`incoming-webhook`, `channels:read`
 - コミュニティごとのチャンネル選択
 
@@ -34,26 +41,10 @@
 
 - 通知先チャンネルの設定
 - 通知フォーマットのカスタマイズ
-- 通知頻度の制御（即座/まとめて）
 
 ## データベース設計
 
-### community_notifications テーブル
-```sql
-CREATE TABLE community_notifications (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    cid INT NOT NULL,
-    platform ENUM('slack', 'discord') NOT NULL,
-    enabled BOOLEAN DEFAULT FALSE,
-    webhook_url TEXT,
-    channel_id VARCHAR(255),
-    access_token TEXT,
-    events JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (cid) REFERENCES categories(cid) ON DELETE CASCADE
-);
-```
+NodeBBデフォルトの方式に沿って作成
 
 ## API設計
 
@@ -134,6 +125,8 @@ class OAuthHandler {
 
 ### HTML構造
 
+ラベルはNodeBBの言語ファイルを使用して国際化対応する。
+
 ```html
 <!-- 通知設定タブ内容 -->
 <div class="notification-settings">
@@ -164,6 +157,12 @@ class OAuthHandler {
         </button>
     </div>
     
+    <!-- 通知先チャンネル -->
+    <div class="event-settings">
+        <h4>通知先チャンネル</h4>
+        <!-- : -->
+    </div>
+
     <div class="event-settings">
         <h4>通知イベント</h4>
         <div class="form-check">

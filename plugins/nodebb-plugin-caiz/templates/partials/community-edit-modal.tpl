@@ -19,6 +19,9 @@
               <a href="#" class="list-group-item list-group-item-action" data-tab="members">
                 <i class="fa fa-users me-2"></i>[[caiz:members]]
               </a>
+              <a href="#" class="list-group-item list-group-item-action" data-tab="notifications">
+                <i class="fa fa-bell me-2"></i>[[caiz:notifications]]
+              </a>
             </div>
           </div>
           <!-- Right Content Area (70%) -->
@@ -141,6 +144,95 @@
                 </div>
                 
                 <button id="add-member-btn" class="btn btn-primary">[[caiz:add-member]]</button>
+              </div>
+              <div class="tab-pane fade" id="notifications-tab">
+                <h6 class="mb-3">[[caiz:notification-settings]]</h6>
+                
+                <!-- Slack Notifications -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fab fa-slack me-2"></i>[[caiz:slack-notifications]]
+                    </h5>
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="slack-enabled">
+                      <label class="form-check-label" for="slack-enabled">
+                        [[caiz:enable-slack-notifications]]
+                      </label>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" id="connect-slack">
+                      <i class="fab fa-slack me-1"></i>[[caiz:connect-to-slack]]
+                    </button>
+                    <div class="mt-3" id="slack-channel-selection" style="display: none;">
+                      <label for="slack-channel" class="form-label">[[caiz:notification-channel]]</label>
+                      <select class="form-select" id="slack-channel">
+                        <option value="">[[caiz:select-channel]]</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Discord Notifications -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fab fa-discord me-2"></i>[[caiz:discord-notifications]]
+                    </h5>
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="discord-enabled">
+                      <label class="form-check-label" for="discord-enabled">
+                        [[caiz:enable-discord-notifications]]
+                      </label>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" id="connect-discord">
+                      <i class="fab fa-discord me-1"></i>[[caiz:connect-to-discord]]
+                    </button>
+                    <div class="mt-3" id="discord-channel-selection" style="display: none;">
+                      <label for="discord-channel" class="form-label">[[caiz:notification-channel]]</label>
+                      <select class="form-select" id="discord-channel">
+                        <option value="">[[caiz:select-channel]]</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Notification Events -->
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">[[caiz:notification-events]]</h5>
+                    <div class="form-check mb-2">
+                      <input type="checkbox" class="form-check-input" id="notify-new-topic" checked>
+                      <label class="form-check-label" for="notify-new-topic">
+                        [[caiz:notify-new-topic]]
+                      </label>
+                    </div>
+                    <div class="form-check mb-2">
+                      <input type="checkbox" class="form-check-input" id="notify-new-post" checked>
+                      <label class="form-check-label" for="notify-new-post">
+                        [[caiz:notify-new-post]]
+                      </label>
+                    </div>
+                    <div class="form-check mb-2">
+                      <input type="checkbox" class="form-check-input" id="notify-member-join">
+                      <label class="form-check-label" for="notify-member-join">
+                        [[caiz:notify-member-join]]
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" id="notify-member-leave">
+                      <label class="form-check-label" for="notify-member-leave">
+                        [[caiz:notify-member-leave]]
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Save Button -->
+                <div class="mt-3">
+                  <button type="button" class="btn btn-primary" id="save-notification-settings">
+                    <i class="fa fa-save me-1"></i>[[caiz:save-settings]]
+                  </button>
+                </div>
               </div>
             </div>
           </div>
