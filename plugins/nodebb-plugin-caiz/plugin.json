@@ -59,6 +59,18 @@
     {
       "hook": "filter:post.create",
       "method": "filterPostCreate"
+    },
+    {
+      "hook": "filter:recent.build",
+      "method": "filterTopicsBuild"
+    },
+    {
+      "hook": "filter:popular.build", 
+      "method": "filterTopicsBuild"
+    },
+    {
+      "hook": "filter:unread.build",
+      "method": "filterTopicsBuild"
     }
   ]
 }
