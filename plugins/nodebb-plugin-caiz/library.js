@@ -37,6 +37,12 @@ plugin.init = async function (params) {
   routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-oauth', [], (req, res) => {
     res.render('admin/plugins/caiz-oauth', {});
   });
+  
+  // OAuth callback routes
+  router.post('/api/v3/plugins/caiz/oauth/discord/callback', (req, res) => {
+    // Discord OAuth callback - return type 1 (pong) for verification
+    res.status(200).json({ type: 1 });
+  });
 };
 
 plugin.customizeCategoriesLink = Community.customizeIndexLink;

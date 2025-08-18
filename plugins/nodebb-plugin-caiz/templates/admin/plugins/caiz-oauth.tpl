@@ -109,7 +109,10 @@ function copyToClipboard(elementId) {
     copyText.select();
     copyText.setSelectionRange(0, 99999);
     document.execCommand("copy");
-    app.alertSuccess('Copied to clipboard!');
+    
+    require(['alerts'], function(alerts) {
+        alerts.success('Copied to clipboard!');
+    });
 }
 
 // Set redirect URLs with actual host
