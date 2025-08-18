@@ -9,7 +9,7 @@ class SlackOAuth {
         this.clientId = null;
         this.clientSecret = null;
         this.redirectUri = null;
-        this.scopes = ['channels:read', 'chat:write'];
+        this.scopes = ['channels:read', 'chat:write', 'incoming-webhook', 'team:read'];
     }
     
     async initialize() {
