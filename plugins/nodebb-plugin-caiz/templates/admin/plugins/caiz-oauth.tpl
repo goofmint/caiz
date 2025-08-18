@@ -115,13 +115,9 @@ function copyToClipboard(elementId) {
     });
 }
 
-// Set redirect URLs with actual host
+// Set redirect URLs with server-rendered values
 $(document).ready(function() {
-    var baseUrl = window.location.origin;
-    if (config.relative_path) {
-        baseUrl += config.relative_path;
-    }
-    $('#slack-redirect-url').val(baseUrl + '/api/v3/plugins/caiz/oauth/slack/callback');
-    $('#discord-redirect-url').val(baseUrl + '/api/v3/plugins/caiz/oauth/discord/callback');
+    $('#slack-redirect-url').val('{slackRedirectUrl}');
+    $('#discord-redirect-url').val('{discordRedirectUrl}');
 });
 </script>

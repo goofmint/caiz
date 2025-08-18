@@ -18,10 +18,11 @@ class SlackOAuth {
             this.clientSecret = await meta.settings.getOne('caiz', 'oauth:slack:clientSecret');
             
             // リダイレクトURIを構築
-            const baseUrl = meta.config.url || 'http://localhost:4567';
-            this.redirectUri = `${baseUrl}/api/v3/plugins/caiz/oauth/slack/callback`;
+            const nconf = require.main.require('nconf');
+            const url = nconf.get('url');
+            this.redirectUri = `${url}/api/v3/plugins/caiz/oauth/slack/callback`;
             
-            winston.info(`[plugin/caiz] Slack OAuth initialized with client ID: ${this.clientId ? 'configured' : 'not configured'}`);
+            winston.info(`[plugin/caiz] Slack OAuth initialized with redirect URI: ${this.redirectUri}`);
         } catch (err) {
             winston.error(`[plugin/caiz] Error initializing Slack OAuth: ${err.message}`);
             throw err;

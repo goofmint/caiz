@@ -35,7 +35,12 @@ plugin.init = async function (params) {
   const routeHelpers = require.main.require('./src/routes/helpers');
   
   routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-oauth', [], (req, res) => {
-    res.render('admin/plugins/caiz-oauth', {});
+    const nconf = require.main.require('nconf');
+    const url = nconf.get('url');
+    res.render('admin/plugins/caiz-oauth', {
+      slackRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/slack/callback`,
+      discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`
+    });
   });
   
   // OAuth callback routes
@@ -78,16 +83,17 @@ plugin.init = async function (params) {
   router.get('/api/v3/plugins/caiz/oauth/slack/callback', async (req, res) => {
     try {
       const { code, state, error } = req.query;
-      const meta = require.main.require('./src/meta');
+      const nconf = require.main.require('nconf');
+      const url = nconf.get('url');
       
       if (error) {
         winston.warn(`[plugin/caiz] Slack OAuth denied: ${error}`);
-        return res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=access_denied`);
+        return res.redirect(`${url}?slack_error=access_denied`);
       }
       
       if (!code || !state) {
         winston.warn('[plugin/caiz] Slack OAuth callback missing parameters');
-        return res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=invalid_request`);
+        return res.redirect(`${url}?slack_error=invalid_request`);
       }
       
       const slackOAuth = require('./libs/slack-oauth');
@@ -96,15 +102,16 @@ plugin.init = async function (params) {
       
       if (result.success) {
         winston.info(`[plugin/caiz] Slack OAuth successful for community ${result.cid}`);
-        res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_success=1&team=${encodeURIComponent(result.teamName)}`);
+        res.redirect(`${url}?slack_success=1&team=${encodeURIComponent(result.teamName)}`);
       } else {
         winston.warn('[plugin/caiz] Slack OAuth callback failed');
-        res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=auth_failed`);
+        res.redirect(`${url}?slack_error=auth_failed`);
       }
     } catch (err) {
       winston.error(`[plugin/caiz] Slack OAuth callback error: ${err.message}`);
-      const meta = require.main.require('./src/meta');
-      res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=server_error`);
+      const nconf = require.main.require('nconf');
+      const url = nconf.get('url');
+      res.redirect(`${url}?slack_error=server_error`);
     }
   });
 };
