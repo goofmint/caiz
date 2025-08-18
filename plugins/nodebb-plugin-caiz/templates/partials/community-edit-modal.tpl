@@ -168,15 +168,11 @@
                       <div class="alert alert-success">
                         <i class="fa fa-check-circle me-1"></i>
                         [[caiz:slack-connected-to]] <strong id="slack-team-name"></strong>
+                        <span id="slack-channel-info" style="display: none;">
+                          (<span id="slack-channel-name"></span>)
+                        </span>
                         <br>
                         <small class="text-muted">[[caiz:connected-at]] <span id="slack-connected-date"></span></small>
-                      </div>
-                      
-                      <div class="form-group mb-3">
-                        <label for="slack-channel" class="form-label">[[caiz:notification-channel]]</label>
-                        <select class="form-select" id="slack-channel">
-                          <option value="">[[caiz:loading-channels]]</option>
-                        </select>
                       </div>
                       
                       <div class="form-check mb-3">

@@ -20,10 +20,6 @@ class SlackConnectionManager {
             });
             
             this.updateUI(status);
-            
-            if (status.connected) {
-                await this.loadChannels();
-            }
         } catch (err) {
             console.error('Error checking Slack connection status:', err);
             this.showDisconnectedState();
@@ -41,6 +37,11 @@ class SlackConnectionManager {
             connectingEl.style.display = 'none';
             
             document.getElementById('slack-team-name').textContent = status.teamName || '';
+            
+            if (status.channelName) {
+                document.getElementById('slack-channel-info').style.display = 'inline';
+                document.getElementById('slack-channel-name').textContent = '#' + status.channelName;
+            }
             
             if (status.connectedAt) {
                 const date = new Date(status.connectedAt);
@@ -112,57 +113,6 @@ class SlackConnectionManager {
         }
     }
     
-    async loadChannels() {
-        try {
-            const response = await new Promise((resolve, reject) => {
-                window.socket.emit('plugins.caiz.getSlackChannels', { cid: this.cid }, (err, data) => {
-                    if (err) return reject(err);
-                    resolve(data);
-                });
-            });
-            
-            const select = document.getElementById('slack-channel');
-            select.innerHTML = '<option value="">[[caiz:select-channel]]</option>';
-            
-            response.channels.forEach(channel => {
-                const option = document.createElement('option');
-                option.value = channel.id;
-                option.textContent = '#' + channel.name;
-                select.appendChild(option);
-            });
-        } catch (err) {
-            console.error('Error loading Slack channels:', err);
-            const select = document.getElementById('slack-channel');
-            select.innerHTML = '<option value="">[[caiz:error-loading-channels]]</option>';
-        }
-    }
-    
-    async setNotificationChannel(channelId) {
-        try {
-            const select = document.getElementById('slack-channel');
-            const channelName = select.options[select.selectedIndex].textContent.replace('#', '');
-            
-            await new Promise((resolve, reject) => {
-                window.socket.emit('plugins.caiz.setSlackChannel', { 
-                    cid: this.cid, 
-                    channelId: channelId,
-                    channelName: channelName
-                }, (err, data) => {
-                    if (err) return reject(err);
-                    resolve(data);
-                });
-            });
-            
-            require(['alerts'], function(alerts) {
-                alerts.success('Slack notification channel updated');
-            });
-        } catch (err) {
-            console.error('Error setting Slack channel:', err);
-            require(['alerts'], function(alerts) {
-                alerts.error('Failed to set notification channel: ' + err.message);
-            });
-        }
-    }
     
     setupEventListeners() {
         console.log('[Slack] Setting up event listeners for community:', this.cid);
@@ -185,14 +135,6 @@ class SlackConnectionManager {
             });
         }
         
-        const channelSelect = document.getElementById('slack-channel');
-        if (channelSelect) {
-            channelSelect.addEventListener('change', (e) => {
-                if (e.target.value) {
-                    this.setNotificationChannel(e.target.value);
-                }
-            });
-        }
     }
     
     checkOAuthResult() {

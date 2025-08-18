@@ -116,7 +116,9 @@ class SlackOAuth {
                 teamName: teamInfo.team.name,
                 userId: uid,
                 connectedAt: new Date().toISOString(),
-                webhookUrl: tokenData.incoming_webhook?.url
+                webhookUrl: tokenData.incoming_webhook?.url,
+                channelName: tokenData.incoming_webhook?.channel,
+                channelId: tokenData.incoming_webhook?.channel_id
             });
             
             winston.info(`[plugin/caiz] Slack connected for community ${cid} to team ${teamInfo.team.name}`);
