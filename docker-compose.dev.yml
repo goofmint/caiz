@@ -1,7 +1,12 @@
 services:
   nginx:
+    ports:
+      - '443:443'
     env_file:
       - .dev.env
+    volumes:
+      - ./nginx/caiz.test+3.pem:/etc/nginx/caiz.test+3.pem:ro
+      - ./nginx/caiz.test+3-key.pem:/etc/nginx/caiz.test+3-key.pem:ro
   nodebb:
     env_file:
       - .dev.env
