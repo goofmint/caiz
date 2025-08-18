@@ -114,7 +114,10 @@ function copyToClipboard(elementId) {
 
 // Set redirect URLs with actual host
 $(document).ready(function() {
-    var baseUrl = config.relative_path.length ? config.url + config.relative_path : config.url;
+    var baseUrl = window.location.origin;
+    if (config.relative_path) {
+        baseUrl += config.relative_path;
+    }
     $('#slack-redirect-url').val(baseUrl + '/api/v3/plugins/caiz/oauth/slack/callback');
     $('#discord-redirect-url').val(baseUrl + '/api/v3/plugins/caiz/oauth/discord/callback');
 });
