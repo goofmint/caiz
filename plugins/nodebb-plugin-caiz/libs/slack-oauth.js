@@ -126,7 +126,9 @@ class SlackOAuth {
             return {
                 success: true,
                 cid,
-                teamName: teamInfo.team.name
+                uid,
+                teamName: teamInfo.team.name,
+                channelName: tokenData.incoming_webhook?.channel
             };
         } catch (err) {
             winston.error(`[plugin/caiz] Error handling Slack callback: ${err.message}`);

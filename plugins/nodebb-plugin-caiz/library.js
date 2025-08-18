@@ -88,26 +88,12 @@ plugin.init = async function (params) {
       
       if (error) {
         winston.warn(`[plugin/caiz] Slack OAuth denied: ${error}`);
-        const notifications = require.main.require('./src/notifications');
-        await notifications.push({
-          title: '[[caiz:slack-connection-denied]]',
-          message: '[[caiz:slack-connection-denied-message]]',
-          type: 'warning',
-          uid: req.uid
-        });
-        return res.redirect(url);
+        return res.redirect(`${url}?slack_error=access_denied`);
       }
       
       if (!code || !state) {
         winston.warn('[plugin/caiz] Slack OAuth callback missing parameters');
-        const notifications = require.main.require('./src/notifications');
-        await notifications.push({
-          title: '[[caiz:slack-connection-failed]]',
-          message: '[[caiz:slack-invalid-request]]',
-          type: 'error',
-          uid: req.uid
-        });
-        return res.redirect(url);
+        return res.redirect(`${url}?slack_error=invalid_request`);
       }
       
       const slackOAuth = require('./libs/slack-oauth');
@@ -116,46 +102,23 @@ plugin.init = async function (params) {
       
       if (result.success) {
         winston.info(`[plugin/caiz] Slack OAuth successful for community ${result.cid}`);
-        const notifications = require.main.require('./src/notifications');
-        await notifications.push({
-          title: '[[caiz:slack-connected-successfully]]',
-          message: `[[caiz:slack-connected-to-workspace, ${result.teamName}]]`,
-          type: 'success',
-          uid: req.uid
-        });
-        res.redirect(url);
+        
+        // Get community info for redirect
+        const categories = require.main.require('./src/categories');
+        const categoryData = await categories.getCategoryData(result.cid);
+        
+        // Build redirect URL with success parameters
+        const redirectUrl = `${url}/c/${categoryData.slug}?slack_success=1&team=${encodeURIComponent(result.teamName)}${result.channelName ? `&channel=${encodeURIComponent(result.channelName)}` : ''}`;
+        res.redirect(redirectUrl);
       } else {
         winston.warn('[plugin/caiz] Slack OAuth callback failed');
-        const notifications = require.main.require('./src/notifications');
-        await notifications.push({
-          title: '[[caiz:slack-connection-failed]]',
-          message: '[[caiz:slack-connection-failed-message]]',
-          type: 'error',
-          uid: req.uid
-        });
-        res.redirect(url);
+        res.redirect(`${url}?slack_error=auth_failed`);
       }
     } catch (err) {
       winston.error(`[plugin/caiz] Slack OAuth callback error: ${err.message}`);
       const nconf = require.main.require('nconf');
       const url = nconf.get('url');
-      const notifications = require.main.require('./src/notifications');
-      
-      // Try to send notification if we have req.uid
-      if (req.uid) {
-        try {
-          await notifications.push({
-            title: '[[caiz:slack-connection-failed]]',
-            message: '[[caiz:slack-server-error]]',
-            type: 'error',
-            uid: req.uid
-          });
-        } catch (notifErr) {
-          winston.error(`[plugin/caiz] Failed to send notification: ${notifErr.message}`);
-        }
-      }
-      
-      res.redirect(url);
+      res.redirect(`${url}?slack_error=server_error`);
     }
   });
 };

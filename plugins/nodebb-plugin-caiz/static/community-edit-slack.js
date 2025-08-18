@@ -7,6 +7,7 @@ class SlackConnectionManager {
     async init() {
         await this.checkConnectionStatus();
         this.setupEventListeners();
+        this.checkOAuthResult();
     }
     
     async checkConnectionStatus() {
@@ -39,7 +40,9 @@ class SlackConnectionManager {
             
             if (status.channelName) {
                 document.getElementById('slack-channel-info').style.display = 'inline';
-                document.getElementById('slack-channel-name').textContent = '#' + status.channelName;
+                // Remove # if it already exists in channelName
+                const channelName = status.channelName.startsWith('#') ? status.channelName : '#' + status.channelName;
+                document.getElementById('slack-channel-name').textContent = channelName;
             }
             
             if (status.connectedAt) {
@@ -132,6 +135,52 @@ class SlackConnectionManager {
         });
     }
     
+    checkOAuthResult() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.get('slack_success')) {
+            const teamName = urlParams.get('team');
+            const channelName = urlParams.get('channel');
+            
+            require(['alerts'], function(alerts) {
+                let message = '[[caiz:slack-connected-to-workspace, ' + teamName + ']]';
+                if (channelName) {
+                    message += ' (#' + channelName + ')';
+                }
+                alerts.success(message);
+            });
+            
+            // Refresh connection status after a short delay
+            setTimeout(() => {
+                this.checkConnectionStatus();
+            }, 1000);
+            
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (urlParams.get('slack_error')) {
+            const error = urlParams.get('slack_error');
+            let message = '[[caiz:slack-connection-failed-message]]';
+            
+            switch (error) {
+                case 'access_denied':
+                    message = '[[caiz:slack-connection-denied-message]]';
+                    break;
+                case 'invalid_request':
+                    message = '[[caiz:slack-invalid-request]]';
+                    break;
+                case 'server_error':
+                    message = '[[caiz:slack-server-error]]';
+                    break;
+            }
+            
+            require(['alerts'], function(alerts) {
+                alerts.error(message);
+            });
+            
+            // Clear URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
     
     setupEventListeners() {
         console.log('[Slack] Setting up event listeners for community:', this.cid);
