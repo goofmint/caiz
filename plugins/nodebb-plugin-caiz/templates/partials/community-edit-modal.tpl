@@ -176,7 +176,7 @@
                       </div>
                       
                       <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="slack-enabled">
+                        <input type="checkbox" class="form-check-input" id="slack-enabled" checked>
                         <label class="form-check-label" for="slack-enabled">
                           [[caiz:enable-slack-notifications]]
                         </label>

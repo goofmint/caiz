@@ -7,7 +7,6 @@ class SlackConnectionManager {
     async init() {
         await this.checkConnectionStatus();
         this.setupEventListeners();
-        this.checkOAuthResult();
     }
     
     async checkConnectionStatus() {
@@ -137,48 +136,6 @@ class SlackConnectionManager {
         
     }
     
-    checkOAuthResult() {
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        if (urlParams.get('slack_success')) {
-            const teamName = urlParams.get('team');
-            require(['alerts'], function(alerts) {
-                alerts.success('Successfully connected to Slack' + (teamName ? ` workspace: ${teamName}` : ''));
-            });
-            
-            setTimeout(() => {
-                this.checkConnectionStatus();
-            }, 1000);
-            
-            // URL パラメータをクリア
-            window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (urlParams.get('slack_error')) {
-            const error = urlParams.get('slack_error');
-            let message = 'Failed to connect to Slack';
-            
-            switch (error) {
-                case 'access_denied':
-                    message = 'Slack connection was denied';
-                    break;
-                case 'invalid_request':
-                    message = 'Invalid Slack OAuth request';
-                    break;
-                case 'auth_failed':
-                    message = 'Slack authentication failed';
-                    break;
-                case 'server_error':
-                    message = 'Server error during Slack connection';
-                    break;
-            }
-            
-            require(['alerts'], function(alerts) {
-                alerts.error(message);
-            });
-            
-            // URL パラメータをクリア
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    }
 }
 
 window.SlackConnectionManager = SlackConnectionManager;
