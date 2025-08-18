@@ -87,29 +87,49 @@ class SlackConnectionManager {
     }
     
     async disconnectFromSlack() {
-        if (!confirm('Are you sure you want to disconnect from Slack?')) {
-            return;
-        }
+        const self = this;
         
-        try {
-            await new Promise((resolve, reject) => {
-                window.socket.emit('plugins.caiz.disconnectSlack', { cid: this.cid }, (err, data) => {
-                    if (err) return reject(err);
-                    resolve(data);
-                });
+        require(['bootbox'], function(bootbox) {
+            bootbox.confirm({
+                title: '[[caiz:confirm-disconnect-slack]]',
+                message: '[[caiz:confirm-disconnect-slack-message]]',
+                buttons: {
+                    cancel: {
+                        label: '[[global:cancel]]',
+                        className: 'btn-link'
+                    },
+                    confirm: {
+                        label: '[[caiz:disconnect-slack]]',
+                        className: 'btn-danger'
+                    }
+                },
+                callback: async function(result) {
+                    if (!result) {
+                        return;
+                    }
+                    
+                    try {
+                        await new Promise((resolve, reject) => {
+                            window.socket.emit('plugins.caiz.disconnectSlack', { cid: self.cid }, (err, data) => {
+                                if (err) return reject(err);
+                                resolve(data);
+                            });
+                        });
+                        
+                        self.showDisconnectedState();
+                        
+                        require(['alerts'], function(alerts) {
+                            alerts.success('[[caiz:disconnected-from-slack-successfully]]');
+                        });
+                    } catch (err) {
+                        console.error('Error disconnecting from Slack:', err);
+                        require(['alerts'], function(alerts) {
+                            alerts.error('[[caiz:failed-to-disconnect-from-slack]]');
+                        });
+                    }
+                }
             });
-            
-            this.showDisconnectedState();
-            
-            require(['alerts'], function(alerts) {
-                alerts.success('Disconnected from Slack successfully');
-            });
-        } catch (err) {
-            console.error('Error disconnecting from Slack:', err);
-            require(['alerts'], function(alerts) {
-                alerts.error('Failed to disconnect from Slack: ' + err.message);
-            });
-        }
+        });
     }
     
     
