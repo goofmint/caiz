@@ -156,7 +156,7 @@
                     </h5>
                     
                     <!-- 未接続状態 -->
-                    <div id="slack-disconnected" style="display: none;">
+                    <div id="slack-disconnected" style="display: block;">
                       <p class="text-muted">[[caiz:slack-not-connected]]</p>
                       <button type="button" class="btn btn-primary" id="connect-slack">
                         <i class="fab fa-slack me-1"></i>[[caiz:connect-to-slack]]
