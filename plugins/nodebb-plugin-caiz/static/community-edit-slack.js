@@ -13,7 +13,7 @@ class SlackConnectionManager {
     async checkConnectionStatus() {
         try {
             const status = await new Promise((resolve, reject) => {
-                socket.emit('plugins.caiz.getSlackConnectionStatus', { cid: this.cid }, (err, data) => {
+                window.window.socket.emit('plugins.caiz.getSlackConnectionStatus', { cid: this.cid }, (err, data) => {
                     if (err) return reject(err);
                     resolve(data);
                 });
@@ -70,7 +70,7 @@ class SlackConnectionManager {
             this.showConnectingState();
             
             const authData = await new Promise((resolve, reject) => {
-                socket.emit('plugins.caiz.getSlackAuthUrl', { cid: this.cid }, (err, data) => {
+                window.socket.emit('plugins.caiz.getSlackAuthUrl', { cid: this.cid }, (err, data) => {
                     if (err) return reject(err);
                     resolve(data);
                 });
@@ -93,7 +93,7 @@ class SlackConnectionManager {
         
         try {
             await new Promise((resolve, reject) => {
-                socket.emit('plugins.caiz.disconnectSlack', { cid: this.cid }, (err, data) => {
+                window.socket.emit('plugins.caiz.disconnectSlack', { cid: this.cid }, (err, data) => {
                     if (err) return reject(err);
                     resolve(data);
                 });
@@ -115,7 +115,7 @@ class SlackConnectionManager {
     async loadChannels() {
         try {
             const response = await new Promise((resolve, reject) => {
-                socket.emit('plugins.caiz.getSlackChannels', { cid: this.cid }, (err, data) => {
+                window.socket.emit('plugins.caiz.getSlackChannels', { cid: this.cid }, (err, data) => {
                     if (err) return reject(err);
                     resolve(data);
                 });
@@ -143,7 +143,7 @@ class SlackConnectionManager {
             const channelName = select.options[select.selectedIndex].textContent.replace('#', '');
             
             await new Promise((resolve, reject) => {
-                socket.emit('plugins.caiz.setSlackChannel', { 
+                window.socket.emit('plugins.caiz.setSlackChannel', { 
                     cid: this.cid, 
                     channelId: channelId,
                     channelName: channelName
@@ -165,19 +165,34 @@ class SlackConnectionManager {
     }
     
     setupEventListeners() {
-        document.getElementById('connect-slack').addEventListener('click', () => {
-            this.connectToSlack();
-        });
+        console.log('[Slack] Setting up event listeners for community:', this.cid);
         
-        document.getElementById('disconnect-slack').addEventListener('click', () => {
-            this.disconnectFromSlack();
-        });
+        const connectBtn = document.getElementById('connect-slack');
+        if (connectBtn) {
+            console.log('[Slack] Connect button found, adding listener');
+            connectBtn.addEventListener('click', () => {
+                console.log('[Slack] Connect button clicked');
+                this.connectToSlack();
+            });
+        } else {
+            console.log('[Slack] Connect button not found');
+        }
         
-        document.getElementById('slack-channel').addEventListener('change', (e) => {
-            if (e.target.value) {
-                this.setNotificationChannel(e.target.value);
-            }
-        });
+        const disconnectBtn = document.getElementById('disconnect-slack');
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', () => {
+                this.disconnectFromSlack();
+            });
+        }
+        
+        const channelSelect = document.getElementById('slack-channel');
+        if (channelSelect) {
+            channelSelect.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    this.setNotificationChannel(e.target.value);
+                }
+            });
+        }
     }
     
     checkOAuthResult() {
