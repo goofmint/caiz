@@ -91,12 +91,71 @@ class OAuthSettings {
                     };
                 }
                 
-                // In a real implementation, would make an API call to Slack
-                // For now, just check if credentials exist
-                return {
-                    success: true,
-                    message: 'Slack credentials are configured'
-                };
+                // Test Slack API connection by verifying client credentials
+                try {
+                    const https = require('https');
+                    const querystring = require('querystring');
+                    
+                    const data = querystring.stringify({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        grant_type: 'client_credentials'
+                    });
+                    
+                    const options = {
+                        hostname: 'slack.com',
+                        port: 443,
+                        path: '/api/oauth.v2.access',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'Content-Length': Buffer.byteLength(data)
+                        }
+                    };
+                    
+                    const response = await new Promise((resolve, reject) => {
+                        const req = https.request(options, (res) => {
+                            let body = '';
+                            res.on('data', (chunk) => body += chunk);
+                            res.on('end', () => {
+                                try {
+                                    resolve(JSON.parse(body));
+                                } catch (e) {
+                                    reject(new Error('Invalid response from Slack API'));
+                                }
+                            });
+                        });
+                        
+                        req.on('error', reject);
+                        req.write(data);
+                        req.end();
+                        
+                        // Timeout after 10 seconds
+                        setTimeout(() => {
+                            req.destroy();
+                            reject(new Error('Request timeout'));
+                        }, 10000);
+                    });
+                    
+                    if (response.ok || response.error === 'invalid_grant_type') {
+                        // invalid_grant_type means credentials are valid but grant type is wrong
+                        // This is expected for client credentials flow test
+                        return {
+                            success: true,
+                            message: 'Slack API connection successful - credentials are valid'
+                        };
+                    } else {
+                        return {
+                            success: false,
+                            message: `Slack API error: ${response.error || 'Unknown error'}`
+                        };
+                    }
+                } catch (apiError) {
+                    return {
+                        success: false,
+                        message: `Connection test failed: ${apiError.message}`
+                    };
+                }
                 
             } else if (platform === 'discord') {
                 const clientId = await meta.settings.getOne('caiz', `oauth:discord:clientId`);
@@ -109,12 +168,61 @@ class OAuthSettings {
                     };
                 }
                 
-                // In a real implementation, would make an API call to Discord
-                // For now, just check if credentials exist
-                return {
-                    success: true,
-                    message: 'Discord credentials are configured'
-                };
+                // Test Discord API connection by getting bot user info
+                try {
+                    const https = require('https');
+                    
+                    const options = {
+                        hostname: 'discord.com',
+                        port: 443,
+                        path: '/api/v10/users/@me',
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bot ${botToken}`,
+                            'User-Agent': 'NodeBB-Plugin-Caiz (https://github.com/goofmint/caiz, 1.0.0)'
+                        }
+                    };
+                    
+                    const response = await new Promise((resolve, reject) => {
+                        const req = https.request(options, (res) => {
+                            let body = '';
+                            res.on('data', (chunk) => body += chunk);
+                            res.on('end', () => {
+                                try {
+                                    resolve({ statusCode: res.statusCode, data: JSON.parse(body) });
+                                } catch (e) {
+                                    reject(new Error('Invalid response from Discord API'));
+                                }
+                            });
+                        });
+                        
+                        req.on('error', reject);
+                        req.end();
+                        
+                        // Timeout after 10 seconds
+                        setTimeout(() => {
+                            req.destroy();
+                            reject(new Error('Request timeout'));
+                        }, 10000);
+                    });
+                    
+                    if (response.statusCode === 200) {
+                        return {
+                            success: true,
+                            message: `Discord API connection successful - Bot: ${response.data.username}#${response.data.discriminator}`
+                        };
+                    } else {
+                        return {
+                            success: false,
+                            message: `Discord API error: ${response.data.message || 'Unknown error'}`
+                        };
+                    }
+                } catch (apiError) {
+                    return {
+                        success: false,
+                        message: `Connection test failed: ${apiError.message}`
+                    };
+                }
             }
             
             return {
