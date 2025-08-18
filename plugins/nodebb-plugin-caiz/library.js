@@ -103,12 +103,12 @@ plugin.init = async function (params) {
       if (result.success) {
         winston.info(`[plugin/caiz] Slack OAuth successful for community ${result.cid}`);
         
-        // Get community info for redirect
-        const categories = require.main.require('./src/categories');
-        const categoryData = await categories.getCategoryData(result.cid);
+        // Get community handle for redirect
+        const db = require.main.require('./src/database');
+        const handle = await db.getObjectField(`category:${result.cid}`, 'handle');
         
         // Build redirect URL with success parameters
-        const redirectUrl = `${url}/c/${categoryData.slug}?slack_success=1&team=${encodeURIComponent(result.teamName)}${result.channelName ? `&channel=${encodeURIComponent(result.channelName)}` : ''}`;
+        const redirectUrl = `${url}/${handle}?slack_success=1&team=${encodeURIComponent(result.teamName)}${result.channelName ? `&channel=${encodeURIComponent(result.channelName)}` : ''}`;
         res.redirect(redirectUrl);
       } else {
         winston.warn('[plugin/caiz] Slack OAuth callback failed');
