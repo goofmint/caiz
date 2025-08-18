@@ -18,11 +18,16 @@
     "static/community-edit-form-utils.js",
     "static/community-edit-form.js",
     "static/community-edit-core.js",
-    "static/members-only.js",
-    "static/lib/admin/plugins/caiz-oauth.js"
+    "static/members-only.js"
   ],
   "scss": [
     "static/style.scss"
+  ],
+  "modules": {
+    "../admin/plugins/caiz-oauth.js": "static/lib/admin/plugins/caiz.js"
+  },
+  "acpScripts": [
+    "static/lib/admin/plugins/caiz.js"
   ],
   "hooks": [
     {
