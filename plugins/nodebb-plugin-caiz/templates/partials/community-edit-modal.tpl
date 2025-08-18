@@ -154,20 +154,48 @@
                     <h5 class="card-title">
                       <i class="fab fa-slack me-2"></i>[[caiz:slack-notifications]]
                     </h5>
-                    <div class="form-check mb-3">
-                      <input type="checkbox" class="form-check-input" id="slack-enabled">
-                      <label class="form-check-label" for="slack-enabled">
-                        [[caiz:enable-slack-notifications]]
-                      </label>
+                    
+                    <!-- 未接続状態 -->
+                    <div id="slack-disconnected" style="display: none;">
+                      <p class="text-muted">[[caiz:slack-not-connected]]</p>
+                      <button type="button" class="btn btn-primary" id="connect-slack">
+                        <i class="fab fa-slack me-1"></i>[[caiz:connect-to-slack]]
+                      </button>
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm" id="connect-slack">
-                      <i class="fab fa-slack me-1"></i>[[caiz:connect-to-slack]]
-                    </button>
-                    <div class="mt-3" id="slack-channel-selection" style="display: none;">
-                      <label for="slack-channel" class="form-label">[[caiz:notification-channel]]</label>
-                      <select class="form-select" id="slack-channel">
-                        <option value="">[[caiz:select-channel]]</option>
-                      </select>
+                    
+                    <!-- 接続済み状態 -->
+                    <div id="slack-connected" style="display: none;">
+                      <div class="alert alert-success">
+                        <i class="fa fa-check-circle me-1"></i>
+                        [[caiz:slack-connected-to]] <strong id="slack-team-name"></strong>
+                        <br>
+                        <small class="text-muted">[[caiz:connected-at]] <span id="slack-connected-date"></span></small>
+                      </div>
+                      
+                      <div class="form-group mb-3">
+                        <label for="slack-channel" class="form-label">[[caiz:notification-channel]]</label>
+                        <select class="form-select" id="slack-channel">
+                          <option value="">[[caiz:loading-channels]]</option>
+                        </select>
+                      </div>
+                      
+                      <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="slack-enabled">
+                        <label class="form-check-label" for="slack-enabled">
+                          [[caiz:enable-slack-notifications]]
+                        </label>
+                      </div>
+                      
+                      <button type="button" class="btn btn-outline-danger" id="disconnect-slack">
+                        <i class="fa fa-unlink me-1"></i>[[caiz:disconnect-slack]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続中状態 -->
+                    <div id="slack-connecting" style="display: none;">
+                      <div class="text-center">
+                        <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-slack]]
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -437,6 +437,12 @@ function initializeModalNavigation() {
           setupCategoryEventHandlers();
           await loadSubCategories();
           window.categoriesInitialized = true;
+        } else if (tabName === 'notifications' && !window.notificationsInitialized) {
+          console.log('[caiz] First time switching to notifications tab, initializing...');
+          if (typeof SlackConnectionManager !== 'undefined') {
+            window.slackManager = new SlackConnectionManager(currentCommunityId);
+          }
+          window.notificationsInitialized = true;
         }
       }
       

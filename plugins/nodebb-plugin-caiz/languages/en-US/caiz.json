@@ -184,6 +184,13 @@
   "notify-member-join": "Member joined",
   "notify-member-leave": "Member left",
   "save-settings": "Save Settings",
+  "slack-not-connected": "Slack workspace is not connected",
+  "slack-connected-to": "Connected to Slack workspace:",
+  "connected-at": "Connected at:",
+  "loading-channels": "Loading channels...",
+  "disconnect-slack": "Disconnect from Slack",
+  "connecting-to-slack": "Connecting to Slack...",
+  "error-loading-channels": "Error loading channels",
   "admin": {
     "oauth-settings": "OAuth Settings",
     "client-id": "Client ID",

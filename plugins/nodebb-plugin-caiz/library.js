@@ -43,6 +43,70 @@ plugin.init = async function (params) {
     // Discord OAuth callback - return type 1 (pong) for verification
     res.status(200).json({ type: 1 });
   });
+  
+  // Slack OAuth routes
+  router.get('/api/v3/plugins/caiz/oauth/slack/auth', async (req, res) => {
+    try {
+      const { cid } = req.query;
+      
+      if (!cid) {
+        return res.status(400).json({ error: 'Missing community ID' });
+      }
+      
+      if (!req.uid) {
+        return res.status(401).json({ error: 'Not logged in' });
+      }
+      
+      // Check if user is community owner
+      const isOwner = await Community.IsCommunityOwner({ uid: req.uid }, { cid });
+      if (!isOwner.isOwner) {
+        return res.status(403).json({ error: 'No privileges' });
+      }
+      
+      const slackOAuth = require('./libs/slack-oauth');
+      await slackOAuth.initialize();
+      const state = slackOAuth.generateState(cid, req.uid);
+      const authUrl = slackOAuth.generateAuthUrl(cid, state);
+      
+      res.redirect(authUrl);
+    } catch (err) {
+      winston.error(`[plugin/caiz] Slack OAuth auth error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  router.get('/api/v3/plugins/caiz/oauth/slack/callback', async (req, res) => {
+    try {
+      const { code, state, error } = req.query;
+      const meta = require.main.require('./src/meta');
+      
+      if (error) {
+        winston.warn(`[plugin/caiz] Slack OAuth denied: ${error}`);
+        return res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=access_denied`);
+      }
+      
+      if (!code || !state) {
+        winston.warn('[plugin/caiz] Slack OAuth callback missing parameters');
+        return res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=invalid_request`);
+      }
+      
+      const slackOAuth = require('./libs/slack-oauth');
+      await slackOAuth.initialize();
+      const result = await slackOAuth.handleCallback(code, state);
+      
+      if (result.success) {
+        winston.info(`[plugin/caiz] Slack OAuth successful for community ${result.cid}`);
+        res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_success=1&team=${encodeURIComponent(result.teamName)}`);
+      } else {
+        winston.warn('[plugin/caiz] Slack OAuth callback failed');
+        res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=auth_failed`);
+      }
+    } catch (err) {
+      winston.error(`[plugin/caiz] Slack OAuth callback error: ${err.message}`);
+      const meta = require.main.require('./src/meta');
+      res.redirect(`${meta.config.url || 'http://localhost:4567'}?slack_error=server_error`);
+    }
+  });
 };
 
 plugin.customizeCategoriesLink = Community.customizeIndexLink;
@@ -168,6 +232,115 @@ sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
 sockets.caiz.deleteCommunity = Community.DeleteCommunity;
+
+// Slack OAuth socket handlers
+const slackOAuth = require('./libs/slack-oauth');
+const communitySlackSettings = require('./libs/community-slack-settings');
+
+sockets.caiz.getSlackAuthUrl = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner
+  const isOwner = await Community.IsCommunityOwner(socket, { cid: data.cid });
+  if (!isOwner.isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await slackOAuth.initialize();
+  const state = slackOAuth.generateState(data.cid, socket.uid);
+  const authUrl = slackOAuth.generateAuthUrl(data.cid, state);
+  
+  return {
+    authUrl: authUrl,
+    state: state
+  };
+};
+
+sockets.caiz.getSlackConnectionStatus = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner
+  const isOwner = await Community.IsCommunityOwner(socket, { cid: data.cid });
+  if (!isOwner.isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  return await communitySlackSettings.getConnectionInfo(data.cid);
+};
+
+sockets.caiz.disconnectSlack = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner
+  const isOwner = await Community.IsCommunityOwner(socket, { cid: data.cid });
+  if (!isOwner.isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await slackOAuth.initialize();
+  return await slackOAuth.disconnect(data.cid);
+};
+
+sockets.caiz.getSlackChannels = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner
+  const isOwner = await Community.IsCommunityOwner(socket, { cid: data.cid });
+  if (!isOwner.isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await slackOAuth.initialize();
+  const channels = await slackOAuth.getChannels(data.cid);
+  
+  return {
+    channels: channels
+  };
+};
+
+sockets.caiz.setSlackChannel = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid || !data.channelId) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner
+  const isOwner = await Community.IsCommunityOwner(socket, { cid: data.cid });
+  if (!isOwner.isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await communitySlackSettings.setNotificationChannel(data.cid, data.channelId, data.channelName || '');
+  
+  return { success: true };
+};
 
 // Admin socket handlers for OAuth settings
 const oauthSettings = require('./libs/oauth-settings');

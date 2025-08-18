@@ -167,6 +167,13 @@
   "notify-member-join": "メンバー参加",
   "notify-member-leave": "メンバー退出",
   "save-settings": "設定を保存",
+  "slack-not-connected": "Slackワークスペースが接続されていません",
+  "slack-connected-to": "Slackワークスペースに接続済み:",
+  "connected-at": "接続日時:",
+  "loading-channels": "チャンネル読み込み中...",
+  "disconnect-slack": "Slack接続を解除",
+  "connecting-to-slack": "Slackに接続中...",
+  "error-loading-channels": "チャンネル読み込みエラー",
   "admin": {
     "oauth-settings": "OAuth設定",
     "client-id": "クライアントID",
