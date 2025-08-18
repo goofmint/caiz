@@ -49,12 +49,12 @@
 -- NodeBBの設定システムを使用
 -- キー形式: community:slack:{cid}:*
 {
-  "community:slack:{cid}:accessToken": "encrypted_token",
+  "community:slack:{cid}:accessToken": "access_token",
   "community:slack:{cid}:teamId": "team_id",
   "community:slack:{cid}:teamName": "team_name",
   "community:slack:{cid}:channelId": "channel_id",
   "community:slack:{cid}:channelName": "channel_name",
-  "community:slack:{cid}:webhookUrl": "encrypted_url",
+  "community:slack:{cid}:webhookUrl": "webhook_url",
   "community:slack:{cid}:userId": "user_id",
   "community:slack:{cid}:connectedAt": "timestamp"
 }
@@ -301,7 +301,6 @@ async function handleSlackCallback(req, res) {
 ## セキュリティ考慮事項
 
 - stateパラメータによるCSRF攻撃対策
-- アクセストークンの暗号化保存
 - OAuth認証のタイムアウト処理
 - 不正なコールバック要求の検証
 - コミュニティオーナー権限の確認

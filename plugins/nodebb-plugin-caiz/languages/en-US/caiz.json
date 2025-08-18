@@ -191,6 +191,10 @@
   "disconnect-slack": "Disconnect from Slack",
   "connecting-to-slack": "Connecting to Slack...",
   "error-loading-channels": "Error loading channels",
+  "discord-not-connected": "Discord server is not connected",
+  "discord-connected-to": "Connected to Discord server:",
+  "disconnect-discord": "Disconnect from Discord",
+  "connecting-to-discord": "Connecting to Discord...",
   "admin": {
     "oauth-settings": "OAuth Settings",
     "client-id": "Client ID",

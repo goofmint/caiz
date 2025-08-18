@@ -206,20 +206,48 @@
                     <h5 class="card-title">
                       <i class="fab fa-discord me-2"></i>[[caiz:discord-notifications]]
                     </h5>
-                    <div class="form-check mb-3">
-                      <input type="checkbox" class="form-check-input" id="discord-enabled">
-                      <label class="form-check-label" for="discord-enabled">
-                        [[caiz:enable-discord-notifications]]
-                      </label>
+                    
+                    <!-- 未接続状態 -->
+                    <div id="discord-disconnected" style="display: block;">
+                      <p class="text-muted">[[caiz:discord-not-connected]]</p>
+                      <button type="button" class="btn btn-primary" id="connect-discord">
+                        <i class="fab fa-discord me-1"></i>[[caiz:connect-to-discord]]
+                      </button>
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm" id="connect-discord">
-                      <i class="fab fa-discord me-1"></i>[[caiz:connect-to-discord]]
-                    </button>
-                    <div class="mt-3" id="discord-channel-selection" style="display: none;">
-                      <label for="discord-channel" class="form-label">[[caiz:notification-channel]]</label>
-                      <select class="form-select" id="discord-channel">
-                        <option value="">[[caiz:select-channel]]</option>
-                      </select>
+                    
+                    <!-- 接続済み状態 -->
+                    <div id="discord-connected" style="display: none;">
+                      <div class="alert alert-success">
+                        <i class="fa fa-check-circle me-1"></i>
+                        [[caiz:discord-connected-to]] <strong id="discord-server-name"></strong>
+                        <br>
+                        <small class="text-muted">[[caiz:connected-at]] <span id="discord-connected-date"></span></small>
+                      </div>
+                      
+                      <div class="form-group mb-3">
+                        <label for="discord-channel" class="form-label">[[caiz:notification-channel]]</label>
+                        <select class="form-select" id="discord-channel">
+                          <option value="">[[caiz:loading-channels]]</option>
+                        </select>
+                      </div>
+                      
+                      <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="discord-enabled">
+                        <label class="form-check-label" for="discord-enabled">
+                          [[caiz:enable-discord-notifications]]
+                        </label>
+                      </div>
+                      
+                      <button type="button" class="btn btn-outline-danger" id="disconnect-discord">
+                        <i class="fa fa-unlink me-1"></i>[[caiz:disconnect-discord]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続中状態 -->
+                    <div id="discord-connecting" style="display: none;">
+                      <div class="text-center">
+                        <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-discord]]
+                      </div>
                     </div>
                   </div>
                 </div>
