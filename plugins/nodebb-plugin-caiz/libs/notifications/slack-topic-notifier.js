@@ -55,7 +55,7 @@ class SlackTopicNotifier {
             
             // Get notification settings using community ID
             const notificationSettings = await communitySlackSettings.getNotificationSettings(communityCid);
-            if (!notificationSettings || !notificationSettings.newPost) {
+            if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.newPost) {
                 winston.info(`[plugin/caiz] New post notifications disabled for community ${communityCid}, skipping`);
                 return;
             }
@@ -118,7 +118,7 @@ class SlackTopicNotifier {
 
             // Get notification settings using community ID
             const notificationSettings = await communitySlackSettings.getNotificationSettings(communityCid);
-            if (!notificationSettings || !notificationSettings.newTopic) {
+            if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.newTopic) {
                 winston.info(`[plugin/caiz] New topic notifications disabled for community ${communityCid}, skipping`);
                 return;
             }
@@ -311,7 +311,7 @@ class SlackTopicNotifier {
             
             // Get notification settings
             const notificationSettings = await communitySlackSettings.getNotificationSettings(memberData.cid);
-            if (!notificationSettings || !notificationSettings.memberJoin) {
+            if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.memberJoin) {
                 winston.info(`[plugin/caiz] Member join notifications disabled for community ${memberData.cid}, skipping`);
                 return;
             }
@@ -427,7 +427,7 @@ class SlackTopicNotifier {
             
             // Get notification settings
             const notificationSettings = await communitySlackSettings.getNotificationSettings(leaveData.cid);
-            if (!notificationSettings || !notificationSettings.memberLeave) {
+            if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.memberLeave) {
                 winston.info(`[plugin/caiz] Member leave notifications disabled for community ${leaveData.cid}, skipping`);
                 return;
             }

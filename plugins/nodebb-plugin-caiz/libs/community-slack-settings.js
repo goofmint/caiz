@@ -157,6 +157,7 @@ class CommunitySlackSettings {
             // Return default settings if none exist
             if (!settings) {
                 return {
+                    enabled: true,         // Enable Slack notifications by default
                     newTopic: true,        // Enable new topic notifications by default
                     newPost: true,         // Enable new post notifications by default
                     memberJoin: false,     // Disable member join notifications by default
@@ -170,6 +171,7 @@ class CommunitySlackSettings {
             winston.error(`[plugin/caiz] Error getting Slack notification settings for community ${cid}: ${err.message}`);
             // Return default settings on error
             return {
+                enabled: true,
                 newTopic: true,
                 newPost: true,
                 memberJoin: false,
@@ -185,6 +187,7 @@ class CommunitySlackSettings {
             
             // Validate settings
             const validatedSettings = {
+                enabled: settings.enabled !== undefined ? !!settings.enabled : true,
                 newTopic: !!settings.newTopic,
                 newPost: !!settings.newPost,
                 memberJoin: !!settings.memberJoin,

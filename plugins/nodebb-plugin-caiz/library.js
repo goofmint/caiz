@@ -551,15 +551,69 @@ sockets.caiz.saveSlackNotificationSettings = async function(socket, data) {
   return await communitySlackSettings.saveNotificationSettings(data.cid, data.settings);
 };
 
+// Discord notification settings socket handlers
+sockets.caiz.getDiscordNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const communityDiscordSettings = require('./libs/community-discord-settings');
+  const settings = await communityDiscordSettings.getSettings(data.cid);
+  return settings ? settings.notifications || {} : {};
+};
+
+sockets.caiz.saveDiscordNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid || !data.settings) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const communityDiscordSettings = require('./libs/community-discord-settings');
+  
+  // Get existing settings and update notifications
+  const existingSettings = await communityDiscordSettings.getSettings(data.cid);
+  if (!existingSettings) {
+    throw new Error('Discord not connected');
+  }
+  
+  const updatedSettings = {
+    ...existingSettings,
+    notifications: data.settings
+  };
+  
+  await communityDiscordSettings.saveSettings(data.cid, updatedSettings);
+  return { success: true };
+};
+
 // Topic creation notification hook
 plugin.actionTopicSave = async function(hookData) {
   try {
     const topicData = hookData.topic;
     if (!topicData) {
+      winston.info(`[plugin/caiz] actionTopicSave called with no topic data`);
       return;
     }
 
-    winston.info(`[plugin/caiz] Topic saved: ${topicData.tid}, triggering notifications`);
+    winston.info(`[plugin/caiz] Topic saved: ${topicData.tid}, cid=${topicData.cid}, uid=${topicData.uid}, triggering notifications`);
 
     // Send Slack notification (non-blocking)
     setImmediate(async () => {
@@ -592,7 +646,15 @@ plugin.actionPostSave = async function(hookData) {
     const post = hookData.post;
     
     // 新規投稿（コメント）かチェック
-    if (!post || post.isMainPost) {
+    if (!post) {
+      return;
+    }
+
+    // トピックデータを取得してメインポストかどうか確認
+    const Topics = require.main.require('./src/topics');
+    const topicData = await Topics.getTopicField(post.tid, 'mainPid');
+    
+    if (post.pid === topicData) {
       return; // トピック作成は別の通知で処理
     }
 

@@ -24,13 +24,19 @@ class DiscordNotifier extends NotifierBase {
             const communityDiscordSettings = require('../community-discord-settings');
             const settings = await communityDiscordSettings.getSettings(cid);
             
-            if (!settings || !settings.botToken || !settings.channelId) {
+            if (!settings || !settings.accessToken || !settings.webhook?.channelId) {
                 winston.info(`[DiscordNotifier] No Discord connection for community ${cid}`);
                 return null;
             }
             
-            // Check if notification type is enabled
+            // Check if Discord notifications are enabled
             const notifications = settings.notifications || {};
+            if (notifications.enabled === false) {
+                winston.info(`[DiscordNotifier] Discord notifications disabled for community ${cid}`);
+                return null;
+            }
+            
+            // Check if notification type is enabled
             if (!notifications[notificationType]) {
                 winston.info(`[DiscordNotifier] ${notificationType} notifications disabled for community ${cid}`);
                 return null;
@@ -44,16 +50,16 @@ class DiscordNotifier extends NotifierBase {
     }
 
     /**
-     * Send message to Discord using bot API
-     * @param {Object} settings - Discord settings (botToken, channelId)
+     * Send message to Discord using webhook
+     * @param {Object} settings - Discord settings (accessToken, webhook)
      * @param {Object} message - Discord message with embeds
      */
     async sendMessage(settings, message) {
         try {
-            const response = await fetch(`https://discord.com/api/v10/channels/${settings.channelId}/messages`, {
+            // Use webhook instead of bot API
+            const response = await fetch(`${settings.webhook.url}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bot ${settings.botToken}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(message)
@@ -65,7 +71,15 @@ class DiscordNotifier extends NotifierBase {
             }
             
             winston.info('[DiscordNotifier] Message sent successfully to Discord');
-            return await response.json();
+            
+            // Discord webhook returns 204 No Content on success, so no JSON to parse
+            if (response.status === 204) {
+                return { success: true };
+            }
+            
+            // Try to parse JSON only if there's content
+            const text = await response.text();
+            return text ? JSON.parse(text) : { success: true };
             
         } catch (err) {
             winston.error(`[DiscordNotifier] Error sending Discord message: ${err.message}`);

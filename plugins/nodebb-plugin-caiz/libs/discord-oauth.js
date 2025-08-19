@@ -136,7 +136,13 @@ class DiscordOAuth {
                 userId: userInfo.id,
                 username: userInfo.username,
                 connectedAt: new Date().toISOString(),
-                webhook: webhookInfo
+                webhook: webhookInfo,
+                notifications: {
+                    newTopic: true,
+                    newPost: true,
+                    memberJoin: true,
+                    memberLeave: true
+                }
             });
             
             winston.info(`[plugin/caiz] Discord connected for community ${cid} to guild ${managedGuild?.name}`);

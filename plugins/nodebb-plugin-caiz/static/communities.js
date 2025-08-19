@@ -288,28 +288,22 @@ const initCommunityCreateModal = () => {
     
     const formData = {
       name: nameInput.value.trim(),
-      description: descInput ? descInput.value.trim() : '',
-      _csrf: document.querySelector('input[name="_csrf"]').value
+      description: descInput ? descInput.value.trim() : ''
     };
     
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creating...';
     
     try {
-      const response = await fetch('/api/v3/plugins/caiz/communities', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify(formData)
+      // Use WebSocket instead of HTTP POST
+      const result = await new Promise((resolve, reject) => {
+        window.socket.emit('plugins.caiz.createCommunity', formData, (err, data) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(data);
+        });
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const result = await response.json();
       
       // Close modal
       if (typeof $ !== 'undefined' && $.fn.modal) {

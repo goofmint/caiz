@@ -11,25 +11,41 @@ class NotificationSettingsManager {
     
     async loadNotificationSettings() {
         try {
-            const settings = await new Promise((resolve, reject) => {
-                window.socket.emit('plugins.caiz.getSlackNotificationSettings', { cid: this.cid }, (err, data) => {
-                    if (err) return reject(err);
-                    resolve(data);
-                });
-            });
+            // Load both Slack and Discord settings
+            const [slackSettings, discordSettings] = await Promise.all([
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.getSlackNotificationSettings', { cid: this.cid }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data || {});
+                    });
+                }),
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.getDiscordNotificationSettings', { cid: this.cid }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data || {});
+                    });
+                })
+            ]);
             
-            // Update checkboxes
+            // Update platform enable checkboxes
+            const slackEnabledCheckbox = document.getElementById('slack-enabled');
+            const discordEnabledCheckbox = document.getElementById('discord-enabled');
+            
+            if (slackEnabledCheckbox) slackEnabledCheckbox.checked = slackSettings.enabled !== false;
+            if (discordEnabledCheckbox) discordEnabledCheckbox.checked = discordSettings.enabled !== false;
+            
+            // Update notification type checkboxes (use Slack settings as primary)
             const newTopicCheckbox = document.getElementById('notify-new-topic');
             const newPostCheckbox = document.getElementById('notify-new-post');
             const memberJoinCheckbox = document.getElementById('notify-member-join');
             const memberLeaveCheckbox = document.getElementById('notify-member-leave');
             
-            if (newTopicCheckbox) newTopicCheckbox.checked = settings.newTopic;
-            if (newPostCheckbox) newPostCheckbox.checked = settings.newPost;
-            if (memberJoinCheckbox) memberJoinCheckbox.checked = settings.memberJoin;
-            if (memberLeaveCheckbox) memberLeaveCheckbox.checked = settings.memberLeave;
+            if (newTopicCheckbox) newTopicCheckbox.checked = slackSettings.newTopic !== false;
+            if (newPostCheckbox) newPostCheckbox.checked = slackSettings.newPost !== false;
+            if (memberJoinCheckbox) memberJoinCheckbox.checked = slackSettings.memberJoin === true;
+            if (memberLeaveCheckbox) memberLeaveCheckbox.checked = slackSettings.memberLeave === true;
             
-            console.log('[Notifications] Settings loaded:', settings);
+            console.log('[Notifications] Settings loaded:', { slack: slackSettings, discord: discordSettings });
         } catch (err) {
             console.error('Error loading notification settings:', err);
         }
@@ -43,34 +59,60 @@ class NotificationSettingsManager {
             spinner.style.display = 'inline-block';
             btn.disabled = true;
             
-            // Get checkbox values
+            // Get platform enable checkboxes
+            const slackEnabledCheckbox = document.getElementById('slack-enabled');
+            const discordEnabledCheckbox = document.getElementById('discord-enabled');
+            
+            // Get notification type checkboxes
             const newTopicCheckbox = document.getElementById('notify-new-topic');
             const newPostCheckbox = document.getElementById('notify-new-post');
             const memberJoinCheckbox = document.getElementById('notify-member-join');
             const memberLeaveCheckbox = document.getElementById('notify-member-leave');
             
-            const settings = {
+            const notificationSettings = {
                 newTopic: newTopicCheckbox ? newTopicCheckbox.checked : true,
                 newPost: newPostCheckbox ? newPostCheckbox.checked : true,
                 memberJoin: memberJoinCheckbox ? memberJoinCheckbox.checked : false,
                 memberLeave: memberLeaveCheckbox ? memberLeaveCheckbox.checked : false
             };
             
-            await new Promise((resolve, reject) => {
-                window.socket.emit('plugins.caiz.saveSlackNotificationSettings', { 
-                    cid: this.cid, 
-                    settings: settings 
-                }, (err, data) => {
-                    if (err) return reject(err);
-                    resolve(data);
-                });
-            });
+            const slackSettings = {
+                enabled: slackEnabledCheckbox ? slackEnabledCheckbox.checked : true,
+                ...notificationSettings
+            };
+            
+            const discordSettings = {
+                enabled: discordEnabledCheckbox ? discordEnabledCheckbox.checked : true,
+                ...notificationSettings
+            };
+            
+            // Save both Slack and Discord settings
+            await Promise.all([
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.saveSlackNotificationSettings', { 
+                        cid: this.cid, 
+                        settings: slackSettings 
+                    }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data);
+                    });
+                }),
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.saveDiscordNotificationSettings', { 
+                        cid: this.cid, 
+                        settings: discordSettings 
+                    }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data);
+                    });
+                })
+            ]);
             
             require(['alerts'], function(alerts) {
                 alerts.success('[[caiz:notification-settings-saved]]');
             });
             
-            console.log('[Notifications] Settings saved:', settings);
+            console.log('[Notifications] Settings saved:', { slack: slackSettings, discord: discordSettings });
         } catch (err) {
             console.error('Error saving notification settings:', err);
             require(['alerts'], function(alerts) {
