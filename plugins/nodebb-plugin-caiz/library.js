@@ -591,9 +591,8 @@ plugin.actionPostSave = async function(hookData) {
     // Send Slack notification (non-blocking)
     setImmediate(async () => {
       try {
-        const SlackCommentNotifier = require('./libs/notifications/slack-comment-notifier');
-        const notifier = new SlackCommentNotifier();
-        await notifier.sendNewCommentNotification(post);
+        const slackTopicNotifier = require('./libs/notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyNewComment(post);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in Slack comment notification: ${err.message}`);
       }
