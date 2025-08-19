@@ -194,7 +194,7 @@
   "confirm-disconnect-discord-message": "Discordサーバーとの接続を解除しますか？",
   "disconnected-from-discord-successfully": "Discord接続を解除しました",
   "failed-to-disconnect-from-discord": "Discord接続の解除に失敗しました",
-  "discord-connected-to-server": "Discordサーバーに接続しました",
+  "discord-connected-to-server": "Discordサーバー %1 に接続しました",
   "discord-connection-failed-message": "Discordへの接続に失敗しました。もう一度お試しください。",
   "discord-connection-denied-message": "Discordアプリへのアクセスが拒否されました。",
   "discord-invalid-request": "無効なリクエストです。もう一度お試しください。",

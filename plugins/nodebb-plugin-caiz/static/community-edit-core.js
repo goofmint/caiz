@@ -9,6 +9,45 @@ let draggedIndex = -1;
 let currentMembers = [];
 let currentUserRole = null;
 
+// Initialize OAuth result checker immediately on page load
+function initializeOAuthResultChecker() {
+  // Check for OAuth results in URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  
+  if (urlParams.get('discord_success') || urlParams.get('discord_error')) {
+    console.log('[caiz] Discord OAuth result detected, initializing DiscordConnectionManager...');
+    
+    // Wait for DiscordConnectionManager to be available
+    const checkManager = () => {
+      if (typeof DiscordConnectionManager !== 'undefined' && currentCommunityId) {
+        console.log('[caiz] Creating Discord manager for OAuth result processing');
+        window.discordManager = new DiscordConnectionManager(currentCommunityId);
+      } else {
+        setTimeout(checkManager, 100);
+      }
+    };
+    checkManager();
+  }
+  
+  if (urlParams.get('slack_success') || urlParams.get('slack_error')) {
+    console.log('[caiz] Slack OAuth result detected, initializing SlackConnectionManager...');
+    
+    // Wait for SlackConnectionManager to be available
+    const checkManager = () => {
+      if (typeof SlackConnectionManager !== 'undefined' && currentCommunityId) {
+        console.log('[caiz] Creating Slack manager for OAuth result processing');
+        window.slackManager = new SlackConnectionManager(currentCommunityId);
+      } else {
+        setTimeout(checkManager, 100);
+      }
+    };
+    checkManager();
+  }
+}
+
+// Call the initializer
+initializeOAuthResultChecker();
+
 const addEditButton = (cid) => {
   console.log('[caiz] Adding edit button for community', cid);
   
@@ -269,6 +308,13 @@ const initializeCommunityPage = async () => {
     return;
   }
   
+  // Set global community ID
+  currentCommunityId = cid;
+  console.log('[caiz] Set currentCommunityId to:', currentCommunityId);
+  
+  // Re-trigger OAuth result checker now that we have community ID
+  initializeOAuthResultChecker();
+  
   // Initialize follow button for all users
   if (app.user && app.user.uid) {
     await initializeFollowButton(cid);
@@ -443,7 +489,10 @@ function initializeModalNavigation() {
             window.slackManager = new SlackConnectionManager(currentCommunityId);
           }
           if (typeof DiscordConnectionManager !== 'undefined') {
+            console.log('[caiz] Initializing Discord connection manager for community:', currentCommunityId);
             window.discordManager = new DiscordConnectionManager(currentCommunityId);
+          } else {
+            console.error('[caiz] DiscordConnectionManager is not defined');
           }
           window.notificationsInitialized = true;
         }

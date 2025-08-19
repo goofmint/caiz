@@ -211,7 +211,7 @@
   "confirm-disconnect-discord-message": "Are you sure you want to disconnect from this Discord server?",
   "disconnected-from-discord-successfully": "Disconnected from Discord successfully",
   "failed-to-disconnect-from-discord": "Failed to disconnect from Discord",
-  "discord-connected-to-server": "Connected to Discord server",
+  "discord-connected-to-server": "Connected to Discord server %1",
   "discord-connection-failed-message": "Failed to connect to Discord. Please try again.",
   "discord-connection-denied-message": "Access to the Discord app was denied.",
   "discord-invalid-request": "Invalid request. Please try again.",

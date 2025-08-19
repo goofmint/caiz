@@ -68,15 +68,19 @@ class DiscordConnectionManager {
     
     async connectToDiscord() {
         try {
+            console.log('[Discord] Starting connection process for community:', this.cid);
             this.showConnectingState();
             
             const authData = await new Promise((resolve, reject) => {
+                console.log('[Discord] Emitting getDiscordAuthUrl...');
                 window.socket.emit('plugins.caiz.getDiscordAuthUrl', { cid: this.cid }, (err, data) => {
+                    console.log('[Discord] getDiscordAuthUrl response:', { err, data });
                     if (err) return reject(err);
                     resolve(data);
                 });
             });
             
+            console.log('[Discord] Redirecting to:', authData.authUrl);
             window.location.href = authData.authUrl;
         } catch (err) {
             console.error('Error connecting to Discord:', err);
@@ -140,11 +144,7 @@ class DiscordConnectionManager {
             const guildName = urlParams.get('guild');
             
             require(['alerts'], function(alerts) {
-                let message = '[[caiz:discord-connected-to-server';
-                if (guildName) {
-                    message += ', ' + guildName;
-                }
-                message += ']]';
+                let message = '[[caiz:discord-connected-to-server, ' + (guildName || '') + ']]';
                 alerts.success(message);
             });
             
@@ -183,23 +183,29 @@ class DiscordConnectionManager {
     setupEventListeners() {
         console.log('[Discord] Setting up event listeners for community:', this.cid);
         
-        const connectBtn = document.getElementById('connect-discord');
-        if (connectBtn) {
-            console.log('[Discord] Connect button found, adding listener');
-            connectBtn.addEventListener('click', () => {
-                console.log('[Discord] Connect button clicked');
-                this.connectToDiscord();
-            });
-        } else {
-            console.log('[Discord] Connect button not found');
-        }
-        
-        const disconnectBtn = document.getElementById('disconnect-discord');
-        if (disconnectBtn) {
-            disconnectBtn.addEventListener('click', () => {
-                this.disconnectFromDiscord();
-            });
-        }
+        // Wait for DOM to be ready
+        setTimeout(() => {
+            const connectBtn = document.getElementById('connect-discord');
+            if (connectBtn) {
+                console.log('[Discord] Connect button found, adding listener');
+                connectBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('[Discord] Connect button clicked');
+                    this.connectToDiscord();
+                });
+            } else {
+                console.log('[Discord] Connect button not found');
+            }
+            
+            const disconnectBtn = document.getElementById('disconnect-discord');
+            if (disconnectBtn) {
+                console.log('[Discord] Disconnect button found, adding listener');
+                disconnectBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.disconnectFromDiscord();
+                });
+            }
+        }, 100);
     }
 }
 
