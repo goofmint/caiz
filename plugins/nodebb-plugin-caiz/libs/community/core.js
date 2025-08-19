@@ -299,7 +299,7 @@ async function Follow(socket, { cid }) {
     await Groups.join(memberGroupName, uid);
     winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
     
-    // Send member join notification (non-blocking)
+    // Send member join notifications (non-blocking)
     setImmediate(async () => {
       try {
         const slackTopicNotifier = require('../notifications/slack-topic-notifier');
@@ -310,7 +310,21 @@ async function Follow(socket, { cid }) {
           timestamp: Date.now()
         });
       } catch (err) {
-        winston.error(`[plugin/caiz] Error in member join notification: ${err.message}`);
+        winston.error(`[plugin/caiz] Error in Slack member join notification: ${err.message}`);
+      }
+    });
+    
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('../notifications/discord-notifier');
+        await discordNotifier.notifyMemberJoin({
+          uid: uid,
+          cid: targetCid,
+          role: 'member',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord member join notification: ${err.message}`);
       }
     });
   } else {
@@ -362,7 +376,7 @@ async function Unfollow(socket, { cid }) {
     await Groups.leave(groupName, uid);
     winston.info(`[plugin/caiz] Removed user ${uid} from group ${groupName}`);
     
-    // Send member leave notification (non-blocking)
+    // Send member leave notifications (non-blocking)
     setImmediate(async () => {
       try {
         const slackTopicNotifier = require('../notifications/slack-topic-notifier');
@@ -373,7 +387,21 @@ async function Unfollow(socket, { cid }) {
           timestamp: Date.now()
         });
       } catch (err) {
-        winston.error(`[plugin/caiz] Error in member leave notification: ${err.message}`);
+        winston.error(`[plugin/caiz] Error in Slack member leave notification: ${err.message}`);
+      }
+    });
+    
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('../notifications/discord-notifier');
+        await discordNotifier.notifyMemberLeave({
+          uid: uid,
+          cid: targetCid,
+          reason: 'voluntary',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord member leave notification: ${err.message}`);
       }
     });
   }

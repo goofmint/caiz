@@ -571,6 +571,16 @@ plugin.actionTopicSave = async function(hookData) {
       }
     });
 
+    // Send Discord notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('./libs/notifications/discord-notifier');
+        await discordNotifier.notifyNewTopic(topicData);
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord topic notification: ${err.message}`);
+      }
+    });
+
   } catch (err) {
     winston.error(`[plugin/caiz] Error in actionTopicSave hook: ${err.message}`);
   }
@@ -595,6 +605,16 @@ plugin.actionPostSave = async function(hookData) {
         await slackTopicNotifier.notifyNewComment(post);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in Slack comment notification: ${err.message}`);
+      }
+    });
+
+    // Send Discord notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('./libs/notifications/discord-notifier');
+        await discordNotifier.notifyNewComment(post);
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord comment notification: ${err.message}`);
       }
     });
 
