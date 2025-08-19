@@ -213,10 +213,10 @@ class SlackConnectionManager {
             this.loadNotificationSettings();
         }, 1000);
         
-        // Save button handler
-        const saveBtn = document.getElementById('save-notification-settings');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
+        // Save button handler for Slack settings
+        const saveSlackBtn = document.getElementById('save-slack-notification-settings');
+        if (saveSlackBtn) {
+            saveSlackBtn.addEventListener('click', () => {
                 this.saveNotificationSettings();
             });
         }
