@@ -576,4 +576,32 @@ plugin.actionTopicSave = async function(hookData) {
   }
 };
 
+// Post (comment) creation notification hook  
+plugin.actionPostSave = async function(hookData) {
+  try {
+    const post = hookData.post;
+    
+    // 新規投稿（コメント）かチェック
+    if (!post || post.isMainPost) {
+      return; // トピック作成は別の通知で処理
+    }
+
+    winston.info(`[plugin/caiz] Post saved: ${post.pid}, triggering comment notifications`);
+
+    // Send Slack notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const SlackCommentNotifier = require('./libs/notifications/slack-comment-notifier');
+        const notifier = new SlackCommentNotifier();
+        await notifier.sendNewCommentNotification(post);
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Slack comment notification: ${err.message}`);
+      }
+    });
+
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error in actionPostSave hook: ${err.message}`);
+  }
+};
+
 module.exports = plugin;

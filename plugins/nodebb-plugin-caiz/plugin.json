@@ -89,6 +89,10 @@
     {
       "hook": "action:topic.save",
       "method": "actionTopicSave"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "actionPostSave"
     }
   ]
 }
