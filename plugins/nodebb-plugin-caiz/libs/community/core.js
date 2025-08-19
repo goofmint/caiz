@@ -285,9 +285,6 @@ async function Follow(socket, { cid }) {
   // Find the parent category to follow
   const targetCid = await getParentCategory(cid);
   
-  // Ensure community groups exist (for old communities)
-  await ensureCommunityGroups(targetCid);
-  
   // Check if user is already a member using common function
   const currentRole = await getUserRole(uid, targetCid);
   
@@ -301,6 +298,35 @@ async function Follow(socket, { cid }) {
   if (await Groups.exists(memberGroupName)) {
     await Groups.join(memberGroupName, uid);
     winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
+    
+    // Send member join notifications (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('../notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyMemberJoin({
+          uid: uid,
+          cid: targetCid,
+          role: 'member',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Slack member join notification: ${err.message}`);
+      }
+    });
+    
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('../notifications/discord-notifier');
+        await discordNotifier.notifyMemberJoin({
+          uid: uid,
+          cid: targetCid,
+          role: 'member',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord member join notification: ${err.message}`);
+      }
+    });
   } else {
     winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${targetCid}`);
   }
@@ -349,6 +375,35 @@ async function Unfollow(socket, { cid }) {
   if (groupName && await Groups.exists(groupName)) {
     await Groups.leave(groupName, uid);
     winston.info(`[plugin/caiz] Removed user ${uid} from group ${groupName}`);
+    
+    // Send member leave notifications (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('../notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyMemberLeave({
+          uid: uid,
+          cid: targetCid,
+          reason: 'voluntary',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Slack member leave notification: ${err.message}`);
+      }
+    });
+    
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('../notifications/discord-notifier');
+        await discordNotifier.notifyMemberLeave({
+          uid: uid,
+          cid: targetCid,
+          reason: 'voluntary',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord member leave notification: ${err.message}`);
+      }
+    });
   }
   
   return { role: 'guest' };

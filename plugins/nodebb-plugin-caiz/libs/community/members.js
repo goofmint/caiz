@@ -313,6 +313,35 @@ async function RemoveMember(socket, { cid, targetUid }) {
     
     winston.info(`[plugin/caiz] User ${targetUid} removed from community ${cid}`);
     
+    // Send member removal notifications (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('../notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyMemberLeave({
+          uid: targetUid,
+          cid: cid,
+          reason: 'removed',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Slack member removal notification: ${err.message}`);
+      }
+    });
+    
+    setImmediate(async () => {
+      try {
+        const discordNotifier = require('../notifications/discord-notifier');
+        await discordNotifier.notifyMemberLeave({
+          uid: targetUid,
+          cid: cid,
+          reason: 'removed',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Discord member removal notification: ${err.message}`);
+      }
+    });
+    
     return { success: true };
     
   } catch (error) {

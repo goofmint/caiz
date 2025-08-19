@@ -17,11 +17,21 @@
     "static/community-edit-categories.js",
     "static/community-edit-form-utils.js",
     "static/community-edit-form.js",
+    "static/community-edit-slack.js",
+    "static/community-edit-discord.js",
+    "static/community-edit-notifications.js",
     "static/community-edit-core.js",
-    "static/members-only.js"
+    "static/members-only.js",
+    "static/slack-oauth-handler.js"
   ],
   "scss": [
     "static/style.scss"
+  ],
+  "modules": {
+    "../admin/plugins/caiz-oauth.js": "static/lib/admin/plugins/caiz.js"
+  },
+  "acpScripts": [
+    "static/lib/admin/plugins/caiz.js"
   ],
   "hooks": [
     {
@@ -71,6 +81,18 @@
     {
       "hook": "filter:unread.build",
       "method": "filterTopicsBuild"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminNavigation"
+    },
+    {
+      "hook": "action:topic.save",
+      "method": "actionTopicSave"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "actionPostSave"
     }
   ]
 }

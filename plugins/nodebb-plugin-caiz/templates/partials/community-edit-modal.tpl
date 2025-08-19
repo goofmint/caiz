@@ -19,6 +19,9 @@
               <a href="#" class="list-group-item list-group-item-action" data-tab="members">
                 <i class="fa fa-users me-2"></i>[[caiz:members]]
               </a>
+              <a href="#" class="list-group-item list-group-item-action" data-tab="notifications">
+                <i class="fa fa-bell me-2"></i>[[caiz:notifications]]
+              </a>
             </div>
           </div>
           <!-- Right Content Area (70%) -->
@@ -141,6 +144,154 @@
                 </div>
                 
                 <button id="add-member-btn" class="btn btn-primary">[[caiz:add-member]]</button>
+              </div>
+              <div class="tab-pane fade" id="notifications-tab">
+                <h6 class="mb-3">[[caiz:notification-settings]]</h6>
+                
+                <!-- Slack Notifications -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fab fa-slack me-2"></i>[[caiz:slack-notifications]]
+                    </h5>
+                    
+                    <!-- 未接続状態 -->
+                    <div id="slack-disconnected" style="display: block;">
+                      <p class="text-muted">[[caiz:slack-not-connected]]</p>
+                      <button type="button" class="btn btn-primary" id="connect-slack">
+                        <i class="fab fa-slack me-1"></i>[[caiz:connect-to-slack]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続済み状態 -->
+                    <div id="slack-connected" style="display: none;">
+                      <div class="alert alert-success">
+                        <i class="fa fa-check-circle me-1"></i>
+                        [[caiz:slack-connected-to]] <strong id="slack-team-name"></strong>
+                        <span id="slack-channel-info" style="display: none;">
+                          (<span id="slack-channel-name"></span>)
+                        </span>
+                        <br>
+                        <small class="text-muted">[[caiz:connected-at]] <span id="slack-connected-date"></span></small>
+                      </div>
+                      
+                      <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="slack-enabled" checked>
+                        <label class="form-check-label" for="slack-enabled">
+                          [[caiz:enable-slack-notifications]]
+                        </label>
+                      </div>
+                      
+                      
+                      <hr class="my-3">
+                      
+                      <button type="button" class="btn btn-outline-danger" id="disconnect-slack">
+                        <i class="fa fa-unlink me-1"></i>[[caiz:disconnect-slack]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続中状態 -->
+                    <div id="slack-connecting" style="display: none;">
+                      <div class="text-center">
+                        <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-slack]]
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Discord Notifications -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fab fa-discord me-2"></i>[[caiz:discord-notifications]]
+                    </h5>
+                    
+                    <!-- 未接続状態 -->
+                    <div id="discord-disconnected" style="display: block;">
+                      <p class="text-muted">[[caiz:discord-not-connected]]</p>
+                      <button type="button" class="btn btn-primary" id="connect-discord" style="background-color: #5865F2; border-color: #5865F2;">
+                        <i class="fab fa-discord me-1"></i>[[caiz:connect-to-discord]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続済み状態 -->
+                    <div id="discord-connected" style="display: none;">
+                      <div class="alert alert-success">
+                        <i class="fa fa-check-circle me-1"></i>
+                        [[caiz:discord-connected-to]] <strong id="discord-guild-name"></strong>
+                        <span id="discord-user-info" style="display: none;">
+                          (<span id="discord-username"></span>)
+                        </span>
+                        <br>
+                        <small class="text-muted">[[caiz:connected-at]] <span id="discord-connected-date"></span></small>
+                      </div>
+                      
+                      <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="discord-enabled" checked>
+                        <label class="form-check-label" for="discord-enabled">
+                          [[caiz:enable-discord-notifications]]
+                        </label>
+                      </div>
+                      
+                      
+                      <hr class="my-3">
+                      
+                      <button type="button" class="btn btn-outline-danger" id="disconnect-discord">
+                        <i class="fa fa-unlink me-1"></i>[[caiz:disconnect-discord]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続中状態 -->
+                    <div id="discord-connecting" style="display: none;">
+                      <div class="text-center">
+                        <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-discord]]
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Common Notification Events -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fa fa-bell me-2"></i>[[caiz:notification-events]]
+                    </h5>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-new-topic" checked>
+                      <label class="form-check-label" for="notify-new-topic">
+                        [[caiz:notify-new-topic]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-new-post" checked>
+                      <label class="form-check-label" for="notify-new-post">
+                        [[caiz:notify-new-post]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-member-join">
+                      <label class="form-check-label" for="notify-member-join">
+                        [[caiz:notify-member-join]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-member-leave">
+                      <label class="form-check-label" for="notify-member-leave">
+                        [[caiz:notify-member-leave]]
+                      </label>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" id="save-notification-settings">
+                      <span class="save-notification-btn-spinner spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                      [[caiz:save-settings]]
+                    </button>
+                  </div>
+                </div>
+                
               </div>
             </div>
           </div>
