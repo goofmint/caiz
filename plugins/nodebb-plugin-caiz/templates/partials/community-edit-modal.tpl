@@ -182,38 +182,6 @@
                         </label>
                       </div>
                       
-                      <!-- Slack Notification Events -->
-                      <div class="notification-events mt-3">
-                        <h6>[[caiz:notification-events]]</h6>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="slack-notify-new-topic" checked>
-                          <label class="form-check-label" for="slack-notify-new-topic">
-                            [[caiz:notify-new-topic]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="slack-notify-new-post" checked>
-                          <label class="form-check-label" for="slack-notify-new-post">
-                            [[caiz:notify-new-post]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="slack-notify-member-join">
-                          <label class="form-check-label" for="slack-notify-member-join">
-                            [[caiz:notify-member-join]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-3">
-                          <input type="checkbox" class="form-check-input" id="slack-notify-member-leave">
-                          <label class="form-check-label" for="slack-notify-member-leave">
-                            [[caiz:notify-member-leave]]
-                          </label>
-                        </div>
-                        
-                        <button type="button" class="btn btn-success btn-sm" id="save-slack-notification-settings">
-                          <i class="fa fa-save me-1"></i>[[caiz:save-slack-settings]]
-                        </button>
-                      </div>
                       
                       <hr class="my-3">
                       
@@ -265,38 +233,6 @@
                         </label>
                       </div>
                       
-                      <!-- Discord Notification Events -->
-                      <div class="notification-events mt-3">
-                        <h6>[[caiz:notification-events]]</h6>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="discord-notify-new-topic" checked>
-                          <label class="form-check-label" for="discord-notify-new-topic">
-                            [[caiz:notify-new-topic]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="discord-notify-new-post" checked>
-                          <label class="form-check-label" for="discord-notify-new-post">
-                            [[caiz:notify-new-post]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input type="checkbox" class="form-check-input" id="discord-notify-member-join">
-                          <label class="form-check-label" for="discord-notify-member-join">
-                            [[caiz:notify-member-join]]
-                          </label>
-                        </div>
-                        <div class="form-check mb-3">
-                          <input type="checkbox" class="form-check-input" id="discord-notify-member-leave">
-                          <label class="form-check-label" for="discord-notify-member-leave">
-                            [[caiz:notify-member-leave]]
-                          </label>
-                        </div>
-                        
-                        <button type="button" class="btn btn-success btn-sm" id="save-discord-notification-settings">
-                          <i class="fa fa-save me-1"></i>[[caiz:save-discord-settings]]
-                        </button>
-                      </div>
                       
                       <hr class="my-3">
                       
@@ -311,6 +247,48 @@
                         <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-discord]]
                       </div>
                     </div>
+                  </div>
+                </div>
+                
+                <!-- Common Notification Events -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fa fa-bell me-2"></i>[[caiz:notification-events]]
+                    </h5>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-new-topic" checked>
+                      <label class="form-check-label" for="notify-new-topic">
+                        [[caiz:notify-new-topic]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-new-post" checked>
+                      <label class="form-check-label" for="notify-new-post">
+                        [[caiz:notify-new-post]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-member-join">
+                      <label class="form-check-label" for="notify-member-join">
+                        [[caiz:notify-member-join]]
+                      </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                      <input type="checkbox" class="form-check-input" id="notify-member-leave">
+                      <label class="form-check-label" for="notify-member-leave">
+                        [[caiz:notify-member-leave]]
+                      </label>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" id="save-notification-settings">
+                      <span class="save-notification-btn-spinner spinner-border spinner-border-sm me-1" style="display: none;"></span>
+                      [[caiz:save-settings]]
+                    </button>
                   </div>
                 </div>
                 

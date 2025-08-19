@@ -494,6 +494,12 @@ function initializeModalNavigation() {
           } else {
             console.error('[caiz] DiscordConnectionManager is not defined');
           }
+          if (typeof NotificationSettingsManager !== 'undefined') {
+            console.log('[caiz] Initializing common notification settings manager for community:', currentCommunityId);
+            window.notificationManager = new NotificationSettingsManager(currentCommunityId);
+          } else {
+            console.error('[caiz] NotificationSettingsManager is not defined');
+          }
           window.notificationsInitialized = true;
         }
       }
