@@ -7,3 +7,5 @@ backup.sql
 plugins/nodebb-plugin-ai-topic-summary/node_modules
 .dev.env
 plugins/nodebb-plugin-s3-uploads
+nginx/selfsigned.crt
+nginx/selfsigned.key
