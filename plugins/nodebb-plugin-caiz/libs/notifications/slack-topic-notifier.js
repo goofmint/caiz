@@ -400,6 +400,116 @@ class SlackTopicNotifier {
         return message;
     }
 
+    async notifyMemberLeave(leaveData) {
+        try {
+            winston.info(`[plugin/caiz] Processing member leave notification for uid ${leaveData.uid} in community ${leaveData.cid}`);
+
+            // 1. コミュニティ情報を取得（parentCid === 0を確認）
+            const Categories = require.main.require('./src/categories');
+            const categoryData = await Categories.getCategoryData(leaveData.cid);
+            
+            // コミュニティが直接指定されているため、parentCid === 0のチェック
+            if (!categoryData || categoryData.parentCid !== 0) {
+                winston.warn(`[plugin/caiz] Category ${leaveData.cid} is not a root community`);
+                return;
+            }
+            
+            const communityData = categoryData;
+
+            // 2. Slack接続状況と通知設定を確認
+            const communitySlackSettings = require('../community-slack-settings');
+            const slackSettings = await communitySlackSettings.getSettings(leaveData.cid);
+            
+            if (!slackSettings || !slackSettings.accessToken || !slackSettings.webhookUrl) {
+                winston.info(`[plugin/caiz] No Slack connection for community ${leaveData.cid}, skipping member leave notification`);
+                return;
+            }
+            
+            // Get notification settings
+            const notificationSettings = await communitySlackSettings.getNotificationSettings(leaveData.cid);
+            if (!notificationSettings || !notificationSettings.memberLeave) {
+                winston.info(`[plugin/caiz] Member leave notifications disabled for community ${leaveData.cid}, skipping`);
+                return;
+            }
+
+            // 3. 退出したユーザー情報を取得
+            const User = require.main.require('./src/user');
+            const userData = await User.getUserData(leaveData.uid);
+            
+            if (!userData) {
+                winston.warn(`[plugin/caiz] User data not found for uid ${leaveData.uid}`);
+                return;
+            }
+
+            // 4. 残りメンバー数を取得
+            const CommunityMembers = require('../community/members');
+            let remainingMembers = 0;
+            try {
+                const members = await CommunityMembers.getMembers(leaveData.cid);
+                remainingMembers = members.length;
+            } catch (err) {
+                winston.warn(`[plugin/caiz] Could not get member count for community ${leaveData.cid}`);
+            }
+
+            // 5. Slack Block Kitメッセージを構築
+            const messagePayload = this.buildSlackMemberLeaveMessage(userData, communityData, leaveData.reason, remainingMembers);
+            
+            // 6. Slack Webhook経由で通知送信
+            await this.sendToSlack(slackSettings.webhookUrl, messagePayload);
+            winston.info(`[plugin/caiz] Slack member leave notification sent successfully for uid ${leaveData.uid} from community ${leaveData.cid}`);
+        } catch (err) {
+            winston.error(`[plugin/caiz] Error sending Slack member leave notification: ${err.message}`);
+        }
+    }
+
+    buildSlackMemberLeaveMessage(userData, communityData, reason, remainingMembers) {
+        // Generate community URL
+        const communityUrl = `${this.baseUrl}/${communityData.handle || communityData.slug}`;
+        
+        // Format leave date
+        const leaveDate = new Date();
+        const formattedDate = leaveDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }) + ' at ' + leaveDate.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        // Determine message based on reason
+        const isRemoved = reason === 'removed';
+        const emoji = isRemoved ? '🚫' : '👋';
+        const action = isRemoved ? 'removed' : 'left';
+        const headerText = isRemoved ? 'Member removed' : 'Member left';
+        const mainText = isRemoved 
+            ? `👤 *${userData.username}* was removed from the community`
+            : `👤 *${userData.username}* has left the community`;
+
+        const message = {
+            text: `Member ${action}: ${userData.username}`,
+            blocks: [
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text: `${emoji} *${headerText}*`
+                    }
+                },
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text: `${mainText}\n\n📍 *${communityData.name}*${remainingMembers > 0 ? `\n👥 Remaining members: ${remainingMembers}` : ''}\n🕒 ${formattedDate}`
+                    }
+                }
+            ]
+        };
+
+        return message;
+    }
+
     async sendToSlack(webhookUrl, messagePayload) {
         return new Promise((resolve, reject) => {
             const data = JSON.stringify(messagePayload);

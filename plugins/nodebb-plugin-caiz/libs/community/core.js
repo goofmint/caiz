@@ -361,6 +361,21 @@ async function Unfollow(socket, { cid }) {
   if (groupName && await Groups.exists(groupName)) {
     await Groups.leave(groupName, uid);
     winston.info(`[plugin/caiz] Removed user ${uid} from group ${groupName}`);
+    
+    // Send member leave notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('../notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyMemberLeave({
+          uid: uid,
+          cid: targetCid,
+          reason: 'voluntary',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in member leave notification: ${err.message}`);
+      }
+    });
   }
   
   return { role: 'guest' };
