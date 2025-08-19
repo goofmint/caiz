@@ -285,9 +285,6 @@ async function Follow(socket, { cid }) {
   // Find the parent category to follow
   const targetCid = await getParentCategory(cid);
   
-  // Ensure community groups exist (for old communities)
-  await ensureCommunityGroups(targetCid);
-  
   // Check if user is already a member using common function
   const currentRole = await getUserRole(uid, targetCid);
   
@@ -301,6 +298,21 @@ async function Follow(socket, { cid }) {
   if (await Groups.exists(memberGroupName)) {
     await Groups.join(memberGroupName, uid);
     winston.info(`[plugin/caiz] Added user ${uid} to member group ${memberGroupName}`);
+    
+    // Send member join notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('../notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyMemberJoin({
+          uid: uid,
+          cid: targetCid,
+          role: 'member',
+          timestamp: Date.now()
+        });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in member join notification: ${err.message}`);
+      }
+    });
   } else {
     winston.warn(`[plugin/caiz] Member group ${memberGroupName} does not exist for community ${targetCid}`);
   }

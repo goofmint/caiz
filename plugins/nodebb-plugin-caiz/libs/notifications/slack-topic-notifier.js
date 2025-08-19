@@ -284,6 +284,122 @@ class SlackTopicNotifier {
         return message;
     }
 
+    async notifyMemberJoin(memberData) {
+        try {
+            winston.info(`[plugin/caiz] Processing member join notification for uid ${memberData.uid} in community ${memberData.cid}`);
+
+            // 1. コミュニティ情報を取得（parentCid === 0を確認）
+            const Categories = require.main.require('./src/categories');
+            const categoryData = await Categories.getCategoryData(memberData.cid);
+            
+            // コミュニティが直接指定されているため、parentCid === 0のチェック
+            if (!categoryData || categoryData.parentCid !== 0) {
+                winston.warn(`[plugin/caiz] Category ${memberData.cid} is not a root community`);
+                return;
+            }
+            
+            const communityData = categoryData;
+
+            // 2. Slack接続状況と通知設定を確認
+            const communitySlackSettings = require('../community-slack-settings');
+            const slackSettings = await communitySlackSettings.getSettings(memberData.cid);
+            
+            if (!slackSettings || !slackSettings.accessToken || !slackSettings.webhookUrl) {
+                winston.info(`[plugin/caiz] No Slack connection for community ${memberData.cid}, skipping member join notification`);
+                return;
+            }
+            
+            // Get notification settings
+            const notificationSettings = await communitySlackSettings.getNotificationSettings(memberData.cid);
+            if (!notificationSettings || !notificationSettings.memberJoin) {
+                winston.info(`[plugin/caiz] Member join notifications disabled for community ${memberData.cid}, skipping`);
+                return;
+            }
+
+            // 3. 参加したユーザー情報を取得
+            const User = require.main.require('./src/user');
+            const userData = await User.getUserData(memberData.uid);
+            
+            if (!userData) {
+                winston.warn(`[plugin/caiz] User data not found for uid ${memberData.uid}`);
+                return;
+            }
+
+            // 4. Slack Block Kitメッセージを構築
+            const messagePayload = await this.buildSlackMemberJoinMessage(userData, communityData, memberData.role);
+            
+            // 5. Slack Webhook経由で通知送信
+            await this.sendToSlack(slackSettings.webhookUrl, messagePayload);
+            winston.info(`[plugin/caiz] Slack member join notification sent successfully for uid ${memberData.uid} to community ${memberData.cid}`);
+        } catch (err) {
+            winston.error(`[plugin/caiz] Error sending Slack member join notification: ${err.message}`);
+        }
+    }
+
+    async buildSlackMemberJoinMessage(userData, communityData, role) {
+        // Generate community URL
+        const communityUrl = `${this.baseUrl}/${communityData.handle || communityData.slug}`;
+        
+        // Format join date
+        const joinDate = new Date();
+        const formattedDate = joinDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }) + ' at ' + joinDate.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        // Get member count
+        const CommunityMembers = require('../community/members');
+        let totalMembers = 0;
+        try {
+            const members = await CommunityMembers.getMembers(communityData.cid);
+            totalMembers = members.length;
+        } catch (err) {
+            winston.warn(`[plugin/caiz] Could not get member count for community ${communityData.cid}`);
+        }
+
+        const message = {
+            text: `New member joined: ${userData.username}`,
+            blocks: [
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text: `🎉 *New member joined!*`
+                    }
+                },
+                {
+                    type: "section",
+                    text: {
+                        type: "mrkdwn",
+                        text: `👤 *${userData.username}* has joined the community\n\n📍 *${communityData.name}*${totalMembers > 0 ? `\n👥 Total members: ${totalMembers}` : ''}\n🕒 ${formattedDate}`
+                    }
+                }
+            ]
+        };
+
+        // Add action button
+        message.blocks.push({
+            type: "actions",
+            elements: [
+                {
+                    type: "button",
+                    text: {
+                        type: "plain_text",
+                        text: "👀 View Community"
+                    },
+                    url: communityUrl
+                }
+            ]
+        });
+
+        return message;
+    }
+
     async sendToSlack(webhookUrl, messagePayload) {
         return new Promise((resolve, reject) => {
             const data = JSON.stringify(messagePayload);
