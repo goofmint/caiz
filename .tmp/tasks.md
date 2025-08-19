@@ -56,8 +56,8 @@
 - 通知設定
   - [x] 12: コミュニティ編集モーダルに通知設定を追加
   - [x] 13: Slack、Discordアプリに必要な設定を管理画面で行えるようにする
-  - [ ] SlackのOAuth認証
-  - [ ] DiscordのOAuth認証
+  - [x] SlackのOAuth認証
+  - [ ] 15: DiscordのOAuth認証
   - [ ] Slackの通知先設定
   - [ ] Discordの通知先設定
 - MCPサーバー

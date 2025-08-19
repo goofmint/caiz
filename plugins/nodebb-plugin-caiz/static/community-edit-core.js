@@ -442,6 +442,9 @@ function initializeModalNavigation() {
           if (typeof SlackConnectionManager !== 'undefined') {
             window.slackManager = new SlackConnectionManager(currentCommunityId);
           }
+          if (typeof DiscordConnectionManager !== 'undefined') {
+            window.discordManager = new DiscordConnectionManager(currentCommunityId);
+          }
           window.notificationsInitialized = true;
         }
       }

@@ -121,6 +121,48 @@ plugin.init = async function (params) {
       res.redirect(`${url}?slack_error=server_error`);
     }
   });
+  
+  router.get('/api/v3/plugins/caiz/oauth/discord/callback', async (req, res) => {
+    try {
+      const { code, state, error } = req.query;
+      const nconf = require.main.require('nconf');
+      const url = nconf.get('url');
+      
+      if (error) {
+        winston.warn(`[plugin/caiz] Discord OAuth denied: ${error}`);
+        return res.redirect(`${url}?discord_error=access_denied`);
+      }
+      
+      if (!code || !state) {
+        winston.warn('[plugin/caiz] Discord OAuth callback missing parameters');
+        return res.redirect(`${url}?discord_error=invalid_request`);
+      }
+      
+      const discordOAuth = require('./libs/discord-oauth');
+      await discordOAuth.initialize();
+      const result = await discordOAuth.handleCallback(code, state);
+      
+      if (result.success) {
+        winston.info(`[plugin/caiz] Discord OAuth successful for community ${result.cid}`);
+        
+        // Get community handle for redirect
+        const db = require.main.require('./src/database');
+        const handle = await db.getObjectField(`category:${result.cid}`, 'handle');
+        
+        // Build redirect URL with success parameters
+        const redirectUrl = `${url}/${handle}?discord_success=1&guild=${encodeURIComponent(result.guildName || '')}`;
+        res.redirect(redirectUrl);
+      } else {
+        winston.warn('[plugin/caiz] Discord OAuth callback failed');
+        res.redirect(`${url}?discord_error=auth_failed`);
+      }
+    } catch (err) {
+      winston.error(`[plugin/caiz] Discord OAuth callback error: ${err.message}`);
+      const nconf = require.main.require('nconf');
+      const url = nconf.get('url');
+      res.redirect(`${url}?discord_error=server_error`);
+    }
+  });
 };
 
 plugin.customizeCategoriesLink = Community.customizeIndexLink;
@@ -251,6 +293,10 @@ sockets.caiz.deleteCommunity = Community.DeleteCommunity;
 const slackOAuth = require('./libs/slack-oauth');
 const communitySlackSettings = require('./libs/community-slack-settings');
 
+// Discord OAuth socket handlers
+const discordOAuth = require('./libs/discord-oauth');
+const communityDiscordSettings = require('./libs/community-discord-settings');
+
 sockets.caiz.getSlackAuthUrl = async function(socket, data) {
   if (!socket.uid) {
     throw new Error('[[error:not-logged-in]]');
@@ -354,6 +400,70 @@ sockets.caiz.setSlackChannel = async function(socket, data) {
   await communitySlackSettings.setNotificationChannel(data.cid, data.channelId, data.channelName || '');
   
   return { success: true };
+};
+
+// Discord OAuth socket handlers
+sockets.caiz.getDiscordAuthUrl = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await discordOAuth.initialize();
+  const state = discordOAuth.generateState(data.cid, socket.uid);
+  const authUrl = discordOAuth.generateAuthUrl(data.cid, state);
+  
+  return {
+    authUrl: authUrl,
+    state: state
+  };
+};
+
+sockets.caiz.getDiscordStatus = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const publicInfo = await communityDiscordSettings.getPublicInfo(data.cid);
+  return publicInfo || { connected: false };
+};
+
+sockets.caiz.disconnectDiscord = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await discordOAuth.initialize();
+  return await discordOAuth.disconnect(data.cid);
 };
 
 // Admin socket handlers for OAuth settings

@@ -206,7 +206,7 @@
                     <!-- 未接続状態 -->
                     <div id="discord-disconnected" style="display: block;">
                       <p class="text-muted">[[caiz:discord-not-connected]]</p>
-                      <button type="button" class="btn btn-primary" id="connect-discord">
+                      <button type="button" class="btn btn-primary" id="connect-discord" style="background-color: #5865F2; border-color: #5865F2;">
                         <i class="fab fa-discord me-1"></i>[[caiz:connect-to-discord]]
                       </button>
                     </div>
@@ -215,20 +215,16 @@
                     <div id="discord-connected" style="display: none;">
                       <div class="alert alert-success">
                         <i class="fa fa-check-circle me-1"></i>
-                        [[caiz:discord-connected-to]] <strong id="discord-server-name"></strong>
+                        [[caiz:discord-connected-to]] <strong id="discord-guild-name"></strong>
+                        <span id="discord-user-info" style="display: none;">
+                          (<span id="discord-username"></span>)
+                        </span>
                         <br>
                         <small class="text-muted">[[caiz:connected-at]] <span id="discord-connected-date"></span></small>
                       </div>
                       
-                      <div class="form-group mb-3">
-                        <label for="discord-channel" class="form-label">[[caiz:notification-channel]]</label>
-                        <select class="form-select" id="discord-channel">
-                          <option value="">[[caiz:loading-channels]]</option>
-                        </select>
-                      </div>
-                      
                       <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="discord-enabled">
+                        <input type="checkbox" class="form-check-input" id="discord-enabled" checked>
                         <label class="form-check-label" for="discord-enabled">
                           [[caiz:enable-discord-notifications]]
                         </label>
@@ -247,6 +243,7 @@
                     </div>
                   </div>
                 </div>
+                
                 
                 <!-- Notification Events -->
                 <div class="card">
