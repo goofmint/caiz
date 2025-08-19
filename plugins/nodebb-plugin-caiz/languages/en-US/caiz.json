@@ -202,6 +202,8 @@
   "confirm-disconnect-slack-message": "Are you sure you want to disconnect from this Slack workspace?",
   "disconnected-from-slack-successfully": "Disconnected from Slack successfully",
   "failed-to-disconnect-from-slack": "Failed to disconnect from Slack",
+  "slack-notification-settings-saved": "Slack notification settings saved",
+  "failed-to-save-slack-notification-settings": "Failed to save Slack notification settings",
   "error-loading-channels": "Error loading channels",
   "discord-not-connected": "Discord server is not connected",
   "discord-connected-to": "Connected to Discord server:",

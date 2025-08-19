@@ -148,6 +148,59 @@ class CommunitySlackSettings {
             throw err;
         }
     }
+
+    async getNotificationSettings(cid) {
+        try {
+            const db = require.main.require('./src/database');
+            const settings = await db.getObject(`community:${cid}:slack:notificationSettings`);
+            
+            // Return default settings if none exist
+            if (!settings) {
+                return {
+                    newTopic: true,        // Enable new topic notifications by default
+                    newPost: true,         // Enable new post notifications by default
+                    memberJoin: false,     // Disable member join notifications by default
+                    memberLeave: false,    // Disable member leave notifications by default
+                    updatedAt: new Date().toISOString()
+                };
+            }
+            
+            return settings;
+        } catch (err) {
+            winston.error(`[plugin/caiz] Error getting Slack notification settings for community ${cid}: ${err.message}`);
+            // Return default settings on error
+            return {
+                newTopic: true,
+                newPost: true,
+                memberJoin: false,
+                memberLeave: false,
+                updatedAt: new Date().toISOString()
+            };
+        }
+    }
+
+    async saveNotificationSettings(cid, settings) {
+        try {
+            const db = require.main.require('./src/database');
+            
+            // Validate settings
+            const validatedSettings = {
+                newTopic: !!settings.newTopic,
+                newPost: !!settings.newPost,
+                memberJoin: !!settings.memberJoin,
+                memberLeave: !!settings.memberLeave,
+                updatedAt: new Date().toISOString()
+            };
+            
+            await db.setObject(`community:${cid}:slack:notificationSettings`, validatedSettings);
+            winston.info(`[plugin/caiz] Slack notification settings saved for community ${cid}`);
+            
+            return { success: true };
+        } catch (err) {
+            winston.error(`[plugin/caiz] Error saving Slack notification settings for community ${cid}: ${err.message}`);
+            throw err;
+        }
+    }
 }
 
 module.exports = new CommunitySlackSettings();

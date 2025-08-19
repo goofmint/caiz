@@ -185,6 +185,8 @@
   "confirm-disconnect-slack-message": "Slackワークスペースとの接続を解除しますか？",
   "disconnected-from-slack-successfully": "Slack接続を解除しました",
   "failed-to-disconnect-from-slack": "Slack接続の解除に失敗しました",
+  "slack-notification-settings-saved": "Slack通知設定を保存しました",
+  "failed-to-save-slack-notification-settings": "Slack通知設定の保存に失敗しました",
   "error-loading-channels": "チャンネル読み込みエラー",
   "discord-not-connected": "Discordサーバーが接続されていません",
   "discord-connected-to": "Discordサーバーに接続済み:",

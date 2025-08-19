@@ -250,26 +250,26 @@
                   <div class="card-body">
                     <h5 class="card-title">[[caiz:notification-events]]</h5>
                     <div class="form-check mb-2">
-                      <input type="checkbox" class="form-check-input" id="notify-new-topic" checked>
-                      <label class="form-check-label" for="notify-new-topic">
+                      <input type="checkbox" class="form-check-input" id="slack-notify-new-topic" checked>
+                      <label class="form-check-label" for="slack-notify-new-topic">
                         [[caiz:notify-new-topic]]
                       </label>
                     </div>
                     <div class="form-check mb-2">
-                      <input type="checkbox" class="form-check-input" id="notify-new-post" checked>
-                      <label class="form-check-label" for="notify-new-post">
+                      <input type="checkbox" class="form-check-input" id="slack-notify-new-post" checked>
+                      <label class="form-check-label" for="slack-notify-new-post">
                         [[caiz:notify-new-post]]
                       </label>
                     </div>
                     <div class="form-check mb-2">
-                      <input type="checkbox" class="form-check-input" id="notify-member-join">
-                      <label class="form-check-label" for="notify-member-join">
+                      <input type="checkbox" class="form-check-input" id="slack-notify-member-join">
+                      <label class="form-check-label" for="slack-notify-member-join">
                         [[caiz:notify-member-join]]
                       </label>
                     </div>
                     <div class="form-check">
-                      <input type="checkbox" class="form-check-input" id="notify-member-leave">
-                      <label class="form-check-label" for="notify-member-leave">
+                      <input type="checkbox" class="form-check-input" id="slack-notify-member-leave">
+                      <label class="form-check-label" for="slack-notify-member-leave">
                         [[caiz:notify-member-leave]]
                       </label>
                     </div>

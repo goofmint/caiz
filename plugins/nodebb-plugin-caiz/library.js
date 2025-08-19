@@ -512,4 +512,68 @@ adminSockets.plugins.caiz.testOAuthConnection = async function(socket, data) {
   return await oauthSettings.testConnection(data.platform);
 };
 
+// Slack notification settings socket handlers
+sockets.caiz.getSlackNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const communitySlackSettings = require('./libs/community-slack-settings');
+  return await communitySlackSettings.getNotificationSettings(data.cid);
+};
+
+sockets.caiz.saveSlackNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.cid || !data.settings) {
+    throw new Error('Invalid parameters');
+  }
+  
+  // Check if user is community owner or manager
+  const memberRole = await Community.GetMemberRole(socket, { cid: data.cid });
+  if (memberRole.role !== 'owner' && memberRole.role !== 'manager') {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const communitySlackSettings = require('./libs/community-slack-settings');
+  return await communitySlackSettings.saveNotificationSettings(data.cid, data.settings);
+};
+
+// Topic creation notification hook
+plugin.actionTopicSave = async function(hookData) {
+  try {
+    const topicData = hookData.topic;
+    if (!topicData) {
+      return;
+    }
+
+    winston.info(`[plugin/caiz] Topic saved: ${topicData.tid}, triggering notifications`);
+
+    // Send Slack notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const slackTopicNotifier = require('./libs/notifications/slack-topic-notifier');
+        await slackTopicNotifier.notifyNewTopic(topicData);
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in Slack topic notification: ${err.message}`);
+      }
+    });
+
+  } catch (err) {
+    winston.error(`[plugin/caiz] Error in actionTopicSave hook: ${err.message}`);
+  }
+};
+
 module.exports = plugin;
