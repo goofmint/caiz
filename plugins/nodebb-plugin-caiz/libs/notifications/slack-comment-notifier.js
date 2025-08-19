@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Node.js 18+ built-in fetch
 const Categories = require.main.require('./src/categories');
 const Topics = require.main.require('./src/topics');
 const Posts = require.main.require('./src/posts');
@@ -27,10 +27,15 @@ class SlackCommentNotifier {
             let communityData = null;
             const topicCategoryData = categoryData; // トピックの直接カテゴリを保存
             
+            console.log('[SlackCommentNotifier] Starting category traversal from cid:', topicData.cid, 'name:', categoryData?.name);
+            
             // Traverse up the category tree to find the root community
             while (categoryData) {
+                console.log('[SlackCommentNotifier] Checking category:', categoryData.name, 'cid:', categoryData.cid, 'parentCid:', categoryData.parentCid);
+                
                 if (categoryData.parentCid === 0) {
                     communityData = categoryData;
+                    console.log('[SlackCommentNotifier] Found root community:', communityData.name, 'cid:', communityData.cid);
                     break;
                 }
                 categoryData = await Categories.getCategoryData(categoryData.parentCid);
@@ -44,13 +49,18 @@ class SlackCommentNotifier {
             console.log('[SlackCommentNotifier] Found community:', communityData.name, 'cid:', communityData.cid);
             
             // 3. Slack接続状況と通知設定を確認
+            console.log('[SlackCommentNotifier] Checking Slack settings for community:', communityData.cid);
             const slackSettings = await CommunitySlackSettings.getSettings(communityData.cid);
+            console.log('[SlackCommentNotifier] Slack settings:', slackSettings ? 'found' : 'not found', 
+                        'botToken:', !!slackSettings?.botToken, 'channelId:', !!slackSettings?.channelId);
+            
             if (!slackSettings || !slackSettings.botToken || !slackSettings.channelId) {
                 console.log('[SlackCommentNotifier] Slack not configured for community:', communityData.cid);
                 return;
             }
             
             // 通知設定をチェック（新規投稿が有効かどうか）
+            console.log('[SlackCommentNotifier] Notification settings:', slackSettings.notifications);
             if (!slackSettings.notifications || !slackSettings.notifications.newPost) {
                 console.log('[SlackCommentNotifier] New post notifications disabled for community:', communityData.cid);
                 return;
@@ -221,21 +231,28 @@ class SlackCommentNotifier {
      */
     async sendSlackMessage(botToken, channelId, message) {
         try {
-            const response = await axios.post('https://slack.com/api/chat.postMessage', {
+            const payload = {
                 channel: channelId,
                 ...message
-            }, {
+            };
+            
+            const response = await fetch('https://slack.com/api/chat.postMessage', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${botToken}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify(payload)
             });
             
-            if (!response.data.ok) {
-                throw new Error(`Slack API error: ${response.data.error}`);
+            const result = await response.json();
+            
+            if (!response.ok || !result.ok) {
+                throw new Error(`Slack API error: ${result.error || 'Unknown error'}`);
             }
             
             console.log('[SlackCommentNotifier] Message sent successfully to Slack');
+            return result;
             
         } catch (error) {
             console.error('[SlackCommentNotifier] Error sending Slack message:', error);
