@@ -4,94 +4,79 @@
 
 $(document).ready(function() {
     
+    let isProcessing = false;
+    
     /**
      * Process OGP placeholders and fetch data
      */
     function processOGPPlaceholders() {
-        $('.ogp-card-placeholder[data-ogp-url]').each(function() {
+        if (isProcessing) return;
+        isProcessing = true;
+        
+        const $placeholders = $('.ogp-card-placeholder[data-ogp-url]:not(.processing)');
+        if ($placeholders.length === 0) {
+            isProcessing = false;
+            return;
+        }
+        
+        $placeholders.each(function() {
             const $placeholder = $(this);
             const url = $placeholder.attr('data-ogp-url');
             
-            // Skip if already processing
-            if ($placeholder.hasClass('processing')) {
-                return;
-            }
-            
             $placeholder.addClass('processing');
             
-            // Fetch OGP data from server
-            $.ajax({
-                url: '/api/ogp-embed/fetch',
-                method: 'GET',
-                data: { url: url },
-                success: function(data) {
-                    if (data && data.url) {
-                        // Build OGP card HTML
-                        const cardHtml = buildOGPCard(data);
-                        $placeholder.replaceWith(cardHtml);
-                    } else {
-                        // Show fallback link
-                        const fallbackHtml = `<div class="ogp-card-fallback">
-                            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>
-                        </div>`;
-                        $placeholder.replaceWith(fallbackHtml);
-                    }
-                },
-                error: function() {
-                    // Show fallback link on error
-                    const fallbackHtml = `<div class="ogp-card-fallback">
-                        <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>
-                    </div>`;
-                    $placeholder.replaceWith(fallbackHtml);
+            socket.emit('ogp-embed.fetch', { url: url }, function(err, data) {
+                if (err || !data || !data.url) {
+                    $placeholder.replaceWith(
+                        '<div class="ogp-card-fallback">' +
+                        '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' +
+                        '</div>'
+                    );
+                } else {
+                    const cardHtml = buildOGPCard(data);
+                    $placeholder.replaceWith(cardHtml);
                 }
             });
         });
+        
+        isProcessing = false;
     }
     
     /**
      * Build OGP card HTML from data
      */
     function buildOGPCard(data) {
-        let html = `<div class="ogp-card" data-url="${escapeHtml(data.url)}">`;
+        let html = '<div class="ogp-card" data-url="' + escapeHtml(data.url) + '">';
         
-        // Add image if available
         if (data.image) {
-            html += `
-                <div class="ogp-card-image">
-                    <img src="${escapeHtml(data.image)}" alt="${escapeHtml(data.title || '')}" loading="lazy" onerror="this.parentElement.style.display='none'">
-                </div>`;
+            html += '<div class="ogp-card-image">' +
+                   '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'">' +
+                   '</div>';
         }
         
-        // Add content
-        html += `
-            <div class="ogp-card-content">
-                <div class="ogp-card-title">
-                    <a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer">
-                        ${escapeHtml(data.title || 'No title')}
-                    </a>
-                </div>`;
+        html += '<div class="ogp-card-content">' +
+               '<div class="ogp-card-title">' +
+               '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer">' +
+               escapeHtml(data.title || 'No title') +
+               '</a>' +
+               '</div>';
         
-        // Add description if available
         if (data.description) {
-            html += `
-                <div class="ogp-card-description">
-                    ${escapeHtml(data.description)}
-                </div>`;
+            html += '<div class="ogp-card-description">' +
+                   escapeHtml(data.description) +
+                   '</div>';
         }
         
-        // Add domain info
-        html += `
-                <div class="ogp-card-domain">`;
+        html += '<div class="ogp-card-domain">';
         
         if (data.favicon) {
-            html += `<img src="${escapeHtml(data.favicon)}" alt="" class="ogp-card-favicon" onerror="this.style.display='none'">`;
+            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" class="ogp-card-favicon" onerror="this.style.display=\'none\'">';
         }
         
-        html += `
-                    <span>${escapeHtml(data.domain || '')}</span>
-                </div>
-            </div>
-        </div>`;
+        html += '<span>' + escapeHtml(data.domain || '') + '</span>' +
+               '</div>' +
+               '</div>' +
+               '</div>';
         
         return html;
     }
@@ -111,34 +96,9 @@ $(document).ready(function() {
         return text.replace(/[&<>"']/g, function(m) { return map[m]; });
     }
     
-    /**
-     * Handle dynamically loaded content
-     */
-    $(window).on('action:posts.loaded action:chat.loaded action:composer.preview', function() {
-        setTimeout(processOGPPlaceholders, 100);
-    });
-    
-    /**
-     * Handle topic load
-     */
-    $(window).on('action:topic.loaded', function() {
+    $(window).on('action:posts.loaded action:topic.loaded', function() {
         processOGPPlaceholders();
     });
     
-    /**
-     * Process on initial page load
-     */
     processOGPPlaceholders();
-    
-    /**
-     * Admin cache clear functionality
-     */
-    if (app.user && app.user.isAdmin) {
-        $(window).on('action:ajaxify.end', function() {
-            // Add cache clear button to admin pages if needed
-            if (window.location.pathname.indexOf('/admin') === 0) {
-                // Admin-specific functionality can be added here
-            }
-        });
-    }
 });

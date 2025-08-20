@@ -134,15 +134,18 @@ require(['admin/modules/settings'], function(Settings) {
 
     $('#clear-cache').on('click', function() {
         const btn = $(this);
-        btn.prop('disabled', true).text('[[ogp-embed:clearing]]');
-
-        $.ajax({
-            url: '/api/ogp-embed/cache/clear',
-            method: 'POST',
-            headers: {
-                'x-csrf-token': config.csrf_token
-            },
-            success: function() {
+        btn.prop('disabled', true);
+        
+        socket.emit('admin.ogp-embed.clearCache', {}, function(err) {
+            if (err) {
+                app.alert({
+                    type: 'danger',
+                    alert_id: 'ogp-cache-error',
+                    title: 'Error',
+                    message: '[[ogp-embed:cache-error]]',
+                    timeout: 3000
+                });
+            } else {
                 app.alert({
                     type: 'success',
                     alert_id: 'ogp-cache-cleared',
@@ -151,19 +154,8 @@ require(['admin/modules/settings'], function(Settings) {
                     timeout: 2000
                 });
                 loadCacheStats();
-            },
-            error: function() {
-                app.alert({
-                    type: 'danger',
-                    alert_id: 'ogp-cache-error',
-                    title: 'Error',
-                    message: '[[ogp-embed:cache-error]]',
-                    timeout: 3000
-                });
-            },
-            complete: function() {
-                btn.prop('disabled', false).text('[[ogp-embed:clear-cache]]');
             }
+            btn.prop('disabled', false);
         });
     });
 
@@ -177,52 +169,42 @@ require(['admin/modules/settings'], function(Settings) {
             return;
         }
 
-        btn.prop('disabled', true).text('Testing...');
+        btn.prop('disabled', true);
         result.html('<div class="text-muted">[[ogp-embed:parsing]]</div>');
 
-        $.ajax({
-            url: '/api/ogp-embed/fetch',
-            method: 'GET',
-            data: { url: url },
-            success: function(data) {
-                if (data && data.title) {
-                    result.html(`
-                        <div class="alert alert-success">
-                            <strong>[[ogp-embed:success]]</strong><br>
-                            <strong>[[ogp-embed:title-label]]:</strong> ${data.title}<br>
-                            <strong>[[ogp-embed:description-label]]:</strong> ${data.description || 'N/A'}<br>
-                            <strong>[[ogp-embed:domain-label]]:</strong> ${data.domain}
-                        </div>
-                    `);
-                } else {
-                    result.html('<div class="alert alert-warning">[[ogp-embed:no-data]]</div>');
-                }
-            },
-            error: function() {
+        socket.emit('ogp-embed.testParse', { url: url }, function(err, data) {
+            if (err) {
                 result.html('<div class="alert alert-danger">[[ogp-embed:parse-failed]]</div>');
-            },
-            complete: function() {
-                btn.prop('disabled', false).text('[[ogp-embed:test]]');
+            } else if (data && data.title) {
+                result.html(
+                    '<div class="alert alert-success">' +
+                    '<strong>[[ogp-embed:success]]</strong><br>' +
+                    '<strong>[[ogp-embed:title-label]]:</strong> ' + data.title + '<br>' +
+                    '<strong>[[ogp-embed:description-label]]:</strong> ' + (data.description || 'N/A') + '<br>' +
+                    '<strong>[[ogp-embed:domain-label]]:</strong> ' + data.domain +
+                    '</div>'
+                );
+            } else {
+                result.html('<div class="alert alert-warning">[[ogp-embed:no-data]]</div>');
             }
+            btn.prop('disabled', false);
         });
     });
 
     function loadCacheStats() {
-        // In a real implementation, you would fetch cache statistics from the server
-        $('#cache-stats').html(`
-            <div class="d-flex justify-content-between">
-                <span>[[ogp-embed:cache-status]]:</span>
-                <span class="text-success">[[ogp-embed:active]]</span>
-            </div>
-            <div class="d-flex justify-content-between">
-                <span>TTL:</span>
-                <span>24 [[ogp-embed:hours]]</span>
-            </div>
-            <small class="text-muted">[[ogp-embed:cache-not-implemented]]</small>
-        `);
+        $('#cache-stats').html(
+            '<div class="d-flex justify-content-between">' +
+            '<span>[[ogp-embed:cache-status]]:</span>' +
+            '<span class="text-success">[[ogp-embed:active]]</span>' +
+            '</div>' +
+            '<div class="d-flex justify-content-between">' +
+            '<span>TTL:</span>' +
+            '<span>24 [[ogp-embed:hours]]</span>' +
+            '</div>' +
+            '<small class="text-muted">[[ogp-embed:cache-not-implemented]]</small>'
+        );
     }
 
-    // Load cache stats on page load
     loadCacheStats();
 });
 </script>

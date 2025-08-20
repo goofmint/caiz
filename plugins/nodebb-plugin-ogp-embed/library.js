@@ -16,7 +16,7 @@ const URL_REGEX = /^(?:\[([^\]]+)\]\()?((https?:\/\/)[^\s\)]+)(?:\))?$/gm;
  * Plugin initialization
  */
 plugin.onLoad = async function(params) {
-    const { app, middleware } = params;
+    const { app, middleware, io } = params;
     
     winston.info('[ogp-embed] Plugin loaded');
     
@@ -31,47 +31,80 @@ plugin.onLoad = async function(params) {
         });
     });
     
-    // API endpoint for fetching OGP data
-    app.get('/api/ogp-embed/fetch', middleware.authenticateRequest, async (req, res) => {
-        const { url } = req.query;
-        
-        if (!url) {
-            return res.status(400).json({ error: 'URL is required' });
-        }
-        
-        try {
-            // Check cache first
-            let ogpData = await cache.get(url);
-            
-            if (!ogpData) {
-                // Parse OGP data
-                ogpData = await parser.parse(url);
-                
-                if (ogpData) {
-                    // Save to cache
-                    await cache.set(url, ogpData);
-                }
+    // WebSocket handlers
+    if (io && io.admin) {
+        io.admin.on('admin.ogp-embed.clearCache', async (socket, data, callback) => {
+            if (!socket.uid) {
+                return callback(new Error('Not authenticated'));
             }
             
-            res.json(ogpData || {});
-        } catch (err) {
-            winston.error(`[ogp-embed] Error fetching OGP data: ${err.message}`);
-            res.status(500).json({ error: 'Failed to fetch OGP data' });
-        }
-    });
+            const user = require.main.require('./src/user');
+            const isAdmin = await user.isAdministrator(socket.uid);
+            if (!isAdmin) {
+                return callback(new Error('Forbidden'));
+            }
+            
+            try {
+                await cache.clearAll();
+                callback(null, { success: true });
+            } catch (err) {
+                winston.error(`[ogp-embed] Error clearing cache: ${err.message}`);
+                callback(err);
+            }
+        });
+    }
     
-    // API endpoint for clearing cache
-    app.post('/api/ogp-embed/cache/clear', middleware.authenticateRequest, middleware.isAdmin, async (req, res) => {
-        const { url } = req.body;
+    if (io) {
+        io.on('ogp-embed.testParse', async (socket, data, callback) => {
+            const { url } = data;
+            
+            if (!url) {
+                return callback(new Error('URL is required'));
+            }
+            
+            try {
+                let ogpData = await cache.get(url);
+                
+                if (!ogpData) {
+                    ogpData = await parser.parse(url);
+                    
+                    if (ogpData) {
+                        await cache.set(url, ogpData);
+                    }
+                }
+                
+                callback(null, ogpData || {});
+            } catch (err) {
+                winston.error(`[ogp-embed] Error testing OGP parse: ${err.message}`);
+                callback(err);
+            }
+        });
         
-        if (url) {
-            await cache.clear(url);
-        } else {
-            await cache.clearAll();
-        }
-        
-        res.json({ success: true });
-    });
+        io.on('ogp-embed.fetch', async (socket, data, callback) => {
+            const { url } = data;
+            
+            if (!url) {
+                return callback(new Error('URL is required'));
+            }
+            
+            try {
+                let ogpData = await cache.get(url);
+                
+                if (!ogpData) {
+                    ogpData = await parser.parse(url);
+                    
+                    if (ogpData) {
+                        await cache.set(url, ogpData);
+                    }
+                }
+                
+                callback(null, ogpData || {});
+            } catch (err) {
+                winston.error(`[ogp-embed] Error fetching OGP data: ${err.message}`);
+                callback(err);
+            }
+        });
+    }
 };
 
 /**
