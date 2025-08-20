@@ -23,13 +23,6 @@ async function parse(url) {
             return null;
         }
 
-        // Check domain whitelist/blacklist
-        const urlObj = new URL(url);
-        const isDomainAllowed = await settings.isDomainAllowed(urlObj.hostname);
-        if (!isDomainAllowed) {
-            winston.warn(`[ogp-embed] Domain not allowed: ${urlObj.hostname}`);
-            return null;
-        }
         
         winston.info(`[ogp-embed] Parsing OGP for: ${url}`);
         

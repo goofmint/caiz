@@ -56,23 +56,6 @@
                                     </div>
                                 </div>
 
-                                <div class="mb-3">
-                                    <label for="userAgentString" class="form-label">Custom User Agent</label>
-                                    <input type="text" id="userAgentString" name="userAgentString" title="User Agent" class="form-control" placeholder="Mozilla/5.0 (compatible; NodeBB OGP Embed Bot/1.0)" />
-                                    <p class="form-text">Custom user agent string for OGP requests (leave empty for default)</p>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="whitelist" class="form-label">Domain Whitelist</label>
-                                    <textarea id="whitelist" name="whitelist" title="Whitelist" class="form-control" rows="3" placeholder="example.com&#10;trusted-site.org"></textarea>
-                                    <p class="form-text">Allowed domains (one per line, leave empty to allow all)</p>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="blacklist" class="form-label">Domain Blacklist</label>
-                                    <textarea id="blacklist" name="blacklist" title="Blacklist" class="form-control" rows="3" placeholder="spam-site.com&#10;blocked-domain.net"></textarea>
-                                    <p class="form-text">Blocked domains (one per line)</p>
-                                </div>
 
                                 <hr />
 

@@ -12,9 +12,7 @@ class OGPSettings {
             maxDescriptionLength: 200,
             showFavicon: true,
             openInNewTab: true,
-            userAgentString: 'Mozilla/5.0 (compatible; NodeBB OGP Embed Bot/1.0)',
-            whitelist: '',
-            blacklist: ''
+            userAgentString: 'Mozilla/5.0 (compatible; NodeBB OGP Embed Bot/1.0)'
         };
     }
 
@@ -79,54 +77,6 @@ class OGPSettings {
         return (ttl || 24) * 60 * 60 * 1000; // Convert to milliseconds
     }
 
-    /**
-     * Get domain whitelist as array
-     * @returns {Array}
-     */
-    async getWhitelist() {
-        const whitelist = await this.getSetting('whitelist');
-        return whitelist ? whitelist.split('\n').map(d => d.trim()).filter(Boolean) : [];
-    }
-
-    /**
-     * Get domain blacklist as array
-     * @returns {Array}
-     */
-    async getBlacklist() {
-        const blacklist = await this.getSetting('blacklist');
-        return blacklist ? blacklist.split('\n').map(d => d.trim()).filter(Boolean) : [];
-    }
-
-    /**
-     * Check if domain is allowed
-     * @param {string} domain
-     * @returns {boolean}
-     */
-    async isDomainAllowed(domain) {
-        const whitelist = await this.getWhitelist();
-        const blacklist = await this.getBlacklist();
-
-        // Check blacklist first
-        if (blacklist.length > 0) {
-            for (const blocked of blacklist) {
-                if (domain.includes(blocked)) {
-                    return false;
-                }
-            }
-        }
-
-        // Check whitelist if it exists
-        if (whitelist.length > 0) {
-            for (const allowed of whitelist) {
-                if (domain.includes(allowed)) {
-                    return true;
-                }
-            }
-            return false; // Not in whitelist
-        }
-
-        return true; // No whitelist, domain is allowed
-    }
 }
 
 module.exports = new OGPSettings();
