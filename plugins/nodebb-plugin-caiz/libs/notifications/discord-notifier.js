@@ -149,25 +149,31 @@ class DiscordNotifier extends NotifierBase {
         // Format timestamp
         const timestamp = new Date(topicData.timestamp).toISOString();
         
+        // Decode HTML entities in text fields
+        const decodedTitle = this.decodeHtmlEntities(topicData.title);
+        const decodedUsername = this.decodeHtmlEntities(userData.displayname || userData.username);
+        const decodedCommunityName = this.decodeHtmlEntities(communityData.name);
+        const decodedCategoryName = this.decodeHtmlEntities(categoryData?.name || 'General');
+        
         return {
             embeds: [{
-                title: topicData.title,
+                title: decodedTitle,
                 description: contentPreview || 'No preview available',
                 url: topicUrl,
                 color: 3447003, // Blue color for new topics
                 author: {
-                    name: userData.displayname || userData.username,
+                    name: decodedUsername,
                     icon_url: userAvatarUrl
                 },
                 fields: [
                     {
                         name: 'Community',
-                        value: communityData.name,
+                        value: decodedCommunityName,
                         inline: true
                     },
                     {
                         name: 'Category',
-                        value: categoryData?.name || 'General',
+                        value: decodedCategoryName,
                         inline: true
                     }
                 ],
@@ -247,25 +253,31 @@ class DiscordNotifier extends NotifierBase {
         // Format timestamp
         const timestamp = new Date(commentData.timestamp).toISOString();
         
+        // Decode HTML entities in text fields
+        const decodedTitle = this.decodeHtmlEntities(topicData.title);
+        const decodedUsername = this.decodeHtmlEntities(userData.displayname || userData.username);
+        const decodedCommunityName = this.decodeHtmlEntities(communityData.name);
+        const decodedCategoryName = this.decodeHtmlEntities(categoryData?.name || 'General');
+        
         return {
             embeds: [{
-                title: `Re: ${topicData.title}`,
+                title: `Re: ${decodedTitle}`,
                 description: contentPreview || 'No preview available',
                 url: commentUrl,
                 color: 5763719, // Green color for comments
                 author: {
-                    name: userData.displayname || userData.username,
+                    name: decodedUsername,
                     icon_url: userAvatarUrl
                 },
                 fields: [
                     {
                         name: 'Community',
-                        value: communityData.name,
+                        value: decodedCommunityName,
                         inline: true
                     },
                     {
                         name: 'Category',
-                        value: categoryData?.name || 'General',
+                        value: decodedCategoryName,
                         inline: true
                     }
                 ],
@@ -337,10 +349,14 @@ class DiscordNotifier extends NotifierBase {
         const userAvatarUrl = userData.picture || `${this.baseUrl}/assets/uploads/system/avatar.png`;
         const timestamp = new Date().toISOString();
         
+        // Decode HTML entities
+        const decodedUsername = this.decodeHtmlEntities(userData.displayname || userData.username);
+        const decodedCommunityName = this.decodeHtmlEntities(communityData.name);
+        
         return {
             embeds: [{
                 title: '🎉 New member joined!',
-                description: `**${userData.displayname || userData.username}** has joined the community`,
+                description: `**${decodedUsername}** has joined the community`,
                 url: communityUrl,
                 color: 15844367, // Gold color for member joins
                 thumbnail: {
@@ -349,7 +365,7 @@ class DiscordNotifier extends NotifierBase {
                 fields: [
                     {
                         name: 'Community',
-                        value: communityData.name,
+                        value: decodedCommunityName,
                         inline: true
                     },
                     {
@@ -427,11 +443,15 @@ class DiscordNotifier extends NotifierBase {
         const userAvatarUrl = userData.picture || `${this.baseUrl}/assets/uploads/system/avatar.png`;
         const timestamp = new Date().toISOString();
         
+        // Decode HTML entities
+        const decodedUsername = this.decodeHtmlEntities(userData.displayname || userData.username);
+        const decodedCommunityName = this.decodeHtmlEntities(communityData.name);
+        
         const isRemoved = reason === 'removed';
         const title = isRemoved ? '🚫 Member removed' : '👋 Member left';
         const description = isRemoved 
-            ? `**${userData.displayname || userData.username}** was removed from the community`
-            : `**${userData.displayname || userData.username}** has left the community`;
+            ? `**${decodedUsername}** was removed from the community`
+            : `**${decodedUsername}** has left the community`;
         const color = isRemoved ? 15158332 : 10070709; // Red for removed, gray for voluntary
         
         return {
@@ -446,7 +466,7 @@ class DiscordNotifier extends NotifierBase {
                 fields: [
                     {
                         name: 'Community',
-                        value: communityData.name,
+                        value: decodedCommunityName,
                         inline: true
                     },
                     {

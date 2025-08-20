@@ -646,16 +646,9 @@ plugin.actionPostSave = async function(hookData) {
     const post = hookData.post;
     
     // 新規投稿（コメント）かチェック
-    if (!post) {
+    if (!post || post.isMainPost) {
+      winston.info(`[plugin/caiz] Skipping main post ${post?.pid} - handled by topic creation hook`);
       return;
-    }
-
-    // トピックデータを取得してメインポストかどうか確認
-    const Topics = require.main.require('./src/topics');
-    const topicData = await Topics.getTopicField(post.tid, 'mainPid');
-    
-    if (post.pid === topicData) {
-      return; // トピック作成は別の通知で処理
     }
 
     winston.info(`[plugin/caiz] Post saved: ${post.pid}, triggering comment notifications`);

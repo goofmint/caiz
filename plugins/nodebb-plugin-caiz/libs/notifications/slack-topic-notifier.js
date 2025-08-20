@@ -2,10 +2,11 @@ const winston = require.main.require('winston');
 const nconf = require.main.require('nconf');
 const https = require('https');
 const querystring = require('querystring');
+const NotifierBase = require('./notifier-base');
 
-class SlackTopicNotifier {
+class SlackTopicNotifier extends NotifierBase {
     constructor() {
-        this.baseUrl = nconf.get('url');
+        super();
     }
 
     async notifyNewComment(postData) {
@@ -167,21 +168,28 @@ class SlackTopicNotifier {
         // Get content preview (first 100 characters)
         let contentPreview = '';
         if (topicData.content) {
-            // Strip HTML tags and get plain text
-            const plainText = topicData.content.replace(/<[^>]*>/g, '').trim();
+            // Strip HTML tags and decode entities
+            const plainText = this.decodeHtmlEntities(
+                topicData.content.replace(/<[^>]*>/g, '').trim()
+            );
             contentPreview = plainText.length > 100 
                 ? plainText.substring(0, 100) + '...'
                 : plainText;
         }
 
+        // Decode HTML entities in all text fields
+        const decodedTitle = this.decodeHtmlEntities(topicData.title);
+        const decodedCommunityName = this.decodeHtmlEntities(categoryData.name);
+        const decodedUsername = this.decodeHtmlEntities(userData.username);
+        
         const message = {
-            text: `New Topic: ${topicData.title}`,
+            text: `New Topic: ${decodedTitle}`,
             blocks: [
                 {
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: `*New Topic Created*\n\n*Community:* ${categoryData.name}\n*Title:* ${topicData.title}\n*Author:* ${userData.username}\n*Created:* ${formattedDate}`
+                        text: `*New Topic Created*\n\n*Community:* ${decodedCommunityName}\n*Title:* ${decodedTitle}\n*Author:* ${decodedUsername}\n*Created:* ${formattedDate}`
                     }
                 }
             ]
@@ -235,21 +243,28 @@ class SlackTopicNotifier {
         // Get content preview (first 200 characters)
         let contentPreview = '';
         if (commentData.content) {
-            // Strip HTML tags and get plain text
-            const plainText = commentData.content.replace(/<[^>]*>/g, '').trim();
+            // Strip HTML tags and decode entities
+            const plainText = this.decodeHtmlEntities(
+                commentData.content.replace(/<[^>]*>/g, '').trim()
+            );
             contentPreview = plainText.length > 200 
                 ? plainText.substring(0, 197) + '...'
                 : plainText;
         }
 
+        // Decode HTML entities in all text fields
+        const decodedTitle = this.decodeHtmlEntities(topicData.title);
+        const decodedCommunityName = this.decodeHtmlEntities(categoryData.name);
+        const decodedUsername = this.decodeHtmlEntities(userData.username);
+        
         const message = {
-            text: `New Comment: ${topicData.title}`,
+            text: `New Comment: ${decodedTitle}`,
             blocks: [
                 {
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: `*New Comment Posted*\n\n*Community:* ${categoryData.name}\n*Topic:* ${topicData.title}\n*Author:* ${userData.username}\n*Posted:* ${formattedDate}`
+                        text: `*New Comment Posted*\n\n*Community:* ${decodedCommunityName}\n*Topic:* ${decodedTitle}\n*Author:* ${decodedUsername}\n*Posted:* ${formattedDate}`
                     }
                 }
             ]
@@ -376,7 +391,7 @@ class SlackTopicNotifier {
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: `👤 *${userData.username}* has joined the community\n\n📍 *${communityData.name}*${totalMembers > 0 ? `\n👥 Total members: ${totalMembers}` : ''}\n🕒 ${formattedDate}`
+                        text: `👤 *${this.decodeHtmlEntities(userData.username)}* has joined the community\n\n📍 *${this.decodeHtmlEntities(communityData.name)}*${totalMembers > 0 ? `\n👥 Total members: ${totalMembers}` : ''}\n🕒 ${formattedDate}`
                     }
                 }
             ]
@@ -483,12 +498,15 @@ class SlackTopicNotifier {
         const emoji = isRemoved ? '🚫' : '👋';
         const action = isRemoved ? 'removed' : 'left';
         const headerText = isRemoved ? 'Member removed' : 'Member left';
+        const decodedUsername = this.decodeHtmlEntities(userData.username);
+        const decodedCommunityName = this.decodeHtmlEntities(communityData.name);
+        
         const mainText = isRemoved 
-            ? `👤 *${userData.username}* was removed from the community`
-            : `👤 *${userData.username}* has left the community`;
+            ? `👤 *${decodedUsername}* was removed from the community`
+            : `👤 *${decodedUsername}* has left the community`;
 
         const message = {
-            text: `Member ${action}: ${userData.username}`,
+            text: `Member ${action}: ${decodedUsername}`,
             blocks: [
                 {
                     type: "section",
@@ -501,7 +519,7 @@ class SlackTopicNotifier {
                     type: "section",
                     text: {
                         type: "mrkdwn",
-                        text: `${mainText}\n\n📍 *${communityData.name}*${remainingMembers > 0 ? `\n👥 Remaining members: ${remainingMembers}` : ''}\n🕒 ${formattedDate}`
+                        text: `${mainText}\n\n📍 *${decodedCommunityName}*${remainingMembers > 0 ? `\n👥 Remaining members: ${remainingMembers}` : ''}\n🕒 ${formattedDate}`
                     }
                 }
             ]
