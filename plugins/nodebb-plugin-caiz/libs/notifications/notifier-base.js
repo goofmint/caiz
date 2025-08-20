@@ -56,6 +56,47 @@ class NotifierBase {
     }
 
     /**
+     * Decode HTML entities
+     * @param {string} text - Text with HTML entities
+     * @returns {string} Decoded text
+     */
+    decodeHtmlEntities(text) {
+        if (!text) return text;
+        
+        // Common HTML entities
+        const entities = {
+            '&amp;': '&',
+            '&lt;': '<',
+            '&gt;': '>',
+            '&quot;': '"',
+            '&#39;': "'",
+            '&#039;': "'",
+            '&nbsp;': ' ',
+            '&#x2F;': '/',
+            '&#x60;': '`',
+            '&#x3D;': '='
+        };
+        
+        // Replace named and numeric entities
+        let decoded = text;
+        for (const [entity, char] of Object.entries(entities)) {
+            decoded = decoded.replace(new RegExp(entity, 'g'), char);
+        }
+        
+        // Handle numeric entities (e.g., &#123;)
+        decoded = decoded.replace(/&#(\d+);/g, (match, dec) => {
+            return String.fromCharCode(dec);
+        });
+        
+        // Handle hex entities (e.g., &#x2F;)
+        decoded = decoded.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => {
+            return String.fromCharCode(parseInt(hex, 16));
+        });
+        
+        return decoded;
+    }
+
+    /**
      * Format content preview (strip HTML and truncate)
      * @param {string} content - HTML content
      * @param {number} maxLength - Maximum length (default 200)
@@ -68,12 +109,7 @@ class NotifierBase {
         let plainText = content.replace(/<[^>]*>/g, '');
         
         // Decode HTML entities
-        plainText = plainText.replace(/&nbsp;/g, ' ')
-                            .replace(/&amp;/g, '&')
-                            .replace(/&lt;/g, '<')
-                            .replace(/&gt;/g, '>')
-                            .replace(/&quot;/g, '"')
-                            .replace(/&#039;/g, "'");
+        plainText = this.decodeHtmlEntities(plainText);
         
         // Normalize whitespace
         plainText = plainText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
