@@ -1,0 +1,31 @@
+{
+  "name": "nodebb-plugin-ogp-embed",
+  "version": "1.0.0",
+  "description": "Embed Open Graph Protocol previews in posts",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/nodebb-plugin-ogp-embed"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "ogp",
+    "embed",
+    "open-graph"
+  ],
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/nodebb-plugin-ogp-embed/issues"
+  },
+  "nbbpm": {
+    "compatibility": "^3.0.0"
+  },
+  "dependencies": {
+    "ogp-parser": "^0.7.0"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "nodebb-plugin-ogp-embed",
+  "name": "OGP Embed Plugin",
+  "description": "Embed Open Graph Protocol previews in posts",
+  "url": "https://github.com/yourusername/nodebb-plugin-ogp-embed",
+  "library": "./library.js",
+  "hooks": [
+    {
+      "hook": "filter:parse.post",
+      "method": "parsePost"
+    },
+    {
+      "hook": "filter:parse.raw",
+      "method": "parseRaw"
+    },
+    {
+      "hook": "static:app.load",
+      "method": "onLoad"
+    }
+  ],
+  "staticDirs": {
+    "static": "./static"
+  },
+  "less": [
+    "static/style.less"
+  ],
+  "acpScripts": [],
+  "modules": {
+    "ogp-parser.js": "./node_modules/ogp-parser/index.js"
+  },
+  "scripts": [
+    "static/client.js"
+  ],
+  "templates": "./templates"
+}
