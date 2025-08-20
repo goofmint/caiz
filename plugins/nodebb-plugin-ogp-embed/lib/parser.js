@@ -4,6 +4,7 @@ const winston = require.main.require('winston');
 const nconf = require.main.require('nconf');
 const fetch = require('node-fetch');
 const ogpParser = require('ogp-parser');
+const settings = require('./settings');
 
 class OGPParser {
     constructor() {
@@ -18,19 +19,37 @@ class OGPParser {
      */
     async parse(url) {
         try {
+            // Check if plugin is enabled
+            const isEnabled = await settings.isEnabled();
+            if (!isEnabled) {
+                return null;
+            }
+
             // Validate URL
             if (!this.validateUrl(url)) {
                 winston.warn(`[ogp-embed] Invalid URL: ${url}`);
                 return null;
             }
+
+            // Check domain whitelist/blacklist
+            const urlObj = new URL(url);
+            const isDomainAllowed = await settings.isDomainAllowed(urlObj.hostname);
+            if (!isDomainAllowed) {
+                winston.warn(`[ogp-embed] Domain not allowed: ${urlObj.hostname}`);
+                return null;
+            }
             
             winston.info(`[ogp-embed] Parsing OGP for: ${url}`);
             
+            // Get settings
+            const timeout = await settings.getTimeout();
+            const userAgent = await settings.getSetting('userAgentString') || this.userAgent;
+            
             // Use ogp-parser to fetch and parse
             const data = await ogpParser(url, {
-                timeout: this.timeout,
+                timeout: timeout,
                 headers: {
-                    'User-Agent': this.userAgent,
+                    'User-Agent': userAgent,
                     'Accept': 'text/html,application/xhtml+xml',
                     'Accept-Language': 'en-US,en;q=0.9'
                 }
@@ -42,7 +61,8 @@ class OGPParser {
             }
             
             // Extract and normalize OGP data
-            const normalized = this.normalizeOGPData(data, url);
+            const maxDescLength = await settings.getSetting('maxDescriptionLength') || 200;
+            const normalized = this.normalizeOGPData(data, url, maxDescLength);
             
             winston.info(`[ogp-embed] Successfully parsed OGP for: ${url}`);
             return normalized;
@@ -59,7 +79,7 @@ class OGPParser {
      * @param {string} url - Original URL
      * @returns {Object} Normalized data
      */
-    normalizeOGPData(data, url) {
+    normalizeOGPData(data, url, maxDescLength = 200) {
         const ogp = data.ogp || {};
         const seo = data.seo || {};
         
@@ -98,8 +118,8 @@ class OGPParser {
                 .trim();
             
             // Truncate if too long
-            if (normalized.description.length > 200) {
-                normalized.description = normalized.description.substring(0, 197) + '...';
+            if (normalized.description.length > maxDescLength) {
+                normalized.description = normalized.description.substring(0, maxDescLength - 3) + '...';
             }
         }
         

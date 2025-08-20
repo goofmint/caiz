@@ -23,6 +23,14 @@ plugin.onLoad = async function(params) {
     // Initialize cache
     await cache.initialize();
     
+    // Admin route for settings page
+    const routeHelpers = require.main.require('./src/routes/helpers');
+    routeHelpers.setupAdminPageRoute(app, '/admin/plugins/ogp-embed', [], (req, res) => {
+        res.render('admin/plugins/ogp-embed', {
+            title: 'OGP Embed Settings'
+        });
+    });
+    
     // API endpoint for fetching OGP data
     app.get('/api/ogp-embed/fetch', middleware.authenticateRequest, async (req, res) => {
         const { url } = req.query;
@@ -150,6 +158,19 @@ plugin.parsePost = async function(data) {
     }
     
     return data;
+};
+
+/**
+ * Add admin navigation for OGP settings
+ */
+plugin.addAdminNavigation = function(header, callback) {
+    header.plugins.push({
+        route: '/plugins/ogp-embed',
+        icon: 'fa-link',
+        name: 'OGP Embed Settings'
+    });
+    
+    callback(null, header);
 };
 
 module.exports = plugin;

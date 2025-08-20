@@ -2,11 +2,19 @@
 
 const winston = require.main.require('winston');
 const db = require.main.require('./src/database');
+const settings = require('./settings');
 
 class OGPCache {
     constructor() {
-        this.ttl = 86400 * 1000; // 24 hours in milliseconds
         this.keyPrefix = 'ogp-embed:cache:';
+    }
+
+    /**
+     * Get TTL from settings
+     * @returns {number} TTL in milliseconds
+     */
+    async getTTL() {
+        return await settings.getCacheTTL();
     }
 
     /**
@@ -54,9 +62,10 @@ class OGPCache {
     async set(url, data) {
         try {
             const key = this.getCacheKey(url);
+            const ttl = await this.getTTL();
             const cacheData = {
                 data: data,
-                expiry: Date.now() + this.ttl,
+                expiry: Date.now() + ttl,
                 created: Date.now()
             };
             
@@ -64,7 +73,7 @@ class OGPCache {
             
             // Set expiry in Redis (if using Redis)
             if (db.client && db.client.pexpire) {
-                await db.client.pexpire(key, this.ttl);
+                await db.client.pexpire(key, ttl);
             }
             
             winston.info(`[ogp-embed] Cached data for: ${url}`);
