@@ -108,21 +108,77 @@ function normalizeOGPData(data, url, maxDescLength = 200) {
 function validateUrl(url) {
     try {
         const urlObj = new URL(url);
+        const net = require('net');
         
         // Check protocol
         if (!['http:', 'https:'].includes(urlObj.protocol)) {
             return false;
         }
         
-        // Check for private IPs (basic SSRF protection)
         const hostname = urlObj.hostname;
-        if (hostname === 'localhost' || 
-            hostname === '127.0.0.1' ||
-            hostname.startsWith('192.168.') ||
-            hostname.startsWith('10.') ||
-            hostname.startsWith('172.')) {
-            winston.warn(`[ogp-embed] Blocked private IP: ${hostname}`);
-            return false;
+        
+        // Check if it's an IP address
+        const ipVersion = net.isIP(hostname);
+        
+        if (ipVersion === 4) {
+            // Parse IPv4 octets
+            const parts = hostname.split('.').map(Number);
+            
+            // Check for loopback
+            if (parts[0] === 127) {
+                winston.warn(`[ogp-embed] Blocked loopback IP: ${hostname}`);
+                return false;
+            }
+            
+            // Check RFC1918 private ranges
+            // 10.0.0.0/8
+            if (parts[0] === 10) {
+                winston.warn(`[ogp-embed] Blocked private IP (10.0.0.0/8): ${hostname}`);
+                return false;
+            }
+            
+            // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
+            if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) {
+                winston.warn(`[ogp-embed] Blocked private IP (172.16.0.0/12): ${hostname}`);
+                return false;
+            }
+            
+            // 192.168.0.0/16
+            if (parts[0] === 192 && parts[1] === 168) {
+                winston.warn(`[ogp-embed] Blocked private IP (192.168.0.0/16): ${hostname}`);
+                return false;
+            }
+        } else if (ipVersion === 6) {
+            // Check IPv6 reserved addresses
+            const addr = hostname.toLowerCase();
+            
+            // Loopback ::1
+            if (addr === '::1' || addr === '0:0:0:0:0:0:0:1') {
+                winston.warn(`[ogp-embed] Blocked IPv6 loopback: ${hostname}`);
+                return false;
+            }
+            
+            // ULA (fc00::/7)
+            if (addr.startsWith('fc') || addr.startsWith('fd')) {
+                winston.warn(`[ogp-embed] Blocked IPv6 ULA: ${hostname}`);
+                return false;
+            }
+            
+            // Link-local (fe80::/10)
+            if (addr.startsWith('fe8') || addr.startsWith('fe9') || 
+                addr.startsWith('fea') || addr.startsWith('feb')) {
+                winston.warn(`[ogp-embed] Blocked IPv6 link-local: ${hostname}`);
+                return false;
+            }
+        } else {
+            // It's a hostname, not an IP
+            // Check for obvious local hostnames
+            if (hostname === 'localhost' || hostname.endsWith('.local')) {
+                winston.warn(`[ogp-embed] Blocked local hostname: ${hostname}`);
+                return false;
+            }
+            // Note: DNS resolution check would go here for production
+            // This would require async validation before fetching
         }
         
         return true;

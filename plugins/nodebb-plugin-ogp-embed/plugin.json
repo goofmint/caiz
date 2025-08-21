@@ -11,7 +11,7 @@
     },
     {
       "hook": "filter:parse.post",
-      "method": "hooks.filters.parsePost",
+      "method": "parsePost",
       "priority": 8
     },
     {

@@ -45,8 +45,19 @@ class OGPCache {
                 return null;
             }
             
+            // Parse JSON data if stored as string
+            let data = cached.data;
+            if (typeof data === 'string') {
+                try {
+                    data = JSON.parse(data);
+                } catch (parseErr) {
+                    winston.error(`[ogp-embed] Cache parse error for ${url}: ${parseErr.message}`);
+                    return null;
+                }
+            }
+            
             winston.info(`[ogp-embed] Cache hit for: ${url}`);
-            return cached.data;
+            return data;
             
         } catch (err) {
             winston.error(`[ogp-embed] Cache get error: ${err.message}`);
@@ -64,12 +75,15 @@ class OGPCache {
             const key = this.getCacheKey(url);
             const ttl = await this.getTTL();
             const cacheData = {
-                data: data,
+                data: JSON.stringify(data),
                 expiry: Date.now() + ttl,
                 created: Date.now()
             };
             
             await db.setObject(key, cacheData);
+            
+            // Add to index for tracking
+            await db.sortedSetAdd(this.keyPrefix + 'index', Date.now(), key);
             
             // Set expiry in Redis (if using Redis)
             if (db.client && db.client.pexpire) {
@@ -91,6 +105,10 @@ class OGPCache {
         try {
             const key = this.getCacheKey(url);
             await db.delete(key);
+            
+            // Remove from index to keep it in sync
+            await db.sortedSetRemove(this.keyPrefix + 'index', key);
+            
             winston.info(`[ogp-embed] Cleared cache for: ${url}`);
         } catch (err) {
             winston.error(`[ogp-embed] Cache clear error: ${err.message}`);

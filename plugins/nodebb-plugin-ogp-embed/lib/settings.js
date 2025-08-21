@@ -23,7 +23,7 @@ class OGPSettings {
     async getSettings() {
         try {
             const settings = await meta.settings.get('ogp-embed');
-            return { ...this.defaults, ...settings };
+            return { ...this.defaults, ...(settings || {}) };
         } catch (err) {
             return this.defaults;
         }

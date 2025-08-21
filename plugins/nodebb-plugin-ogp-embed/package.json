@@ -5,7 +5,7 @@
   "main": "library.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/nodebb-plugin-ogp-embed"
+    "url": "https://github.com/nakatsugawa/caiz.dev"
   },
   "keywords": [
     "nodebb",
@@ -15,12 +15,12 @@
     "open-graph"
   ],
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "nakatsugawa",
+    "email": "nakatsugart@gmail.com"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/yourusername/nodebb-plugin-ogp-embed/issues"
+    "url": "https://github.com/nakatsugawa/caiz.dev/issues"
   },
   "nbbpm": {
     "compatibility": "^3.0.0"
