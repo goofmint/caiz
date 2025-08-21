@@ -19,6 +19,8 @@ const URL_REGEX = /https?:\/\/(?:[-\w.])+(?:[:\d]+)?(?:\/(?:[\w._~!$&'()*+,;=:@]
  * Plugin initialization
  */
 plugin.onLoad = async function(params) {
+    const { router, middleware } = params;
+    
     winston.info('[ogp-embed] Plugin loaded');
     winston.info('[ogp-embed] Available methods:', Object.keys(plugin));
     
@@ -29,9 +31,11 @@ plugin.onLoad = async function(params) {
     // Initialize admin module
     adminRules.init(params);
     
-    // Register admin routes
-    if (params.router && params.middleware) {
-        plugin.defineAdminRoutes(params);
+    // Setup admin routes
+    if (router && middleware) {
+        router.get('/admin/plugins/ogp-embed/rules', middleware.admin.buildHeader, renderAdminPage);
+        router.get('/api/admin/plugins/ogp-embed/rules', middleware.admin.buildHeader, renderAdminPage);
+        winston.info('[ogp-embed] Admin routes registered');
     }
     
     // Register socket handlers
@@ -81,6 +85,14 @@ plugin.onPostSave = async function(data) {
     }
 };
 
+/**
+ * Render admin page
+ */
+function renderAdminPage(req, res) {
+    res.render('admin/plugins/ogp-embed/rules', {
+        title: 'OGP Embed Rules'
+    });
+}
 
 /**
  * Parse post content and embed OGP cards
@@ -142,23 +154,6 @@ plugin.addAdminNavigation = function(header, callback) {
     callback(null, header);
 };
 
-/**
- * Define admin routes  
- */
-plugin.defineAdminRoutes = function(params) {
-    const { router, middleware } = params;
-    
-    router.get('/admin/plugins/ogp-embed/rules', 
-        middleware.admin.checkPrivileges, 
-        function(req, res) {
-            res.render('admin/plugins/ogp-embed/rules', {
-                title: 'OGP Embed Rules'
-            });
-        }
-    );
-    
-    winston.info('[ogp-embed] Admin routes registered');
-};
 
 plugin.hooks = {
     filters: {
