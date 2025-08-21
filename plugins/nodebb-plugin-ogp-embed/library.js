@@ -29,6 +29,11 @@ plugin.onLoad = async function(params) {
     // Initialize admin module
     adminRules.init(params);
     
+    // Register admin routes
+    if (params.router && params.middleware) {
+        plugin.defineAdminRoutes(params);
+    }
+    
     // Register socket handlers
     const io = require.main.require('./src/socket.io');
     adminRules.registerSockets(io.server.sockets);
@@ -138,21 +143,21 @@ plugin.addAdminNavigation = function(header, callback) {
 };
 
 /**
- * Define admin routes
+ * Define admin routes  
  */
-plugin.defineAdminRoutes = function(routes, callback) {
-    routes.push({
-        route: '/plugins/ogp-embed/rules',
-        method: 'get',
-        options: {},
-        handler: function(req, res, next) {
+plugin.defineAdminRoutes = function(params) {
+    const { router, middleware } = params;
+    
+    router.get('/admin/plugins/ogp-embed/rules', 
+        middleware.admin.checkPrivileges, 
+        function(req, res) {
             res.render('admin/plugins/ogp-embed/rules', {
                 title: 'OGP Embed Rules'
             });
         }
-    });
-
-    callback(null, routes);
+    );
+    
+    winston.info('[ogp-embed] Admin routes registered');
 };
 
 plugin.hooks = {
