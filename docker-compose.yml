@@ -23,4 +23,4 @@ services:
     volumes:
       - ./plugins:/usr/src/plugins
       - ./app:/usr/src/app
-    command: ['nodebb', 'start']
+    command: bash -lc " ./nodebb build && node loader.js --no-daemon"

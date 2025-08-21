@@ -56,16 +56,36 @@ class OGPRenderer {
                 favicon: ogpData.favicon ? validator.escape(ogpData.favicon) : ''
             };
             
-            // Compile and render template
+            // Use NodeBB's benchpress render method
             try {
-                const compiled = await benchpress.precompile(template, {});
-                const fn = await benchpress.evaluate(compiled);
-                const html = fn(data);
+                const html = await benchpress.render(template, data);
                 return html;
             } catch (compileErr) {
                 winston.error(`[ogp-embed] Template compile error: ${compileErr.message}`);
                 // Fallback to simple string replacement
-                return template
+                let html = template;
+                
+                // Handle conditional blocks
+                if (data.favicon) {
+                    html = html.replace(/<!-- IF favicon -->([\s\S]*?)<!-- ENDIF favicon -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF favicon -->([\s\S]*?)<!-- ENDIF favicon -->/g, '');
+                }
+                
+                if (data.description) {
+                    html = html.replace(/<!-- IF description -->([\s\S]*?)<!-- ENDIF description -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF description -->([\s\S]*?)<!-- ENDIF description -->/g, '');
+                }
+                
+                if (data.image) {
+                    html = html.replace(/<!-- IF image -->([\s\S]*?)<!-- ENDIF image -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF image -->([\s\S]*?)<!-- ENDIF image -->/g, '');
+                }
+                
+                // Replace variables
+                return html
                     .replace(/\{url\}/g, data.url)
                     .replace(/\{title\}/g, data.title)
                     .replace(/\{description\}/g, data.description)
