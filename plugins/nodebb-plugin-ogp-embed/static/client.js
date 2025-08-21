@@ -25,7 +25,7 @@ $(document).ready(function() {
             
             $placeholder.addClass('processing');
             
-            socket.emit('ogp-embed.fetch', { url: url }, function(err, data) {
+            socket.emit('plugins.ogpEmbed.fetch', { url: url }, function(err, data) {
                 if (err || !data || !data.url) {
                     $placeholder.replaceWith(
                         '<div class="ogp-card-fallback">' +

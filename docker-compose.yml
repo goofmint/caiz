@@ -11,8 +11,8 @@ services:
       - nodebb
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/selfsigned.crt:/etc/nginx/selfsigned.crt:ro
-      - ./nginx/selfsigned.key:/etc/nginx/selfsigned.key:ro
+      - ./nginx/selfsigned.crt:/etc/nginx/caiz.crt:ro
+      - ./nginx/selfsigned.key:/etc/nginx/cai.key:ro
   nodebb:
     build: .
     env_file:

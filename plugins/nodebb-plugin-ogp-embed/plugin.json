@@ -6,34 +6,27 @@
   "library": "./library.js",
   "hooks": [
     {
-      "hook": "filter:parse.post",
-      "method": "parsePost"
+      "hook": "action:post.save",
+      "method": "onPostSave"
     },
     {
-      "hook": "filter:parse.raw",
-      "method": "parseRaw"
+      "hook": "filter:parse.post",
+      "method": "hooks.filters.parsePost",
+      "priority": 8
     },
     {
       "hook": "static:app.load",
       "method": "onLoad"
-    },
-    {
-      "hook": "filter:admin.header.build",
-      "method": "addAdminNavigation"
     }
   ],
   "staticDirs": {
     "static": "./static"
   },
+  "templates": "./templates",
   "less": [
     "static/style.less"
   ],
-  "acpScripts": [],
-  "modules": {
-    "ogp-parser.js": "./node_modules/ogp-parser/index.js"
-  },
   "scripts": [
     "static/client.js"
-  ],
-  "templates": "./templates"
+  ]
 }

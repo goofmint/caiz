@@ -3,10 +3,30 @@
 const winston = require.main.require('winston');
 const nconf = require.main.require('nconf');
 const validator = require.main.require('validator');
+const benchpress = require.main.require('benchpressjs');
+const path = require('path');
+const fs = require('fs').promises;
 
 class OGPRenderer {
     constructor() {
         this.baseUrl = nconf.get('url');
+        this.templatePath = path.join(__dirname, '../templates/partials/ogp-card.tpl');
+        this.templateCache = null;
+    }
+
+    /**
+     * Load template
+     */
+    async loadTemplate() {
+        if (!this.templateCache) {
+            try {
+                this.templateCache = await fs.readFile(this.templatePath, 'utf8');
+            } catch (err) {
+                winston.error(`[ogp-embed] Failed to load template: ${err.message}`);
+                return null;
+            }
+        }
+        return this.templateCache;
     }
 
     /**
@@ -20,60 +40,39 @@ class OGPRenderer {
                 return this.renderFallback(ogpData?.url || '#');
             }
             
+            const template = await this.loadTemplate();
+            if (!template) {
+                return this.renderFallback(ogpData.url);
+            }
+            
             // Escape HTML to prevent XSS
-            const escaped = {
+            const data = {
                 url: validator.escape(ogpData.url),
                 title: validator.escape(ogpData.title || 'No title'),
-                description: validator.escape(ogpData.description || ''),
+                description: ogpData.description ? validator.escape(ogpData.description) : '',
                 image: ogpData.image ? validator.escape(ogpData.image) : '',
                 siteName: validator.escape(ogpData.siteName || ''),
                 domain: validator.escape(ogpData.domain || ''),
-                favicon: validator.escape(ogpData.favicon || '')
+                favicon: ogpData.favicon ? validator.escape(ogpData.favicon) : ''
             };
             
-            // Build HTML using template-like structure
-            let html = `<div class="ogp-card" data-url="${escaped.url}">`;
-            
-            // Add image if available
-            if (escaped.image) {
-                html += `
-                    <div class="ogp-card-image">
-                        <img src="${escaped.image}" alt="${escaped.title}" loading="lazy" onerror="this.parentElement.style.display='none'">
-                    </div>`;
+            // Compile and render template
+            try {
+                const compiled = await benchpress.precompile(template, {});
+                const fn = await benchpress.evaluate(compiled);
+                const html = fn(data);
+                return html;
+            } catch (compileErr) {
+                winston.error(`[ogp-embed] Template compile error: ${compileErr.message}`);
+                // Fallback to simple string replacement
+                return template
+                    .replace(/\{url\}/g, data.url)
+                    .replace(/\{title\}/g, data.title)
+                    .replace(/\{description\}/g, data.description)
+                    .replace(/\{image\}/g, data.image)
+                    .replace(/\{domain\}/g, data.domain)
+                    .replace(/\{favicon\}/g, data.favicon);
             }
-            
-            // Add content
-            html += `
-                <div class="ogp-card-content">
-                    <div class="ogp-card-title">
-                        <a href="${escaped.url}" target="_blank" rel="noopener noreferrer">
-                            ${escaped.title}
-                        </a>
-                    </div>`;
-            
-            // Add description if available
-            if (escaped.description) {
-                html += `
-                    <div class="ogp-card-description">
-                        ${escaped.description}
-                    </div>`;
-            }
-            
-            // Add domain info
-            html += `
-                    <div class="ogp-card-domain">`;
-            
-            if (escaped.favicon) {
-                html += `<img src="${escaped.favicon}" alt="" class="ogp-card-favicon" onerror="this.style.display='none'">`;
-            }
-            
-            html += `
-                        <span>${escaped.domain}</span>
-                    </div>
-                </div>
-            </div>`;
-            
-            return html;
             
         } catch (err) {
             winston.error(`[ogp-embed] Render error: ${err.message}`);

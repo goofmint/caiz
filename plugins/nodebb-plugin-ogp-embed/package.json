@@ -26,6 +26,6 @@
     "compatibility": "^3.0.0"
   },
   "dependencies": {
-    "ogp-parser": "^0.7.0"
+    "ogp-parser": "^0.7.1"
   }
 }
