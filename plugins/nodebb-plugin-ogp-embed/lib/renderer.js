@@ -45,33 +45,64 @@ class OGPRenderer {
                 return this.renderFallback(ogpData.url);
             }
             
-            // Escape HTML to prevent XSS
-            const data = {
-                url: validator.escape(ogpData.url),
-                title: validator.escape(ogpData.title || 'No title'),
-                description: ogpData.description ? validator.escape(ogpData.description) : '',
-                image: ogpData.image ? validator.escape(ogpData.image) : '',
-                siteName: validator.escape(ogpData.siteName || ''),
-                domain: validator.escape(ogpData.domain || ''),
-                favicon: ogpData.favicon ? validator.escape(ogpData.favicon) : ''
+            // Prepare raw data for Benchpress (it handles escaping automatically)
+            const rawData = {
+                url: ogpData.url,
+                title: ogpData.title || 'No title',
+                description: ogpData.description || '',
+                image: ogpData.image || '',
+                siteName: ogpData.siteName || '',
+                domain: ogpData.domain || '',
+                favicon: ogpData.favicon || ''
             };
             
-            // Compile and render template
+            // Use Benchpress compileRender for raw template strings
             try {
-                const compiled = await benchpress.precompile(template, {});
-                const fn = await benchpress.evaluate(compiled);
-                const html = fn(data);
+                const html = await benchpress.compileRender(template, rawData);
                 return html;
             } catch (compileErr) {
                 winston.error(`[ogp-embed] Template compile error: ${compileErr.message}`);
-                // Fallback to simple string replacement
-                return template
-                    .replace(/\{url\}/g, data.url)
-                    .replace(/\{title\}/g, data.title)
-                    .replace(/\{description\}/g, data.description)
-                    .replace(/\{image\}/g, data.image)
-                    .replace(/\{domain\}/g, data.domain)
-                    .replace(/\{favicon\}/g, data.favicon);
+                
+                // Fallback: manually escape data for string replacement
+                const escapedData = {
+                    url: validator.escape(rawData.url),
+                    title: validator.escape(rawData.title),
+                    description: validator.escape(rawData.description),
+                    image: validator.escape(rawData.image),
+                    siteName: validator.escape(rawData.siteName),
+                    domain: validator.escape(rawData.domain),
+                    favicon: validator.escape(rawData.favicon)
+                };
+                
+                let html = template;
+                
+                // Handle conditional blocks
+                if (rawData.favicon) {
+                    html = html.replace(/<!-- IF favicon -->([\s\S]*?)<!-- ENDIF favicon -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF favicon -->([\s\S]*?)<!-- ENDIF favicon -->/g, '');
+                }
+                
+                if (rawData.description) {
+                    html = html.replace(/<!-- IF description -->([\s\S]*?)<!-- ENDIF description -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF description -->([\s\S]*?)<!-- ENDIF description -->/g, '');
+                }
+                
+                if (rawData.image) {
+                    html = html.replace(/<!-- IF image -->([\s\S]*?)<!-- ENDIF image -->/g, '$1');
+                } else {
+                    html = html.replace(/<!-- IF image -->([\s\S]*?)<!-- ENDIF image -->/g, '');
+                }
+                
+                // Replace variables with escaped values
+                return html
+                    .replace(/\{url\}/g, escapedData.url)
+                    .replace(/\{title\}/g, escapedData.title)
+                    .replace(/\{description\}/g, escapedData.description)
+                    .replace(/\{image\}/g, escapedData.image)
+                    .replace(/\{domain\}/g, escapedData.domain)
+                    .replace(/\{favicon\}/g, escapedData.favicon);
             }
             
         } catch (err) {
