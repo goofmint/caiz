@@ -1,0 +1,126 @@
+// Slack-style OGP Card Styles
+.ogp-embed-card {
+    margin: 0.75rem 0;
+    max-width: 500px;
+    transition: box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out;
+    
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+    }
+    
+    .card-body {
+        padding: 12px !important;
+    }
+
+    // Slack-style thumbnail image (80x80, rounded)
+    img[style*="width: 80px"] {
+        border-radius: 4px;
+        object-fit: cover;
+        background: #f8f9fa;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    // Slack-style title link
+    h6 a {
+        color: #1264a3 !important;
+        font-weight: 600;
+        text-decoration: none;
+        line-height: 1.3;
+        
+        &:hover {
+            text-decoration: underline !important;
+        }
+    }
+    
+    // Domain with favicon styling
+    .small.text-muted {
+        font-size: 0.8125rem;
+        color: #616061 !important;
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        
+        img {
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 0.5rem;
+            border-radius: 2px;
+        }
+    }
+    
+    // Description text
+    .card-text.text-muted.small {
+        color: #616061 !important;
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-bottom: 0;
+        
+        // Limit to 2 lines
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    // Mobile responsive - stack layout
+    @media (max-width: 576px) {
+        max-width: 100%;
+        
+        .d-flex {
+            flex-direction: column !important;
+        }
+        
+        .ms-3 {
+            margin-left: 0 !important;
+            margin-top: 0.75rem !important;
+            align-self: flex-start;
+        }
+        
+        img[style*="width: 80px"] {
+            width: 100px !important;
+            height: 100px !important;
+        }
+    }
+}
+
+// Dark theme support for Slack-style cards
+[data-bs-theme="dark"],
+.theme-dark {
+    .ogp-embed-card {
+        background: #1a1d21 !important;
+        border-color: #2c3338 !important;
+        
+        h6 a {
+            color: #58a6ff !important;
+        }
+        
+        .small.text-muted {
+            color: #8b949e !important;
+        }
+        
+        .card-text.text-muted.small {
+            color: #8b949e !important;
+        }
+        
+        img[style*="width: 80px"] {
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+    }
+}
+
+// Animation for hover effects
+@keyframes slideUp {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-1px);
+    }
+}
+
+// Additional spacing for post content
+[component="post"] .ogp-embed-card {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}

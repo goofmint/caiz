@@ -68,20 +68,21 @@
     - [x] 21: 新規コメント
     - [x] 22: 新規メンバー参加
     - [x] 23: メンバー退出
-- MCPサーバー
+- 埋め込み
+  - [x] 24: URLのOGP表示
+  - YouTube
+  - X
+  - GitHub Snippet
 - 追加レンダリング
   - [ ] Mermaid
   - [ ] MathJax
   - [ ] KaTeX
   - [ ] PlantUML
+- MCPサーバー
 - API用トークンの管理
 - Webhook
-- 埋め込み
-  - YouTube
-  - X
-  - GitHub Snippet
-  - URLのOGP表示
 - 配信
   - [ ] RTMP受信
 - コミュニティごとの未読表示
 - 自動翻訳
+- Sentry対応
