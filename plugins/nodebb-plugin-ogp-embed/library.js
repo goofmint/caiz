@@ -5,6 +5,9 @@ const nconf = require.main.require('nconf');
 const parser = require('./lib/parser');
 const cache = require('./lib/cache');
 const renderer = require('./lib/renderer');
+const rulesManager = require('./lib/rules/manager');
+const regexProcessor = require('./lib/rules/processor');
+const adminRules = require('./lib/admin/rules');
 
 const plugin = {};
 const baseUrl = nconf.get('url');
@@ -19,8 +22,18 @@ plugin.onLoad = async function(params) {
     winston.info('[ogp-embed] Plugin loaded');
     winston.info('[ogp-embed] Available methods:', Object.keys(plugin));
     
-    // Initialize cache
+    // Initialize components
     await cache.initialize();
+    await rulesManager.initialize();
+    
+    // Register admin routes and sockets
+    if (params.router) {
+        adminRules.init(params);
+    }
+    
+    // Register socket handlers
+    const io = require.main.require('./src/socket.io');
+    adminRules.registerSockets(io.server.sockets);
 };
 
 /**
@@ -86,12 +99,22 @@ plugin.parsePost = async function(hookData) {
         const url = match[1];
         
         try {
-            const ogpData = await cache.get(url);
+            // First, try regex rules
+            const regexResult = await regexProcessor.processURL(url);
             
-            if (ogpData && ogpData.title) {
-                const cardHtml = await renderer.render(ogpData);
-                processedContent = processedContent.replace(fullMatch, cardHtml);
-                winston.info(`[ogp-embed] Replaced URL with OGP card: ${url}`);
+            if (regexResult) {
+                // Regex rule matched, use the result
+                processedContent = processedContent.replace(fullMatch, regexResult);
+                winston.info(`[ogp-embed] Applied regex rule for URL: ${url}`);
+            } else {
+                // No regex rule matched, fall back to OGP
+                const ogpData = await cache.get(url);
+                
+                if (ogpData && ogpData.title) {
+                    const cardHtml = await renderer.render(ogpData);
+                    processedContent = processedContent.replace(fullMatch, cardHtml);
+                    winston.info(`[ogp-embed] Replaced URL with OGP card: ${url}`);
+                }
             }
         } catch (err) {
             winston.error(`[ogp-embed] Error processing URL ${url}: ${err.message}`);
@@ -102,6 +125,19 @@ plugin.parsePost = async function(hookData) {
     return hookData;
 };
 
+
+/**
+ * Add admin navigation menu
+ */
+plugin.addAdminNavigation = function(header, callback) {
+    header.plugins.push({
+        route: '/plugins/ogp-embed/rules',
+        icon: 'fa-link',
+        name: 'OGP Embed Rules'
+    });
+
+    callback(null, header);
+};
 
 plugin.hooks = {
     filters: {

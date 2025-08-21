@@ -7,19 +7,20 @@ NodeBB OGPプラグインに正規表現ベースの柔軟な埋め込みルー�
 ## 機能要件
 
 ### 管理画面機能
+
 - [ ] 埋め込みルールの一覧表示
 - [ ] 新規埋め込みルール作成
 - [ ] 既存ルール編集
 - [ ] ルール削除
 - [ ] ルールの有効/無効切り替え
-- [ ] ルール実行順序の設定
+- [ ] ルール実行順序の並び替え
+  - 上から順番に実行
 
 ### 埋め込みルール設定項目
 - [ ] ルール名称（管理用）
 - [ ] 正規表現パターン
 - [ ] テンプレート文字列
 - [ ] ルール有効/無効フラグ
-- [ ] 実行優先度
 
 ### 処理ロジック
 - [ ] URL解析時の正規表現マッチング
@@ -28,6 +29,14 @@ NodeBB OGPプラグインに正規表現ベースの柔軟な埋め込みルー�
 - [ ] 複数ルールの優先度処理
 
 ## 技術仕様
+
+- 処理はリストの上から実行していく
+- すべてにマッチしない場合は、OGP埋め込みを行う
+- 処理対象は行頭のURLのみ（文中のURLは対象外）
+  - HTMLなので、行頭のURLは `<a .*?href="...">` の形式
+- 管理画面の処理はWebSocketで行う
+- URL抽出の処理はNodeBBのフックを使用
+- 表示の処理はNodeBBのフックを使用
 
 ### データベーススキーマ
 
@@ -42,45 +51,6 @@ NodeBB OGPプラグインに正規表現ベースの柔軟な埋め込みルー�
   priority: Number,        // 実行優先度（数値が小さいほど高優先度）
   createdAt: Date,         // 作成日時
   updatedAt: Date          // 更新日時
-}
-```
-
-### APIエンドポイント
-
-```javascript
-// 管理用REST API
-class EmbedRulesAPI {
-  /**
-   * 全ルール取得
-   * GET /api/admin/plugins/ogp-embed/rules
-   */
-  async getRules(req, res) {
-    // ルール一覧を優先度順で返却
-  }
-
-  /**
-   * ルール作成
-   * POST /api/admin/plugins/ogp-embed/rules
-   */
-  async createRule(req, res) {
-    // 新規ルール作成・バリデーション
-  }
-
-  /**
-   * ルール更新
-   * PUT /api/admin/plugins/ogp-embed/rules/:ruleId
-   */
-  async updateRule(req, res) {
-    // 既存ルール更新・バリデーション
-  }
-
-  /**
-   * ルール削除
-   * DELETE /api/admin/plugins/ogp-embed/rules/:ruleId
-   */
-  async deleteRule(req, res) {
-    // ルール削除処理
-  }
 }
 ```
 
