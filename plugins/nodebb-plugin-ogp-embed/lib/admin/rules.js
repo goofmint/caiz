@@ -18,15 +18,34 @@ adminRules.init = function(params) {
         middleware.admin.checkPrivileges
     ];
 
+    // Admin page route
+    router.get('/admin/plugins/ogp-embed/rules', middlewares, adminRules.renderAdmin);
+
     // API routes
-    router.get('/admin/plugins/ogp-embed/rules', middlewares, adminRules.getRules);
-    router.post('/admin/plugins/ogp-embed/rules', middlewares, adminRules.createRule);
-    router.put('/admin/plugins/ogp-embed/rules/:ruleId', middlewares, adminRules.updateRule);
-    router.delete('/admin/plugins/ogp-embed/rules/:ruleId', middlewares, adminRules.deleteRule);
-    router.post('/admin/plugins/ogp-embed/rules/reorder', middlewares, adminRules.reorderRules);
-    router.post('/admin/plugins/ogp-embed/rules/test', middlewares, adminRules.testRule);
+    router.get('/api/admin/plugins/ogp-embed/rules', middlewares, adminRules.getRules);
+    router.post('/api/admin/plugins/ogp-embed/rules', middlewares, adminRules.createRule);
+    router.put('/api/admin/plugins/ogp-embed/rules/:ruleId', middlewares, adminRules.updateRule);
+    router.delete('/api/admin/plugins/ogp-embed/rules/:ruleId', middlewares, adminRules.deleteRule);
+    router.post('/api/admin/plugins/ogp-embed/rules/reorder', middlewares, adminRules.reorderRules);
+    router.post('/api/admin/plugins/ogp-embed/rules/test', middlewares, adminRules.testRule);
     
     winston.info('[ogp-embed] Admin routes registered');
+};
+
+/**
+ * Render admin page
+ */
+adminRules.renderAdmin = async function(req, res) {
+    try {
+        const templateData = {
+            title: 'OGP Embed Rules'
+        };
+
+        res.render('admin/plugins/ogp-embed/rules', templateData);
+    } catch (err) {
+        winston.error(`[ogp-embed] Admin render error: ${err.message}`);
+        res.status(500).send('Internal Server Error');
+    }
 };
 
 /**
