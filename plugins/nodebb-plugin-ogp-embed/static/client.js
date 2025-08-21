@@ -25,7 +25,7 @@ $(document).ready(function() {
             
             $placeholder.addClass('processing');
             
-            socket.emit('plugins.ogpEmbed.fetch', { url: url }, function(err, data) {
+            socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err, data) {
                 if (err || !data || !data.url) {
                     $placeholder.replaceWith(
                         '<div class="ogp-card-fallback">' +
@@ -43,40 +43,47 @@ $(document).ready(function() {
     }
     
     /**
-     * Build OGP card HTML from data
+     * Build OGP card HTML from data (matching server-side template)
      */
     function buildOGPCard(data) {
-        let html = '<div class="ogp-card" data-url="' + escapeHtml(data.url) + '">';
+        let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;">';
+        html += '<div class="card-body p-3">';
+        html += '<div class="d-flex">';
+        html += '<div class="flex-grow-1">';
         
-        if (data.image) {
-            html += '<div class="ogp-card-image">' +
-                   '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'">' +
-                   '</div>';
-        }
-        
-        html += '<div class="ogp-card-content">' +
-               '<div class="ogp-card-title">' +
-               '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer">' +
-               escapeHtml(data.title || 'No title') +
-               '</a>' +
-               '</div>';
-        
-        if (data.description) {
-            html += '<div class="ogp-card-description">' +
-                   escapeHtml(data.description) +
-                   '</div>';
-        }
-        
-        html += '<div class="ogp-card-domain">';
-        
+        // Favicon and domain
+        html += '<div class="d-flex align-items-center mb-2">';
         if (data.favicon) {
-            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" class="ogp-card-favicon" onerror="this.style.display=\'none\'">';
+            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" width="16" height="16" class="me-2" onerror="this.style.display=\'none\'" style="width: 16px; height: 16px; padding: 0; border: none;">';
+        }
+        html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
+        html += '</div>';
+        
+        // Title
+        html += '<h6 class="mb-2">';
+        html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary">';
+        html += escapeHtml(data.title || 'No title');
+        html += '</a>';
+        html += '</h6>';
+        
+        // Description
+        if (data.description) {
+            html += '<p class="card-text text-muted small mb-0">' + escapeHtml(data.description) + '</p>';
         }
         
-        html += '<span>' + escapeHtml(data.domain || '') + '</span>' +
-               '</div>' +
-               '</div>' +
-               '</div>';
+        html += '</div>';
+        
+        // Image
+        if (data.image) {
+            html += '<div class="ms-3" style="flex-shrink: 0;">';
+            html += '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" class="rounded" ';
+            html += 'style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none" onerror="this.style.display=\'none\'">';
+            html += '</div>';
+        }
+        
+        html += '</div>'; // d-flex
+        html += '</div>'; // card-body
+        html += '</div>'; // card
         
         return html;
     }

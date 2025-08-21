@@ -70,9 +70,7 @@
     - [x] 23: メンバー退出
 - 埋め込み
   - [x] 24: URLのOGP表示
-  - YouTube
-  - X
-  - GitHub Snippet
+  - [ ] 25: 正規表現でのURLから埋め込みへの変換
 - 追加レンダリング
   - [ ] Mermaid
   - [ ] MathJax

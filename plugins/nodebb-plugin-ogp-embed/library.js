@@ -5,22 +5,79 @@ const nconf = require.main.require('nconf');
 const parser = require('./lib/parser');
 const cache = require('./lib/cache');
 const renderer = require('./lib/renderer');
+const rulesManager = require('./lib/rules/manager');
+const regexProcessor = require('./lib/rules/processor');
+const adminRules = require('./lib/admin/rules');
+const clientSockets = require('./lib/client/sockets');
+const utils = require('./lib/rules/utils');
 
 const plugin = {};
 const baseUrl = nconf.get('url');
 
-// URL detection regex - improved pattern
-const URL_REGEX = /https?:\/\/(?:[-\w.])+(?:[:\d]+)?(?:\/(?:[\w._~!$&'()*+,;=:@]|%[\da-f]{2})*)*(?:\?(?:[\w._~!$&'()*+,;=:@/?]|%[\da-f]{2})*)?(?:#(?:[\w._~!$&'()*+,;=:@/?]|%[\da-f]{2})*)?/gi;
+// Common URL pattern
+const URL_PATTERN = `https?:\\/\\/[^"\\s]+`;
+
+/**
+ * Extract URLs from raw text content (for onPostSave)
+ * @param {string} content - Raw text content
+ * @returns {string[]} Array of URLs found
+ */
+function extractURLsFromRawText(content) {
+    const urlRegex = new RegExp(URL_PATTERN, 'gi');
+    const urls = content.match(urlRegex) || [];
+    winston.info(`[ogp-embed] Raw text content (first 500 chars): ${content.substring(0, 500)}`);
+    winston.info(`[ogp-embed] Extracted ${urls.length} URLs from raw text: ${urls.join(', ')}`);
+    return urls;
+}
+
+/**
+ * Extract URLs from HTML content (for parsePost)
+ * @param {string} content - HTML content
+ * @returns {string[]} Array of URLs found  
+ */
+function extractURLsFromHTML(content) {
+    const results = [];
+    // Match links in paragraphs (with or without closing </p>, and with possible <br /> tags)
+    const linkRegex = new RegExp(`<p[^>]*>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>(?:\\s*<br\\s*\\/?>)?(?:\\s*<\\/p>)?`, 'gi');
+    let match;
+    
+    while ((match = linkRegex.exec(content)) !== null) {
+        const fullMatch = match[0];
+        const url = match[1];
+        results.push({ fullMatch, url });
+    }
+    
+    winston.info(`[ogp-embed] Extracted ${results.length} URLs from HTML: ${results.map(r => r.url).join(', ')}`);
+    return results;
+}
 
 /**
  * Plugin initialization
  */
 plugin.onLoad = async function(params) {
+    const { router, middleware } = params;
+    
     winston.info('[ogp-embed] Plugin loaded');
     winston.info('[ogp-embed] Available methods:', Object.keys(plugin));
     
-    // Initialize cache
+    // Initialize components
     await cache.initialize();
+    await rulesManager.initialize();
+    
+    // Initialize admin module
+    adminRules.init(params);
+    
+    // Setup admin routes
+    if (router && middleware) {
+        router.get('/admin/plugins/ogp-embed/rules', middleware.admin.buildHeader, renderAdminPage);
+        router.get('/api/admin/plugins/ogp-embed/rules', middleware.admin.buildHeader, renderAdminPage);
+        winston.info('[ogp-embed] Admin routes registered');
+    }
+    
+    // Register socket handlers
+    const socketPlugins = require.main.require('./src/socket.io/plugins');
+    adminRules.registerSockets(socketPlugins);
+    clientSockets.registerSockets(socketPlugins);
 };
 
 /**
@@ -35,7 +92,7 @@ plugin.onPostSave = async function(data) {
     }
     
     const content = data.post.content;
-    const urls = content.match(URL_REGEX);
+    const urls = extractURLsFromRawText(content);
     
     if (urls && urls.length > 0) {
         winston.info(`[ogp-embed] Found ${urls.length} URLs`);
@@ -65,41 +122,91 @@ plugin.onPostSave = async function(data) {
     }
 };
 
+/**
+ * Render admin page
+ */
+function renderAdminPage(req, res) {
+    res.render('admin/plugins/ogp-embed/rules', {
+        title: 'OGP Embed Rules'
+    });
+}
 
 /**
  * Parse post content and embed OGP cards
  */
 plugin.parsePost = async function(hookData) {
+    winston.info('[ogp-embed] parsePost called');
+    
     if (!hookData || !hookData.postData || !hookData.postData.content) {
+        winston.info('[ogp-embed] parsePost: No content found');
         return hookData;
     }
     
     const content = hookData.postData.content;
+    winston.info(`[ogp-embed] parsePost: Processing content with ${content.length} characters`);
     
-    // Match standalone link paragraphs with any attributes: <p dir="auto"><a href="url">url</a></p>
-    const linkRegex = /<p[^>]*>\s*<a\s+href="(https?:\/\/[^"]+)"[^>]*>[^<]*<\/a>\s*<\/p>/gi;
+    winston.info(`[ogp-embed] Looking for URLs in HTML content: ${content.substring(0, 500)}...`);
+    
+    // Extract URLs using helper function
+    const urlResults = extractURLsFromHTML(content);
     let processedContent = content;
-    let match;
     
-    while ((match = linkRegex.exec(content)) !== null) {
-        const fullMatch = match[0];
-        const url = match[1];
+    for (const { fullMatch, url } of urlResults) {
+        winston.info(`[ogp-embed] Found URL for processing: ${url}`);
         
         try {
-            const ogpData = await cache.get(url);
+            // First, try regex rules
+            winston.info(`[ogp-embed] Trying regex rules for: ${url}`);
+            const regexResult = await regexProcessor.processURL(url);
             
-            if (ogpData && ogpData.title) {
-                const cardHtml = await renderer.render(ogpData);
-                processedContent = processedContent.replace(fullMatch, cardHtml);
-                winston.info(`[ogp-embed] Replaced URL with OGP card: ${url}`);
+            if (regexResult) {
+                // Regex rule matched, use the result
+                processedContent = processedContent.replace(fullMatch, regexResult);
+                winston.info(`[ogp-embed] Applied regex rule for URL: ${url}`);
+            } else {
+                // No regex rule matched, fall back to OGP
+                winston.info(`[ogp-embed] No regex rule matched, trying OGP for: ${url}`);
+                const ogpData = await cache.get(url);
+                
+                if (ogpData && ogpData.title) {
+                    winston.info(`[ogp-embed] Found OGP data for: ${url}`);
+                    const cardHtml = await renderer.render(ogpData);
+                    processedContent = processedContent.replace(fullMatch, cardHtml);
+                    winston.info(`[ogp-embed] Replaced URL with OGP card: ${url}`);
+                } else {
+                    // No OGP data in cache, output placeholder for async loading
+                    winston.info(`[ogp-embed] No OGP data found, outputting placeholder for: ${url}`);
+                    const placeholderHtml = `<div class="ogp-card-placeholder" data-ogp-url="${utils.escape(url)}">
+                        <div class="ogp-loading">
+                            <i class="fa fa-spinner fa-spin"></i> Loading preview...
+                        </div>
+                    </div>`;
+                    processedContent = processedContent.replace(fullMatch, placeholderHtml);
+                    winston.info(`[ogp-embed] Replaced URL with placeholder: ${url}`);
+                }
             }
         } catch (err) {
             winston.error(`[ogp-embed] Error processing URL ${url}: ${err.message}`);
+            winston.error(`[ogp-embed] Stack trace: ${err.stack}`);
         }
     }
     
     hookData.postData.content = processedContent;
     return hookData;
+};
+
+
+/**
+ * Add admin navigation menu
+ */
+plugin.addAdminNavigation = function(header, callback) {
+    header.plugins.push({
+        route: '/plugins/ogp-embed/rules',
+        icon: 'fa-link',
+        name: 'OGP Embed Rules'
+    });
+
+    callback(null, header);
 };
 
 
