@@ -32,9 +32,10 @@ define('admin/plugins/ogp-embed/rules', [
     }
 
     function loadRules() {
-        socket.emit('admin.ogpEmbed.getRules', {}, function (err, rules) {
+        window.socket.emit('plugins.ogp-embed.getRules', {}, function (err, rules) {
             if (err) {
-                return alerts.error(err);
+                console.error('[ogp-embed] Load rules error:', err);
+                return alerts.error(err.message || err);
             }
 
             currentRules = rules;
@@ -144,9 +145,10 @@ define('admin/plugins/ogp-embed/rules', [
         const action = editingRuleId ? 'updateRule' : 'createRule';
         const data = editingRuleId ? { ...ruleData, ruleId: editingRuleId } : ruleData;
 
-        socket.emit(`admin.ogpEmbed.${action}`, data, function (err, rule) {
+        window.socket.emit(`plugins.ogp-embed.${action}`, data, function (err, rule) {
             if (err) {
-                return alerts.error(err);
+                console.error(`[ogp-embed] ${action} error:`, err);
+                return alerts.error(err.message || err);
             }
 
             $('#ruleModal').modal('hide');
@@ -172,9 +174,10 @@ define('admin/plugins/ogp-embed/rules', [
             return alerts.error('Please enter pattern and template');
         }
 
-        socket.emit('admin.ogpEmbed.testRule', { rule, testUrl }, function (err, result) {
+        window.socket.emit('plugins.ogp-embed.testRule', { rule, testUrl }, function (err, result) {
             if (err) {
-                return alerts.error(err);
+                console.error('[ogp-embed] Test rule error:', err);
+                return alerts.error(err.message || err);
             }
 
             const $testResult = $('#testResult');
@@ -214,9 +217,10 @@ define('admin/plugins/ogp-embed/rules', [
             priority: rule.priority
         };
 
-        socket.emit('admin.ogpEmbed.updateRule', data, function (err) {
+        window.socket.emit('plugins.ogp-embed.updateRule', data, function (err) {
             if (err) {
-                return alerts.error(err);
+                console.error('[ogp-embed] Update rule error:', err);
+                return alerts.error(err.message || err);
             }
 
             loadRules();
@@ -239,9 +243,10 @@ define('admin/plugins/ogp-embed/rules', [
             return;
         }
 
-        socket.emit('admin.ogpEmbed.deleteRule', editingRuleId, function (err) {
+        window.socket.emit('plugins.ogp-embed.deleteRule', editingRuleId, function (err) {
             if (err) {
-                return alerts.error(err);
+                console.error('[ogp-embed] Delete rule error:', err);
+                return alerts.error(err.message || err);
             }
 
             $('#deleteModal').modal('hide');

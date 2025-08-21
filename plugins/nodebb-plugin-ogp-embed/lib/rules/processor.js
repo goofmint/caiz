@@ -3,6 +3,7 @@
 const winston = require.main.require('winston');
 const validator = require.main.require('validator');
 const manager = require('./manager');
+const utils = require('./utils');
 
 class RegexEmbedProcessor {
     constructor() {
@@ -49,14 +50,14 @@ class RegexEmbedProcessor {
             }
 
             // Get or compile regex
-            const regex = this.getCompiledPattern(rule.pattern);
+            const regex = utils.compilePattern(rule.pattern);
             if (!regex) {
                 winston.warn(`[ogp-embed] Invalid regex pattern in rule "${rule.name}"`);
                 return null;
             }
 
             // Test with timeout protection
-            const matches = this.executeRegex(regex, url);
+            const matches = utils.executeRegex(regex, url);
             if (!matches) {
                 return null;
             }
@@ -77,52 +78,17 @@ class RegexEmbedProcessor {
      * @returns {RegExp|null}
      */
     getCompiledPattern(pattern) {
-        try {
-            if (this.compiledPatterns.has(pattern)) {
-                return this.compiledPatterns.get(pattern);
-            }
+        if (this.compiledPatterns.has(pattern)) {
+            return this.compiledPatterns.get(pattern);
+        }
 
-            // Validate pattern for ReDoS
-            if (!this.validatePattern(pattern)) {
-                return null;
-            }
-
-            const regex = new RegExp(pattern);
+        const regex = utils.compilePattern(pattern);
+        if (regex) {
             this.compiledPatterns.set(pattern, regex);
-
-            return regex;
-
-        } catch (err) {
-            winston.error(`[ogp-embed] Invalid regex pattern: ${pattern}`);
-            return null;
         }
+        return regex;
     }
 
-    /**
-     * Execute regex with timeout protection
-     * @param {RegExp} regex - Compiled regex
-     * @param {string} text - Text to match
-     * @returns {Array|null} - Match results or null
-     */
-    executeRegex(regex, text) {
-        const startTime = Date.now();
-        
-        try {
-            const matches = text.match(regex);
-            
-            // Check execution time
-            if (Date.now() - startTime > this.maxExecutionTime) {
-                winston.warn('[ogp-embed] Regex execution timeout');
-                return null;
-            }
-
-            return matches;
-
-        } catch (err) {
-            winston.error(`[ogp-embed] Regex execution error: ${err.message}`);
-            return null;
-        }
-    }
 
     /**
      * Replace template variables with match groups
@@ -134,7 +100,7 @@ class RegexEmbedProcessor {
         let result = template;
 
         // Replace $0 with full match
-        result = result.replace(/\$0/g, validator.escape(matches[0] || ''));
+        result = result.replace(/\$0/g, utils.escape(matches[0] || ''));
 
         // Replace $1, $2, etc. with capture groups
         for (let i = 1; i < matches.length; i++) {
@@ -143,7 +109,7 @@ class RegexEmbedProcessor {
             
             // Escape HTML unless it's in an attribute (URL)
             const escaped = this.shouldEscapeValue(template, i) 
-                ? validator.escape(value)
+                ? utils.escape(value)
                 : encodeURIComponent(value);
             
             result = result.replace(placeholder, escaped);
@@ -177,44 +143,6 @@ class RegexEmbedProcessor {
         return !inAttribute;
     }
 
-    /**
-     * Validate regex pattern for safety
-     * @param {string} pattern - Regex pattern to validate
-     * @returns {boolean}
-     */
-    validatePattern(pattern) {
-        try {
-            // Check pattern length
-            if (pattern.length > 500) {
-                winston.warn('[ogp-embed] Regex pattern too long');
-                return false;
-            }
-
-            // Check for dangerous patterns (ReDoS)
-            const dangerousPatterns = [
-                /(\w+\+)+/,           // Nested quantifiers
-                /(\w+\*)+/,
-                /(\w+\{[\d,]+\})+/,
-                /([\w\s]+)+$/,        // Catastrophic backtracking
-                /(\w+)+\w+/
-            ];
-
-            for (const dangerous of dangerousPatterns) {
-                if (dangerous.test(pattern)) {
-                    winston.warn('[ogp-embed] Potentially dangerous regex pattern detected');
-                    return false;
-                }
-            }
-
-            // Try to compile it
-            new RegExp(pattern);
-            return true;
-
-        } catch (err) {
-            winston.error(`[ogp-embed] Invalid regex pattern: ${err.message}`);
-            return false;
-        }
-    }
 
     /**
      * Clear compiled pattern cache
