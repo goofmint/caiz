@@ -40,7 +40,8 @@ class RulesUtils {
         }
 
         // Warn about complex patterns (but don't fail)
-        if (/\(\?[=!<]/.test(pattern)) {
+        // Only match explicit lookaround tokens: (?=, (?!, (?<=, (?<!
+        if (/\(\?(?:[=!]|<=?!)/.test(pattern)) {
             winston.warn('[ogp-embed] Pattern contains lookahead/lookbehind assertions');
         }
 
@@ -193,7 +194,7 @@ class RulesUtils {
      * @returns {string} Sanitized string
      */
     sanitizeString(value, maxLength) {
-        if (!value) {
+        if (value === null || value === undefined) {
             return '';
         }
 

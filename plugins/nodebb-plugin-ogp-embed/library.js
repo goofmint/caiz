@@ -36,18 +36,19 @@ function extractURLsFromRawText(content) {
  * @returns {string[]} Array of URLs found  
  */
 function extractURLsFromHTML(content) {
-    const urls = [];
+    const results = [];
     // Match links in paragraphs (with or without closing </p>, and with possible <br /> tags)
     const linkRegex = new RegExp(`<p[^>]*>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>(?:\\s*<br\\s*\\/?>)?(?:\\s*<\\/p>)?`, 'gi');
     let match;
     
     while ((match = linkRegex.exec(content)) !== null) {
+        const fullMatch = match[0];
         const url = match[1];
-        urls.push(url);
+        results.push({ fullMatch, url });
     }
     
-    winston.info(`[ogp-embed] Extracted ${urls.length} URLs from HTML: ${urls.join(', ')}`);
-    return urls;
+    winston.info(`[ogp-embed] Extracted ${results.length} URLs from HTML: ${results.map(r => r.url).join(', ')}`);
+    return results;
 }
 
 /**
@@ -146,16 +147,11 @@ plugin.parsePost = async function(hookData) {
     
     winston.info(`[ogp-embed] Looking for URLs in HTML content: ${content.substring(0, 500)}...`);
     
-    // Use the same URL extraction logic
-    // Match links in paragraphs (with or without closing </p>, and with possible <br /> tags)
-    const linkRegex = /<p[^>]*>\s*<a\s+href="(https?:\/\/[^"]+)"[^>]*>[^<]*<\/a>(?:\s*<br\s*\/?>)?(?:\s*<\/p>)?/gi;
+    // Extract URLs using helper function
+    const urlResults = extractURLsFromHTML(content);
     let processedContent = content;
-    let match;
     
-    while ((match = linkRegex.exec(content)) !== null) {
-        const fullMatch = match[0];
-        const url = match[1];
-        
+    for (const { fullMatch, url } of urlResults) {
         winston.info(`[ogp-embed] Found URL for processing: ${url}`);
         
         try {

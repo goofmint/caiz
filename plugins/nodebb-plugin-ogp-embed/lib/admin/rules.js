@@ -90,7 +90,23 @@ adminRules.registerSockets = function(socketPlugins) {
                 throw new Error('[[error:no-privileges]]');
             }
 
-            await manager.reorderRules(ruleIds);
+            // Validate ruleIds is an array
+            if (!Array.isArray(ruleIds) || ruleIds.length === 0) {
+                throw new Error('[[error:invalid-input]]');
+            }
+
+            // Validate and normalize each ID
+            const normalizedIds = ruleIds.map(id => {
+                if (typeof id === 'string') {
+                    return id.trim();
+                } else if (typeof id === 'number') {
+                    return String(id);
+                } else {
+                    throw new Error('[[error:invalid-rule-id]]');
+                }
+            });
+
+            await manager.reorderRules(normalizedIds);
             
             return { success: true };
         },
@@ -108,7 +124,9 @@ adminRules.registerSockets = function(socketPlugins) {
                 throw new Error(validation.errors.join(', '));
             }
 
-            const result = await processor.testRule(rule, testUrl);
+            // Sanitize the rule before testing to mirror create/update behavior
+            const sanitized = validator.sanitizeRule(rule);
+            const result = await processor.testRule(sanitized, testUrl);
             
             return result;
         }

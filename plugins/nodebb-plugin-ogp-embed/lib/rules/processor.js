@@ -49,8 +49,8 @@ class RegexEmbedProcessor {
                 return null;
             }
 
-            // Get or compile regex
-            const regex = utils.compilePattern(rule.pattern);
+            // Get or compile regex using cache
+            const regex = this.getCompiledPattern(rule.pattern);
             if (!regex) {
                 winston.warn(`[ogp-embed] Invalid regex pattern in rule "${rule.name}"`);
                 return null;

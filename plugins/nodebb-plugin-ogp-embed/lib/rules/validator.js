@@ -15,6 +15,15 @@ class RulesValidator {
     validateRule(ruleData) {
         const errors = [];
 
+        // Early guard for invalid rule data
+        if (!ruleData || typeof ruleData !== 'object') {
+            errors.push('Invalid rule data');
+            return {
+                valid: false,
+                errors: errors
+            };
+        }
+
         // Validate name
         if (!ruleData.name || typeof ruleData.name !== 'string') {
             errors.push('Rule name is required');

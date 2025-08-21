@@ -63,7 +63,7 @@ define('admin/plugins/ogp-embed/rules', [
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="flex-grow-1">
                             <h6 class="mb-1">
-                                ${rule.name}
+                                ${escapeHtml(rule.name)}
                                 ${!rule.enabled ? '<span class="badge bg-secondary ms-2">Disabled</span>' : ''}
                                 <span class="badge bg-info ms-2">Priority: ${rule.priority || 0}</span>
                             </h6>
@@ -130,12 +130,15 @@ define('admin/plugins/ogp-embed/rules', [
     }
 
     function saveRule() {
+        const rawPriority = $('#rulePriority').val();
+        const priority = Math.max(0, Math.min(9999, parseInt(rawPriority, 10) || 0));
+        
         const ruleData = {
             name: $('#ruleName').val(),
             pattern: $('#rulePattern').val(),
             template: $('#ruleTemplate').val(),
             enabled: $('#ruleEnabled').is(':checked'),
-            priority: parseInt($('#rulePriority').val(), 10) || 0
+            priority: priority
         };
 
         if (!ruleData.name || !ruleData.pattern || !ruleData.template) {
