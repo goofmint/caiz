@@ -19,8 +19,12 @@
       "method": "onLoad"
     },
     {
-      "hook": "filter:admin/header.build",
+      "hook": "filter:admin.header.build",
       "method": "addAdminNavigation"
+    },
+    {
+      "hook": "filter:admin.routes",
+      "method": "defineAdminRoutes"
     }
   ],
   "staticDirs": {
