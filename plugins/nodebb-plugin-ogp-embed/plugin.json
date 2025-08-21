@@ -33,6 +33,9 @@
   "scripts": [
     "static/client.js"
   ],
+  "modules": {
+    "../admin/plugins/ogp-embed/rules.js": "static/admin/rules.js"
+  },
   "acpScripts": [
     "static/admin/rules.js"
   ]
