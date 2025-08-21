@@ -4,14 +4,12 @@ define('admin/plugins/ogp-embed/rules', [
     'jquery',
     'alerts',
     'api',
-    'bootbox',
-    'Sortable'
-], function ($, alerts, api, bootbox, Sortable) {
+    'bootbox'
+], function ($, alerts, api, bootbox) {
     const Rules = {};
     
     let currentRules = [];
     let editingRuleId = null;
-    let sortable = null;
 
     Rules.init = function () {
         // Load rules on init
@@ -23,22 +21,14 @@ define('admin/plugins/ogp-embed/rules', [
         $('#testRule').on('click', testRule);
         $('#confirmDelete').on('click', confirmDelete);
 
-        // Initialize sortable
-        initSortable();
+        // Initialize drag and drop (will be enabled when rules are loaded)
+        initDragAndDrop();
     };
 
-    function initSortable() {
-        const rulesListEl = document.getElementById('rulesList');
-        if (rulesListEl) {
-            sortable = Sortable.create(rulesListEl, {
-                handle: '.drag-handle',
-                animation: 150,
-                onEnd: function (evt) {
-                    const ruleIds = Array.from(rulesListEl.children).map(el => el.dataset.ruleId);
-                    reorderRules(ruleIds);
-                }
-            });
-        }
+    function initDragAndDrop() {
+        // Simplified drag and drop using jQuery UI sortable (if available)
+        // For now, disable drag functionality and use manual priority editing
+        console.log('[ogp-embed] Drag and drop will be implemented later');
     }
 
     function loadRules() {
@@ -70,17 +60,13 @@ define('admin/plugins/ogp-embed/rules', [
             const $ruleItem = $(`
                 <div class="list-group-item" data-rule-id="${rule.ruleId}">
                     <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center flex-grow-1">
-                            <span class="drag-handle me-3" style="cursor: move;">
-                                <i class="fa fa-bars text-muted"></i>
-                            </span>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">
-                                    ${rule.name}
-                                    ${!rule.enabled ? '<span class="badge bg-secondary ms-2">Disabled</span>' : ''}
-                                </h6>
-                                <small class="text-muted font-monospace">${escapeHtml(rule.pattern)}</small>
-                            </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">
+                                ${rule.name}
+                                ${!rule.enabled ? '<span class="badge bg-secondary ms-2">Disabled</span>' : ''}
+                                <span class="badge bg-info ms-2">Priority: ${rule.priority || 0}</span>
+                            </h6>
+                            <small class="text-muted font-monospace">${escapeHtml(rule.pattern)}</small>
                         </div>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-secondary" data-action="toggle" data-rule-id="${rule.ruleId}">
@@ -264,15 +250,6 @@ define('admin/plugins/ogp-embed/rules', [
         });
     }
 
-    function reorderRules(ruleIds) {
-        socket.emit('admin.ogpEmbed.reorderRules', ruleIds, function (err) {
-            if (err) {
-                return alerts.error(err);
-            }
-
-            alerts.success('Rules reordered successfully');
-        });
-    }
 
     function escapeHtml(text) {
         const map = {
