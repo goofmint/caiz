@@ -1,0 +1,30 @@
+{
+  "name": "nodebb-plugin-auto-translate",
+  "version": "0.1.0",
+  "description": "Automatic translation plugin for NodeBB using Gemini API",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goofmint/caiz"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "translate",
+    "gemini",
+    "ai",
+    "multilingual"
+  ],
+  "author": "MOONGIFT",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/goofmint/caiz/issues"
+  },
+  "readmeFilename": "README.md",
+  "nbbpm": {
+    "compatibility": "^3.0.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.1.3"
+  }
+}

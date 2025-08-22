@@ -1,0 +1,31 @@
+{
+  "id": "nodebb-plugin-auto-translate",
+  "name": "NodeBB Auto Translate",
+  "description": "Automatic translation plugin for NodeBB using Gemini API",
+  "url": "https://github.com/goofmint/caiz",
+  "library": "./library.js",
+  "staticDirs": {
+    "static": "./static"
+  },
+  "css": [
+    "static/style.css"
+  ],
+  "acpScripts": [
+    "static/admin.js"
+  ],
+  "languages": "languages",
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "onAppLoad"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminMenu"
+    }
+  ],
+  "templates": "./templates",
+  "modules": {
+    "../admin/plugins/auto-translate.js": "static/admin.js"
+  }
+}
