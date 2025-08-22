@@ -508,6 +508,108 @@ function generateHreflangs(req) {
 }
 
 /**
+ * Hook: Filter category topics get with translation
+ */
+plugin.filterCategoryTopicsGet = async function(data) {
+    try {
+        const { cid, topics, uid } = data;
+        
+        if (!topics || !Array.isArray(topics)) {
+            return data;
+        }
+        
+        // uidからユーザーの言語設定を取得
+        const User = require.main.require('./src/user');
+        const userSettings = await User.getSettings(uid);
+        const userLang = userSettings.userLang || userSettings.language;
+        const targetLang = normalizeBrowserLanguage(userLang);
+        
+        if (!targetLang || !isSupportedLanguage(targetLang)) {
+            return data;
+        }
+        
+        winston.info('[auto-translate] Applying translation to category topic list', { 
+            cid,
+            targetLang,
+            topicCount: topics.length,
+            uid
+        });
+        
+        // トピック一覧のタイトルを翻訳
+        for (const topic of topics) {
+            if (topic.tid) {
+                const translations = await getTranslations('topic', topic.tid);
+                if (translations && translations.translations && translations.translations[targetLang]) {
+                    const translatedTitle = cleanMarkdownTitle(translations.translations[targetLang]);
+                    topic.title = translatedTitle;
+                    topic.titleRaw = translatedTitle;
+                    
+                    winston.verbose('[auto-translate] Category topic title translated', {
+                        tid: topic.tid,
+                        lang: targetLang,
+                        originalTitle: topic.title,
+                        translatedTitle
+                    });
+                }
+            }
+        }
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to apply translation to category topics:', err);
+        // フィルターエラーでレンダリングを止めない
+    }
+    
+    return data;
+};
+
+/**
+ * Hook: Filter homepage with topic list translation
+ */
+plugin.filterHomepageBuild = async function(data) {
+    try {
+        const { req, templateData } = data;
+        
+        // 言語を検出
+        const targetLang = await detectLanguage(req);
+        if (!targetLang) {
+            return data;
+        }
+        
+        winston.info('[auto-translate] Applying translation to homepage topic list', { 
+            targetLang,
+            hasTopics: !!(templateData.topics)
+        });
+        
+        // トピック一覧のタイトルを翻訳
+        if (templateData.topics && Array.isArray(templateData.topics)) {
+            for (const topic of templateData.topics) {
+                if (topic.tid) {
+                    const translations = await getTranslations('topic', topic.tid);
+                    if (translations && translations.translations && translations.translations[targetLang]) {
+                        const translatedTitle = cleanMarkdownTitle(translations.translations[targetLang]);
+                        topic.title = translatedTitle;
+                        topic.titleRaw = translatedTitle;
+                        
+                        winston.verbose('[auto-translate] Homepage topic title translated', {
+                            tid: topic.tid,
+                            lang: targetLang,
+                            original: topic.title,
+                            translated: translatedTitle
+                        });
+                    }
+                }
+            }
+        }
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to apply translation to homepage:', err);
+        // フィルターエラーでレンダリングを止めない
+    }
+    
+    return data;
+};
+
+/**
  * Hook: Filter topic data before rendering
  */
 plugin.filterTopicBuild = async function(data) {
@@ -558,41 +660,71 @@ plugin.filterTopicBuild = async function(data) {
                         hasTranslationsObject: !!(translations && translations.translations),
                         hasTargetLang: !!(translations && translations.translations && translations.translations[targetLang]),
                         availableLanguages: translations && translations.translations ? Object.keys(translations.translations) : [],
-                        targetLang
+                        targetLang,
+                        actualTargetLangValue: translations && translations.translations ? translations.translations[targetLang] : null,
+                        targetLangType: translations && translations.translations && translations.translations[targetLang] ? typeof translations.translations[targetLang] : 'undefined'
                     });
                     
-                    if (translations && translations.translations && translations.translations[targetLang]) {
-                        const translatedContent = translations.translations[targetLang];
+                    const translatedContent = translations && translations.translations && translations.translations[targetLang];
+                    winston.info('[auto-translate] Translation condition check', {
+                        pid: post.pid,
+                        conditionMet: !!translatedContent,
+                        translatedContentLength: translatedContent ? translatedContent.length : 0,
+                        translatedContentPreview: translatedContent ? translatedContent.substring(0, 50) : 'none'
+                    });
+                    
+                    if (translatedContent) {
+                        
+                        winston.info('[auto-translate] Applying translation to post', {
+                            pid: post.pid,
+                            targetLang,
+                            originalContentLength: post.content ? post.content.length : 0,
+                            translatedContentLength: translatedContent.length,
+                            originalContentPreview: post.content ? post.content.substring(0, 100) : 'no content',
+                            translatedContentPreview: translatedContent.substring(0, 100)
+                        });
                         
                         try {
                             // 翻訳されたMarkdownコンテンツをHTMLに変換
                             const Posts = require.main.require('./src/posts');
                             
-                            // postDataオブジェクトを作成
+                            // 元の投稿データをベースに翻訳コンテンツでparseを実行
                             const postDataForParsing = {
-                                pid: post.pid,
+                                ...post,  // 元の投稿データをすべて継承
                                 content: translatedContent,
-                                sourceContent: translatedContent,
-                                uid: post.uid,
-                                tid: post.tid
+                                sourceContent: translatedContent
                             };
                             
-                            const parsedPostData = await Posts.parsePost(postDataForParsing, 'default');
+                            winston.info('[auto-translate] Parsing translated content', {
+                                pid: post.pid,
+                                originalContent: post.content ? post.content.substring(0, 50) : 'none',
+                                translatedContent: translatedContent.substring(0, 50)
+                            });
+                            
+                            const parsedPostData = await Posts.parsePost(postDataForParsing);
                             
                             post.content = parsedPostData.content;
-                            post.originalContent = post.content; // バックアップ
                             
-                            winston.verbose('[auto-translate] Server-side post translation applied with HTML parsing', {
+                            winston.info('[auto-translate] Server-side post translation applied with HTML parsing', {
                                 pid: post.pid,
                                 lang: targetLang,
                                 originalLength: translatedContent.length,
-                                parsedLength: parsedPostData.content.length
+                                parsedLength: parsedPostData.content.length,
+                                finalContentPreview: parsedPostData.content.substring(0, 100)
                             });
                         } catch (parseErr) {
-                            winston.error('[auto-translate] Failed to parse translated content:', parseErr);
+                            winston.error('[auto-translate] Failed to parse translated content:', {
+                                pid: post.pid,
+                                error: parseErr.message,
+                                stack: parseErr.stack
+                            });
                             // パースに失敗した場合は生のテキストを使用
                             post.content = translatedContent;
-                            post.originalContent = post.content;
+                            winston.info('[auto-translate] Applied raw translation content (no parsing)', {
+                                pid: post.pid,
+                                lang: targetLang,
+                                contentLength: translatedContent.length
+                            });
                         }
                     }
                 }

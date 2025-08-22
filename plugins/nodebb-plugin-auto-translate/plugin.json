@@ -41,6 +41,14 @@
     {
       "hook": "filter:topic.build",
       "method": "filterTopicBuild"
+    },
+    {
+      "hook": "filter:category.topics.get",
+      "method": "filterCategoryTopicsGet"
+    },
+    {
+      "hook": "filter:homepage.build",
+      "method": "filterHomepageBuild"
     }
   ],
   "templates": "./templates",
