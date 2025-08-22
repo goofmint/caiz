@@ -688,29 +688,40 @@ plugin.filterTopicBuild = async function(data) {
                             // 翻訳されたMarkdownコンテンツをHTMLに変換
                             const Posts = require.main.require('./src/posts');
                             
-                            // 元の投稿データをベースに翻訳コンテンツでparseを実行
+                            // 翻訳用の一意なキーを生成（キャッシュは言語別に分離）
                             const postDataForParsing = {
-                                ...post,  // 元の投稿データをすべて継承
+                                pid: `${post.pid}-${targetLang}`, // 言語別キャッシュキー
                                 content: translatedContent,
-                                sourceContent: translatedContent
+                                sourceContent: translatedContent,
+                                uid: post.uid,
+                                tid: post.tid
                             };
                             
-                            winston.info('[auto-translate] Parsing translated content', {
+                            winston.info('[auto-translate] Parsing translated content with language-specific cache', {
                                 pid: post.pid,
-                                originalContent: post.content ? post.content.substring(0, 50) : 'none',
+                                cacheKey: postDataForParsing.pid,
                                 translatedContent: translatedContent.substring(0, 50)
                             });
                             
                             const parsedPostData = await Posts.parsePost(postDataForParsing);
                             
+                            winston.info('[auto-translate] parsePost result with language cache', {
+                                pid: post.pid,
+                                cacheKey: postDataForParsing.pid,
+                                inputContent: translatedContent.substring(0, 50),
+                                outputContent: parsedPostData.content.substring(0, 100),
+                                hasContent: !!parsedPostData.content
+                            });
+                            
+                            // 翻訳されたHTMLコンテンツを設定
                             post.content = parsedPostData.content;
                             
-                            winston.info('[auto-translate] Server-side post translation applied with HTML parsing', {
+                            winston.info('[auto-translate] Server-side post translation applied', {
                                 pid: post.pid,
                                 lang: targetLang,
                                 originalLength: translatedContent.length,
-                                parsedLength: parsedPostData.content.length,
-                                finalContentPreview: parsedPostData.content.substring(0, 100)
+                                parsedLength: post.content.length,
+                                finalContentPreview: post.content.substring(0, 100)
                             });
                         } catch (parseErr) {
                             winston.error('[auto-translate] Failed to parse translated content:', {
@@ -718,9 +729,9 @@ plugin.filterTopicBuild = async function(data) {
                                 error: parseErr.message,
                                 stack: parseErr.stack
                             });
-                            // パースに失敗した場合は生のテキストを使用
-                            post.content = translatedContent;
-                            winston.info('[auto-translate] Applied raw translation content (no parsing)', {
+                            // パースに失敗した場合は簡単なHTMLでラップ
+                            post.content = `<p>${translatedContent}</p>`;
+                            winston.info('[auto-translate] Applied fallback HTML wrapping', {
                                 pid: post.pid,
                                 lang: targetLang,
                                 contentLength: translatedContent.length
