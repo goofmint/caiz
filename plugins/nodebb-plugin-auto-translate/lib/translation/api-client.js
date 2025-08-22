@@ -1,17 +1,20 @@
 'use strict';
 
 const winston = require.main.require('winston');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, Type } = require('@google/genai');
+
+// 対応言語キー（プロンプトマネージャーと一致）
+const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                   "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
 
 class GeminiApiClient {
     constructor() {
         this.client = null;
-        this.model = null;
         this.defaultSettings = {
-            model: 'gemini-pro',
-            maxTokens: 2048,
+            model: 'gemini-2.5-flash',
+            maxTokens: 8192,
             temperature: 0.3,
-            timeout: 30
+            timeout: 60
         };
     }
     
@@ -44,7 +47,7 @@ class GeminiApiClient {
         try {
             const ai = new GoogleGenAI({apiKey: apiKey});
             const response = await ai.models.generateContent({
-                model: 'gemini-2.0-flash-001',
+                model: 'gemini-2.5-flash',
                 contents: 'Hello'
             });
             
@@ -71,53 +74,73 @@ class GeminiApiClient {
     }
     
     /**
-     * Translate content using Gemini API
+     * Translate content to multiple languages using Gemini API
      */
     async translateContent(prompt, settings = {}) {
-        if (!this.model) {
+        if (!this.client) {
             throw new Error('API client not initialized');
         }
         
         try {
             const apiSettings = { ...this.defaultSettings, ...settings.api };
-            
-            // Set timeout
-            const timeoutMs = (apiSettings.timeout || 30) * 1000;
+            const timeoutMs = (apiSettings.timeout || 60) * 1000;
             
             const result = await Promise.race([
-                this.model.generateContent({
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: {
+                this.client.models.generateContent({
+                    model: apiSettings.model,
+                    contents: prompt,
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: Object.fromEntries(
+                                LANG_KEYS.map(k => [k, { type: Type.STRING }])
+                            ),
+                            propertyOrdering: LANG_KEYS,
+                        },
                         maxOutputTokens: apiSettings.maxTokens,
                         temperature: apiSettings.temperature
-                    }
+                    },
                 }),
                 new Promise((_, reject) => 
                     setTimeout(() => reject(new Error('Translation timeout')), timeoutMs)
                 )
             ]);
             
-            const response = result?.response;
-            if (!response) {
+            if (!result.candidates || result.candidates.length === 0) {
                 throw new Error('No response from API');
             }
             
-            const text = response.text();
-            if (!text) {
+            const responseText = result.candidates[0].content.parts[0].text;
+            if (!responseText) {
                 throw new Error('Empty response from API');
             }
             
-            winston.verbose('[auto-translate] Translation successful:', {
+            // Parse JSON response
+            let translations;
+            try {
+                translations = JSON.parse(responseText);
+            } catch (parseErr) {
+                winston.error('[auto-translate] Failed to parse JSON response:', parseErr);
+                throw new Error('Invalid JSON response from API');
+            }
+            
+            // Validate response structure
+            if (typeof translations !== 'object' || !translations) {
+                throw new Error('Invalid translation response format');
+            }
+            
+            winston.verbose('[auto-translate] Multi-language translation successful:', {
                 inputLength: prompt.length,
-                outputLength: text.length
+                languageCount: Object.keys(translations).length
             });
             
             return {
                 success: true,
-                translatedText: text,
+                translations: translations,
                 usage: {
                     promptTokens: this.estimateTokens(prompt),
-                    completionTokens: this.estimateTokens(text)
+                    completionTokens: this.estimateTokens(responseText)
                 }
             };
         } catch (err) {
@@ -130,6 +153,8 @@ class GeminiApiClient {
                 errorMessage = 'Content blocked by safety filters';
             } else if (err.message.includes('QUOTA_EXCEEDED')) {
                 errorMessage = 'API quota exceeded';
+            } else if (err.message.includes('JSON')) {
+                errorMessage = 'Invalid response format';
             }
             
             return {

@@ -19,7 +19,7 @@ const plugin = {
 /**
  * Plugin initialization
  */
-plugin.onAppLoad = async function(params) {
+plugin.init = async function(params) {
     const { router, middleware } = params;
     
     winston.info('[auto-translate] Initializing Auto Translate Plugin');
@@ -31,6 +31,12 @@ plugin.onAppLoad = async function(params) {
     
     // Load initial settings
     await plugin.settingsManager.init();
+    
+    // Initialize API client with settings
+    const settings = await plugin.settingsManager.getRawSettings();
+    if (settings.api && settings.api.geminiApiKey) {
+        plugin.apiClient.initialize(settings);
+    }
     
     // Setup admin routes
     setupAdminRoutes(router, middleware);
@@ -139,7 +145,472 @@ function setupSocketHandlers() {
         }
     };
     
+    // Get translations for content
+    sockets.autoTranslate.getTranslations = async function(socket, data) {
+        try {
+            const { type, id } = data;
+            
+            if (!type || !id) {
+                throw new Error('Type and ID are required');
+            }
+            
+            const translationKey = `auto-translate:${type}:${id}`;
+            const translations = await db.getObject(translationKey);
+            
+            return translations || null;
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get translations:', err);
+            throw err;
+        }
+    };
+    
+    // Get original content for display
+    sockets.autoTranslate.getOriginal = async function(socket, data) {
+        try {
+            const { type, id } = data;
+            
+            winston.info('[auto-translate] getOriginal called:', { type, id, uid: socket.uid });
+            
+            if (!type || !id) {
+                throw new Error('Type and ID are required');
+            }
+            
+            const translationKey = `auto-translate:${type}:${id}`;
+            const translationData = await db.getObject(translationKey);
+            
+            winston.info('[auto-translate] Translation data retrieved:', {
+                key: translationKey,
+                hasData: !!translationData,
+                hasOriginal: translationData && !!translationData.original,
+                originalLength: translationData && translationData.original ? translationData.original.length : 0,
+                dataKeys: translationData ? Object.keys(translationData) : []
+            });
+            
+            if (!translationData || !translationData.original) {
+                winston.warn('[auto-translate] No original content found for:', { type, id, translationKey });
+                return null;
+            }
+            
+            let originalContent = translationData.original;
+            
+            // 投稿の場合は原文をHTMLに変換
+            if (type === 'post') {
+                try {
+                    const Posts = require.main.require('./src/posts');
+                    
+                    // postDataオブジェクトを作成
+                    const postDataForParsing = {
+                        pid: id,
+                        content: originalContent,
+                        sourceContent: originalContent,
+                        uid: 1, // システムユーザー
+                        tid: 1
+                    };
+                    
+                    const parsedPostData = await Posts.parsePost(postDataForParsing, 'default');
+                    originalContent = parsedPostData.content;
+                    
+                    winston.info('[auto-translate] Original content parsed to HTML:', {
+                        type,
+                        id,
+                        originalLength: translationData.original.length,
+                        parsedLength: originalContent.length
+                    });
+                } catch (parseErr) {
+                    winston.error('[auto-translate] Failed to parse original content:', parseErr);
+                    // パースに失敗した場合は生のテキストを使用
+                }
+            } else if (type === 'topic') {
+                // トピックタイトルの場合はMarkdown記号を除去
+                originalContent = cleanMarkdownTitle(originalContent);
+            }
+            
+            return { original: originalContent };
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get original content:', err);
+            throw err;
+        }
+    };
+    
     winston.info('[auto-translate] Socket handlers registered');
+}
+
+/**
+ * Hook: After post save
+ */
+plugin.onPostSave = async function(data) {
+    try {
+        const { post } = data;
+        
+        winston.info('[auto-translate] Post save hook triggered', { 
+            pid: post.pid, 
+            content: post.content ? post.content.substring(0, 50) + '...' : 'empty'
+        });
+        
+        // Check if translation is enabled and API is available
+        const settings = await plugin.settingsManager.getRawSettings();
+        if (!settings.api || !settings.api.geminiApiKey) {
+            winston.info('[auto-translate] No API key configured, skipping translation');
+            return data;
+        }
+        
+        // Skip if content is too short or empty
+        if (!post.content || post.content.length < 10) {
+            winston.info('[auto-translate] Content too short, skipping translation');
+            return data;
+        }
+        
+        winston.info('[auto-translate] Translating post:', { pid: post.pid });
+        
+        // Perform translation
+        await translateAndSaveContent('post', post.pid, post.content, settings);
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to translate post:', err);
+        // Don't fail the post creation if translation fails
+    }
+    
+    return data;
+};
+
+/**
+ * Hook: After topic save
+ */
+plugin.onTopicSave = async function(data) {
+    try {
+        const { topic } = data;
+        
+        winston.info('[auto-translate] Topic save hook triggered', { 
+            tid: topic.tid, 
+            title: topic.title ? topic.title.substring(0, 50) + '...' : 'empty'
+        });
+        
+        // Check if translation is enabled and API is available
+        const settings = await plugin.settingsManager.getRawSettings();
+        if (!settings.api || !settings.api.geminiApiKey) {
+            winston.info('[auto-translate] No API key configured, skipping translation');
+            return data;
+        }
+        
+        // Skip if title is too short or empty
+        if (!topic.title || topic.title.length < 5) {
+            winston.info('[auto-translate] Title too short, skipping translation');
+            return data;
+        }
+        
+        winston.info('[auto-translate] Translating topic:', { tid: topic.tid });
+        
+        // Format title as Markdown heading for better translation context
+        const markdownTitle = `# ${topic.title}`;
+        
+        // Perform translation
+        await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to translate topic:', err);
+        // Don't fail the topic creation if translation fails
+    }
+    
+    return data;
+};
+
+/**
+ * Translate content and save to database
+ */
+async function translateAndSaveContent(type, id, content, settings) {
+    try {
+        // Build translation prompt
+        const prompt = plugin.promptManager.buildTranslationPrompt(content, settings);
+        
+        // Call translation API
+        const result = await plugin.apiClient.translateContent(prompt, settings);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Translation failed');
+        }
+        
+        // Save translations to database
+        const translationKey = `auto-translate:${type}:${id}`;
+        await db.setObject(translationKey, {
+            original: content,
+            translations: result.translations,
+            created: Date.now(),
+            usage: result.usage
+        });
+        
+        winston.info('[auto-translate] Saved translations:', {
+            type,
+            id,
+            languageCount: Object.keys(result.translations).length
+        });
+        
+    } catch (err) {
+        winston.error('[auto-translate] Translation and save failed:', err);
+        throw err;
+    }
+}
+
+/**
+ * Hook: Filter topic data before rendering
+ */
+plugin.filterTopicBuild = async function(data) {
+    try {
+        const { req, templateData } = data;
+        
+        // 言語を検出（async関数に変更）
+        const targetLang = await detectLanguage(req);
+        if (!targetLang) {
+            return data;
+        }
+        
+        winston.info('[auto-translate] Applying server-side translation', { 
+            tid: templateData.tid, 
+            targetLang 
+        });
+        
+        // トピックタイトルの翻訳を適用
+        if (templateData.tid) {
+            const translations = await getTranslations('topic', templateData.tid);
+            if (translations && translations.translations && translations.translations[targetLang]) {
+                const translatedTitle = cleanMarkdownTitle(translations.translations[targetLang]);
+                templateData.title = translatedTitle;
+                templateData.titleRaw = translatedTitle;
+                
+                winston.info('[auto-translate] Server-side title translation applied', {
+                    original: templateData.title,
+                    translated: translatedTitle,
+                    lang: targetLang
+                });
+            }
+        }
+        
+        // 投稿内容の翻訳を適用
+        if (templateData.posts && Array.isArray(templateData.posts)) {
+            for (const post of templateData.posts) {
+                if (post.pid) {
+                    const translations = await getTranslations('post', post.pid);
+                    if (translations && translations.translations && translations.translations[targetLang]) {
+                        const translatedContent = translations.translations[targetLang];
+                        
+                        try {
+                            // 翻訳されたMarkdownコンテンツをHTMLに変換
+                            const Posts = require.main.require('./src/posts');
+                            
+                            // postDataオブジェクトを作成
+                            const postDataForParsing = {
+                                pid: post.pid,
+                                content: translatedContent,
+                                sourceContent: translatedContent,
+                                uid: post.uid,
+                                tid: post.tid
+                            };
+                            
+                            const parsedPostData = await Posts.parsePost(postDataForParsing, 'default');
+                            
+                            post.content = parsedPostData.content;
+                            post.originalContent = post.content; // バックアップ
+                            
+                            winston.verbose('[auto-translate] Server-side post translation applied with HTML parsing', {
+                                pid: post.pid,
+                                lang: targetLang,
+                                originalLength: translatedContent.length,
+                                parsedLength: parsedPostData.content.length
+                            });
+                        } catch (parseErr) {
+                            winston.error('[auto-translate] Failed to parse translated content:', parseErr);
+                            // パースに失敗した場合は生のテキストを使用
+                            post.content = translatedContent;
+                            post.originalContent = post.content;
+                        }
+                    }
+                }
+            }
+        }
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to apply server-side translation:', err);
+        // フィルターエラーでレンダリングを止めない
+    }
+    
+    return data;
+};
+
+/**
+ * Detect language from request
+ */
+async function detectLanguage(req) {
+    winston.verbose('[auto-translate] Detecting language for user:', {
+        uid: req.uid,
+        hasUser: !!req.user,
+        urlParams: req.query,
+        userSettings: req.user ? req.user.settings : 'none'
+    });
+    
+    // 1. URL クエリパラメータ（最優先）
+    const urlLang = req.query.locale || req.query.lang;
+    if (urlLang) {
+        const normalizedUrlLang = normalizeBrowserLanguage(urlLang) || urlLang;
+        if (isSupportedLanguage(normalizedUrlLang)) {
+            winston.info('[auto-translate] Language from URL:', {
+                original: urlLang,
+                normalized: normalizedUrlLang
+            });
+            return normalizedUrlLang;
+        }
+    }
+    
+    // 2. ユーザー設定 - NodeBBのユーザー設定から取得
+    if (req.uid) {
+        try {
+            const User = require.main.require('./src/user');
+            const userSettings = await User.getSettings(req.uid);
+            
+            winston.verbose('[auto-translate] User settings retrieved:', {
+                userLang: userSettings.userLang,
+                language: userSettings.language
+            });
+            
+            // userLang または language フィールドをチェック
+            const userLang = userSettings.userLang || userSettings.language;
+            if (userLang) {
+                const normalizedUserLang = normalizeBrowserLanguage(userLang);
+                winston.verbose('[auto-translate] Normalizing user language:', {
+                    original: userLang,
+                    normalized: normalizedUserLang,
+                    isSupported: normalizedUserLang ? isSupportedLanguage(normalizedUserLang) : false
+                });
+                
+                if (normalizedUserLang && isSupportedLanguage(normalizedUserLang)) {
+                    winston.info('[auto-translate] Language from user settings:', {
+                        original: userLang,
+                        normalized: normalizedUserLang
+                    });
+                    return normalizedUserLang;
+                } else {
+                    winston.warn('[auto-translate] User language not supported:', {
+                        userLang,
+                        normalizedUserLang,
+                        supportedLanguages: ['en','zh-CN','hi','es','ar','fr','bn','ru','pt','ur','id','de','ja','fil','tr','ko','fa','sw','ha','it']
+                    });
+                }
+            }
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get user settings:', err);
+        }
+    }
+    
+    // 3. Accept-Language ヘッダー（ブラウザ設定）
+    const acceptLang = req.headers['accept-language'];
+    if (acceptLang) {
+        const browserLang = parseBrowserLanguage(acceptLang);
+        if (browserLang && isSupportedLanguage(browserLang)) {
+            winston.info('[auto-translate] Language from browser:', { language: browserLang });
+            return browserLang;
+        }
+    }
+    
+    winston.info('[auto-translate] No language detected, using default');
+    return null;
+}
+
+/**
+ * Parse browser Accept-Language header
+ */
+function parseBrowserLanguage(acceptLang) {
+    try {
+        if (!acceptLang || typeof acceptLang !== 'string') {
+            return null;
+        }
+        
+        const languages = acceptLang.split(',').map(lang => {
+            const [code, q] = lang.trim().split(';q=');
+            return { code: code.trim(), q: q ? parseFloat(q) : 1.0 };
+        });
+        
+        // 優先度順にソート
+        languages.sort((a, b) => b.q - a.q);
+        
+        winston.verbose('[auto-translate] Parsed Accept-Language:', languages);
+        
+        // 対応言語を探す
+        for (const { code } of languages) {
+            const normalized = normalizeBrowserLanguage(code);
+            if (normalized) {
+                winston.verbose('[auto-translate] Browser language normalized:', { code, normalized });
+                return normalized;
+            }
+        }
+        
+        return null;
+    } catch (err) {
+        winston.error('[auto-translate] Failed to parse Accept-Language header:', err);
+        return null;
+    }
+}
+
+/**
+ * Normalize browser language code
+ */
+function normalizeBrowserLanguage(langCode) {
+    if (!langCode || typeof langCode !== 'string') {
+        winston.verbose('[auto-translate] Invalid language code:', { langCode, type: typeof langCode });
+        return null;
+    }
+    
+    const langMap = {
+        'en': 'en', 'en-us': 'en', 'en-gb': 'en',
+        'ja': 'ja', 'ja-jp': 'ja',
+        'zh': 'zh-CN', 'zh-cn': 'zh-CN', 'zh-tw': 'zh-CN',
+        'ko': 'ko', 'ko-kr': 'ko',
+        'es': 'es', 'es-es': 'es',
+        'fr': 'fr', 'fr-fr': 'fr',
+        'de': 'de', 'de-de': 'de',
+        'it': 'it', 'it-it': 'it',
+        'pt': 'pt', 'pt-br': 'pt',
+        'ru': 'ru', 'ru-ru': 'ru',
+        'ar': 'ar', 'hi': 'hi', 'bn': 'bn', 'ur': 'ur',
+        'id': 'id', 'fil': 'fil', 'tr': 'tr', 'fa': 'fa',
+        'sw': 'sw', 'ha': 'ha'
+    };
+    
+    const normalized = langMap[langCode.toLowerCase()] || null;
+    winston.verbose('[auto-translate] Language normalization:', {
+        input: langCode,
+        output: normalized
+    });
+    
+    return normalized;
+}
+
+/**
+ * Check if language is supported
+ */
+function isSupportedLanguage(lang) {
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    return LANG_KEYS.includes(lang);
+}
+
+/**
+ * Get translations from database
+ */
+async function getTranslations(type, id) {
+    try {
+        const translationKey = `auto-translate:${type}:${id}`;
+        const translations = await db.getObject(translationKey);
+        return translations || null;
+    } catch (err) {
+        winston.error('[auto-translate] Failed to get translations:', err);
+        return null;
+    }
+}
+
+/**
+ * Clean markdown title
+ */
+function cleanMarkdownTitle(text) {
+    if (!text) return text;
+    return text.replace(/^#+\s*/, '').trim();
 }
 
 /**

@@ -2,56 +2,46 @@
 
 const winston = require.main.require('winston');
 
+// 対応言語キー（仕様に基づく）
+const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                   "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+
 class PromptManager {
     constructor() {
-        this.templates = {
-            system: '',
-            instruction: '',
-            context: '',
-            format: ''
-        };
+        this.supportedLanguages = LANG_KEYS;
     }
     
     /**
-     * Build translation prompt from templates
+     * Build multi-language translation prompt
      */
-    buildTranslationPrompt(content, targetLang, sourceLang, settings) {
+    buildTranslationPrompt(content, settings) {
         try {
-            // Use settings if provided, otherwise use defaults
-            const prompts = settings?.prompts || {
-                systemPrompt: 'You are a professional translator. Translate the following content accurately while preserving the original meaning and context.',
-                translationInstruction: 'Translate to {{targetLang}} from {{sourceLang}}. Maintain formatting, code blocks, and markdown syntax.',
-                contextPreservation: 'Preserve technical terms, product names, and proper nouns appropriately.',
-                outputFormat: 'Return only the translated text without any explanations or notes.'
-            };
+            const systemPrompt = settings?.prompts?.systemPrompt || 
+                'You are a professional localization translator.';
             
-            // Build system prompt
-            const systemPrompt = prompts.systemPrompt;
+            const prompt = `${systemPrompt}
+
+Task:
+Translate the given SOURCE text into the following 20 languages and return ONLY a single JSON object with exactly these keys:
+["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur","id","de","ja","fil","tr","ko","fa","sw","ha","it"]
+
+Requirements:
+- Preserve meaning, tone, and register; produce idiomatic, natural sentences.
+- Keep placeholders, variables, code, and markdown as-is (e.g., {name}, {{variable}}, \`code\`, URLs).
+- Don't add explanations, notes, or extra fields.
+- Don't transliterate brand names unless there is a widely used localized form.
+- If the source contains line breaks, keep them logically.
+- If a translation is truly not applicable, return an empty string "" for that key.
+
+Now translate this SOURCE:
+${content}`;
             
-            // Build instruction with language replacement
-            const instruction = this.replacePlaceholders(prompts.translationInstruction, {
-                targetLang: this.getLanguageName(targetLang),
-                sourceLang: sourceLang ? this.getLanguageName(sourceLang) : 'auto-detected language'
+            winston.verbose('[auto-translate] Built multi-language prompt:', {
+                contentLength: content.length,
+                languageCount: this.supportedLanguages.length
             });
             
-            // Combine all parts
-            const fullPrompt = [
-                systemPrompt,
-                instruction,
-                prompts.contextPreservation,
-                prompts.outputFormat,
-                '',
-                'Content to translate:',
-                content
-            ].filter(Boolean).join('\n');
-            
-            winston.verbose('[auto-translate] Built prompt for translation:', {
-                targetLang,
-                sourceLang,
-                contentLength: content.length
-            });
-            
-            return fullPrompt;
+            return prompt;
         } catch (err) {
             winston.error('[auto-translate] Failed to build prompt:', err);
             throw err;
@@ -59,46 +49,10 @@ class PromptManager {
     }
     
     /**
-     * Replace placeholders in template
+     * Get supported languages
      */
-    replacePlaceholders(template, values) {
-        let result = template;
-        Object.keys(values).forEach(key => {
-            const placeholder = new RegExp(`{{${key}}}`, 'g');
-            result = result.replace(placeholder, values[key]);
-        });
-        return result;
-    }
-    
-    /**
-     * Get human-readable language name
-     */
-    getLanguageName(langCode) {
-        const languageNames = {
-            'en': 'English',
-            'ja': 'Japanese',
-            'zh-CN': 'Simplified Chinese',
-            'zh-TW': 'Traditional Chinese',
-            'es': 'Spanish',
-            'fr': 'French',
-            'de': 'German',
-            'ko': 'Korean',
-            'ru': 'Russian',
-            'pt': 'Portuguese',
-            'it': 'Italian',
-            'ar': 'Arabic',
-            'hi': 'Hindi',
-            'bn': 'Bengali',
-            'ur': 'Urdu',
-            'id': 'Indonesian',
-            'fil': 'Filipino',
-            'tr': 'Turkish',
-            'fa': 'Persian',
-            'sw': 'Swahili',
-            'ha': 'Hausa'
-        };
-        
-        return languageNames[langCode] || langCode;
+    getSupportedLanguages() {
+        return this.supportedLanguages;
     }
     
     /**

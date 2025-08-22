@@ -1,5 +1,10 @@
 {
     "auto-translate": "自動翻訳",
+    "show-original": "原文表示",
+    "show-translation": "翻訳表示",
+    "original-title": "原文タイトルを表示",
+    "translation-title": "翻訳を表示",
+    "loading": "読み込み中...",
     "admin": {
         "title": "自動翻訳",
         "description": "Gemini APIを使用した自動翻訳プラグイン",

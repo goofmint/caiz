@@ -13,15 +13,30 @@
   "acpScripts": [
     "static/admin.js"
   ],
+  "scripts": [
+    "static/main.js"
+  ],
   "languages": "languages",
   "hooks": [
     {
       "hook": "static:app.load",
-      "method": "onAppLoad"
+      "method": "init"
     },
     {
       "hook": "filter:admin.header.build",
       "method": "addAdminMenu"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "onPostSave"
+    },
+    {
+      "hook": "action:topic.save",
+      "method": "onTopicSave"
+    },
+    {
+      "hook": "filter:topic.build",
+      "method": "filterTopicBuild"
     }
   ],
   "templates": "./templates",

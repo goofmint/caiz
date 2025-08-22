@@ -1,5 +1,10 @@
 {
     "auto-translate": "Auto Translate",
+    "show-original": "Show Original",
+    "show-translation": "Show Translation",
+    "original-title": "Show original title",
+    "translation-title": "Show translation",
+    "loading": "Loading...",
     "admin": {
         "title": "Auto Translate",
         "description": "Automatic translation plugin using Gemini API",
