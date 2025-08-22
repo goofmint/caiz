@@ -1,7 +1,7 @@
 'use strict';
 
 const winston = require.main.require('winston');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/genai');
 
 class GeminiApiClient {
     constructor() {
