@@ -15,9 +15,6 @@ const plugin = {
     apiClient: null
 };
 
-// 対応言語リスト
-const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
-                   "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
 
 /**
  * Plugin initialization
@@ -51,7 +48,7 @@ plugin.addAdminMenu = function(header, callback) {
     header.plugins.push({
         route: '/plugins/auto-translate',
         icon: 'fa-language',
-        name: '[[auto-translate:admin.title]]'
+        name: '[[auto-translate:title]]'
     });
     
     callback(null, header);
@@ -70,8 +67,7 @@ function setupAdminRoutes(router, middleware) {
  */
 function renderAdmin(req, res) {
     res.render('admin/plugins/auto-translate/settings', {
-        title: '[[auto-translate:admin.title]]',
-        supportedLanguages: LANG_KEYS
+        title: '[[auto-translate:title]]'
     });
 }
 

@@ -5,22 +5,10 @@ const winston = require.main.require('winston');
 
 const DEFAULT_SETTINGS = {
     prompts: {
-        systemPrompt: 'You are a professional translator. Translate the following content accurately while preserving the original meaning and context.',
-        translationInstruction: 'Translate to {{targetLang}} from {{sourceLang}}. Maintain formatting, code blocks, and markdown syntax.',
-        contextPreservation: 'Preserve technical terms, product names, and proper nouns appropriately.',
-        outputFormat: 'Return only the translated text without any explanations or notes.'
+        systemPrompt: 'You are a professional translator. Translate the following content accurately while preserving the original meaning and context.'
     },
     api: {
-        geminiApiKey: '',
-        model: 'gemini-pro',
-        maxTokens: 2048,
-        temperature: 0.3,
-        timeout: 30
-    },
-    languages: {
-        supportedLanguages: ["en","ja","zh-CN","es","fr","de","ko"],
-        defaultLanguage: 'en',
-        autoDetection: true
+        geminiApiKey: ''
     }
 };
 
@@ -99,28 +87,6 @@ class SettingsManager {
     async validateSettings(settings) {
         if (!settings || typeof settings !== 'object') {
             throw new Error('Invalid settings object');
-        }
-        
-        // Validate API settings
-        if (settings.api) {
-            if (settings.api.maxTokens && (settings.api.maxTokens < 1 || settings.api.maxTokens > 8192)) {
-                throw new Error('Max tokens must be between 1 and 8192');
-            }
-            
-            if (settings.api.temperature && (settings.api.temperature < 0 || settings.api.temperature > 2)) {
-                throw new Error('Temperature must be between 0 and 2');
-            }
-            
-            if (settings.api.timeout && (settings.api.timeout < 1 || settings.api.timeout > 300)) {
-                throw new Error('Timeout must be between 1 and 300 seconds');
-            }
-        }
-        
-        // Validate language settings
-        if (settings.languages) {
-            if (settings.languages.supportedLanguages && !Array.isArray(settings.languages.supportedLanguages)) {
-                throw new Error('Supported languages must be an array');
-            }
         }
         
         return true;

@@ -36,31 +36,11 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
         // API settings
         if (settings.api) {
             $('#gemini-api-key').val(settings.api.geminiApiKey || '');
-            $('#model').val(settings.api.model || 'gemini-pro');
-            $('#max-tokens').val(settings.api.maxTokens || 2048);
-            $('#temperature').val(settings.api.temperature || 0.3);
-            $('#timeout').val(settings.api.timeout || 30);
         }
         
         // Prompt settings
         if (settings.prompts) {
             $('#system-prompt').val(settings.prompts.systemPrompt || '');
-            $('#translation-instruction').val(settings.prompts.translationInstruction || '');
-            $('#context-preservation').val(settings.prompts.contextPreservation || '');
-            $('#output-format').val(settings.prompts.outputFormat || '');
-        }
-        
-        // Language settings
-        if (settings.languages) {
-            // Set supported languages (multiple select)
-            const supportedLangs = settings.languages.supportedLanguages || [];
-            $('#supported-languages option').each(function() {
-                $(this).prop('selected', supportedLangs.includes($(this).val()));
-            });
-            
-            // Set default language
-            $('#default-language').val(settings.languages.defaultLanguage || 'en');
-            $('#auto-detection').prop('checked', settings.languages.autoDetection !== false);
         }
         
         console.log('[auto-translate] Settings populated');
@@ -69,22 +49,10 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
     function gatherFormData() {
         return {
             api: {
-                geminiApiKey: $('#gemini-api-key').val(),
-                model: $('#model').val(),
-                maxTokens: parseInt($('#max-tokens').val(), 10),
-                temperature: parseFloat($('#temperature').val()),
-                timeout: parseInt($('#timeout').val(), 10)
+                geminiApiKey: $('#gemini-api-key').val()
             },
             prompts: {
-                systemPrompt: $('#system-prompt').val(),
-                translationInstruction: $('#translation-instruction').val(),
-                contextPreservation: $('#context-preservation').val(),
-                outputFormat: $('#output-format').val()
-            },
-            languages: {
-                supportedLanguages: $('#supported-languages').val() || [],
-                defaultLanguage: $('#default-language').val(),
-                autoDetection: $('#auto-detection').is(':checked')
+                systemPrompt: $('#system-prompt').val()
             }
         };
     }
@@ -123,20 +91,7 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
         
         // Reset to default values
         $('#gemini-api-key').val('');
-        $('#model').val('gemini-pro');
-        $('#max-tokens').val(2048);
-        $('#temperature').val(0.3);
-        $('#timeout').val(30);
-        
         $('#system-prompt').val('You are a professional translator. Translate the following content accurately while preserving the original meaning and context.');
-        $('#translation-instruction').val('Translate to {{targetLang}} from {{sourceLang}}. Maintain formatting, code blocks, and markdown syntax.');
-        $('#context-preservation').val('Preserve technical terms, product names, and proper nouns appropriately.');
-        $('#output-format').val('Return only the translated text without any explanations or notes.');
-        
-        $('#supported-languages option').prop('selected', false);
-        $('#supported-languages option[value="en"], #supported-languages option[value="ja"], #supported-languages option[value="zh-CN"], #supported-languages option[value="es"], #supported-languages option[value="fr"], #supported-languages option[value="de"], #supported-languages option[value="ko"]').prop('selected', true);
-        $('#default-language').val('en');
-        $('#auto-detection').prop('checked', true);
         
         alerts.success('Settings reset to default values');
     }
