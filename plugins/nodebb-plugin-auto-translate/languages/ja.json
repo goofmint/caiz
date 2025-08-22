@@ -1,16 +1,19 @@
 {
-    "title": "自動翻訳",
-    "description": "Gemini APIを使用した自動翻訳プラグイン",
-    "api-settings": "API設定",
-    "api-key": "Gemini APIキー",
-    "get-api-key": "APIキーを取得",
-    "test-connection": "接続テスト",
-    "prompt-settings": "プロンプト設定",
-    "system-prompt": "システムプロンプト",
-    "system-prompt-help": "翻訳AIの役割を定義するプロンプト",
-    "preview-prompt": "プロンプトプレビュー",
-    "prompt-preview": "プロンプトプレビュー",
-    "save": "設定を保存",
-    "reset": "リセット",
-    "close": "閉じる"
+    "auto-translate": "自動翻訳",
+    "admin": {
+        "title": "自動翻訳",
+        "description": "Gemini APIを使用した自動翻訳プラグイン",
+        "api-settings": "API設定",
+        "api-key": "Gemini APIキー",
+        "get-api-key": "APIキーを取得",
+        "test-connection": "接続テスト",
+        "prompt-settings": "プロンプト設定",
+        "system-prompt": "システムプロンプト",
+        "system-prompt-help": "翻訳AIの役割を定義するプロンプト",
+        "preview-prompt": "プロンプトプレビュー",
+        "prompt-preview": "プロンプトプレビュー",
+        "save": "設定を保存",
+        "reset": "リセット",
+        "close": "閉じる"
+    }
 }

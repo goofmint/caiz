@@ -48,7 +48,7 @@ plugin.addAdminMenu = function(header, callback) {
     header.plugins.push({
         route: '/plugins/auto-translate',
         icon: 'fa-language',
-        name: '[[auto-translate:title]]'
+        name: '[[auto-translate:auto-translate]]'
     });
     
     callback(null, header);
@@ -67,7 +67,7 @@ function setupAdminRoutes(router, middleware) {
  */
 function renderAdmin(req, res) {
     res.render('admin/plugins/auto-translate/settings', {
-        title: '[[auto-translate:title]]'
+        title: '[[auto-translate:admin.title]]'
     });
 }
 

@@ -1,16 +1,19 @@
 {
-    "title": "Auto Translate",
-    "description": "Automatic translation plugin using Gemini API",
-    "api-settings": "API Settings",
-    "api-key": "Gemini API Key",
-    "get-api-key": "Get API Key",
-    "test-connection": "Test Connection",
-    "prompt-settings": "Prompt Settings",
-    "system-prompt": "System Prompt",
-    "system-prompt-help": "System prompt that defines the AI translator's role",
-    "preview-prompt": "Preview Prompt",
-    "prompt-preview": "Prompt Preview",
-    "save": "Save Settings",
-    "reset": "Reset",
-    "close": "Close"
+    "auto-translate": "Auto Translate",
+    "admin": {
+        "title": "Auto Translate",
+        "description": "Automatic translation plugin using Gemini API",
+        "api-settings": "API Settings",
+        "api-key": "Gemini API Key",
+        "get-api-key": "Get API Key",
+        "test-connection": "Test Connection",
+        "prompt-settings": "Prompt Settings",
+        "system-prompt": "System Prompt",
+        "system-prompt-help": "System prompt that defines the AI translator's role",
+        "preview-prompt": "Preview Prompt",
+        "prompt-preview": "Prompt Preview",
+        "save": "Save Settings",
+        "reset": "Reset",
+        "close": "Close"
+    }
 }
