@@ -361,17 +361,30 @@ plugin.onTopicSave = async function(data) {
  */
 async function translateAndSaveContent(type, id, content, settings) {
     try {
+        winston.info('[auto-translate] Starting translation process', { type, id, contentLength: content.length });
+        
         // Build translation prompt
         const prompt = plugin.promptManager.buildTranslationPrompt(content, settings);
+        winston.info('[auto-translate] Translation prompt built', { type, id });
         
         // Call translation API
+        winston.info('[auto-translate] Calling translation API', { type, id });
         const result = await plugin.apiClient.translateContent(prompt, settings);
+        
+        winston.info('[auto-translate] Translation API response received', { 
+            type, 
+            id, 
+            success: result.success,
+            hasTranslations: !!(result.translations),
+            errorMessage: result.error
+        });
         
         if (!result.success) {
             throw new Error(result.error || 'Translation failed');
         }
         
         // Save translations to database
+        winston.info('[auto-translate] Saving translations to database', { type, id });
         const translationKey = `auto-translate:${type}:${id}`;
         await db.setObject(translationKey, {
             original: content,
@@ -380,14 +393,20 @@ async function translateAndSaveContent(type, id, content, settings) {
             usage: result.usage
         });
         
-        winston.info('[auto-translate] Saved translations:', {
+        winston.info('[auto-translate] Saved translations successfully:', {
             type,
             id,
-            languageCount: Object.keys(result.translations).length
+            languageCount: Object.keys(result.translations).length,
+            key: translationKey
         });
         
     } catch (err) {
-        winston.error('[auto-translate] Translation and save failed:', err);
+        winston.error('[auto-translate] Translation and save failed:', {
+            type,
+            id,
+            error: err.message,
+            stack: err.stack
+        });
         throw err;
     }
 }
@@ -524,9 +543,24 @@ plugin.filterTopicBuild = async function(data) {
         
         // 投稿内容の翻訳を適用
         if (templateData.posts && Array.isArray(templateData.posts)) {
+            winston.info('[auto-translate] Processing posts for translation', {
+                postCount: templateData.posts.length,
+                targetLang,
+                postIds: templateData.posts.map(p => p.pid)
+            });
+            
             for (const post of templateData.posts) {
                 if (post.pid) {
                     const translations = await getTranslations('post', post.pid);
+                    winston.info('[auto-translate] Translation check for post', {
+                        pid: post.pid,
+                        hasTranslations: !!translations,
+                        hasTranslationsObject: !!(translations && translations.translations),
+                        hasTargetLang: !!(translations && translations.translations && translations.translations[targetLang]),
+                        availableLanguages: translations && translations.translations ? Object.keys(translations.translations) : [],
+                        targetLang
+                    });
+                    
                     if (translations && translations.translations && translations.translations[targetLang]) {
                         const translatedContent = translations.translations[targetLang];
                         
@@ -735,7 +769,21 @@ function isSupportedLanguage(lang) {
 async function getTranslations(type, id) {
     try {
         const translationKey = `auto-translate:${type}:${id}`;
+        winston.verbose('[auto-translate] Getting translations from database', {
+            type, 
+            id, 
+            key: translationKey,
+            idType: typeof id
+        });
+        
         const translations = await db.getObject(translationKey);
+        winston.verbose('[auto-translate] Database query result', {
+            key: translationKey,
+            hasResult: !!translations,
+            resultKeys: translations ? Object.keys(translations) : [],
+            hasTranslationsProperty: !!(translations && translations.translations)
+        });
+        
         return translations || null;
     } catch (err) {
         winston.error('[auto-translate] Failed to get translations:', err);

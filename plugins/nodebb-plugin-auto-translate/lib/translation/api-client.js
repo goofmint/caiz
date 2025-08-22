@@ -12,9 +12,9 @@ class GeminiApiClient {
         this.client = null;
         this.defaultSettings = {
             model: 'gemini-2.5-flash',
-            maxTokens: 8192,
+            maxTokens: 32768, // Increased for multi-language translations
             temperature: 0.3,
-            timeout: 60
+            timeout: 120 // Increased timeout for larger responses
         };
     }
     
@@ -121,7 +121,18 @@ class GeminiApiClient {
             try {
                 translations = JSON.parse(responseText);
             } catch (parseErr) {
-                winston.error('[auto-translate] Failed to parse JSON response:', parseErr);
+                winston.error('[auto-translate] Failed to parse JSON response:', {
+                    error: parseErr.message,
+                    responseLength: responseText.length,
+                    responsePreview: responseText.substring(0, 200) + '...',
+                    responseSuffix: responseText.substring(responseText.length - 100)
+                });
+                
+                // Try to detect and fix incomplete JSON
+                if (parseErr.message.includes('Unterminated string')) {
+                    winston.warn('[auto-translate] Detected incomplete JSON response, content may be too large for API');
+                }
+                
                 throw new Error('Invalid JSON response from API');
             }
             
