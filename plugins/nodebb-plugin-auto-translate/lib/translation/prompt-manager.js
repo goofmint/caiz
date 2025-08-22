@@ -16,29 +16,19 @@ class PromptManager {
      */
     buildTranslationPrompt(content, settings) {
         try {
-            const systemPrompt = settings?.prompts?.systemPrompt || 
-                'You are a professional localization translator.';
+            if (!settings?.prompts?.translationPrompt) {
+                throw new Error('Translation prompt not configured in settings');
+            }
             
-            const prompt = `${systemPrompt}
-
-Task:
-Translate the given SOURCE text into the following 20 languages and return ONLY a single JSON object with exactly these keys:
-["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur","id","de","ja","fil","tr","ko","fa","sw","ha","it"]
-
-Requirements:
-- Preserve meaning, tone, and register; produce idiomatic, natural sentences.
-- Keep placeholders, variables, code, and markdown as-is (e.g., {name}, {{variable}}, \`code\`, URLs).
-- Don't add explanations, notes, or extra fields.
-- Don't transliterate brand names unless there is a widely used localized form.
-- If the source contains line breaks, keep them logically.
-- If a translation is truly not applicable, return an empty string "" for that key.
-
-Now translate this SOURCE:
-${content}`;
+            // Use the configured translation prompt and replace placeholders
+            const prompt = settings.prompts.translationPrompt
+                .replace('{content}', content)
+                .replace('{supportedLanguages}', JSON.stringify(this.supportedLanguages));
             
-            winston.verbose('[auto-translate] Built multi-language prompt:', {
+            winston.verbose('[auto-translate] Built translation prompt from settings:', {
                 contentLength: content.length,
-                languageCount: this.supportedLanguages.length
+                languageCount: this.supportedLanguages.length,
+                promptLength: prompt.length
             });
             
             return prompt;
