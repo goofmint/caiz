@@ -48,6 +48,48 @@ plugin.init = async function(params) {
 };
 
 /**
+ * Hook: Filter middleware render header - set language variables for header template
+ */
+plugin.filterMiddlewareRenderHeader = async function(data) {
+    try {
+        const { req, res, templateData } = data;
+        
+        winston.info('[auto-translate] filterMiddlewareRenderHeader called', {
+            hasReq: !!req,
+            hasRes: !!res,
+            hasTemplateData: !!templateData,
+            url: req ? req.url : 'no-url'
+        });
+        
+        if (!req || !templateData) {
+            return data;
+        }
+        
+        // 言語を検出
+        const currentLang = await detectLanguage(req);
+        const lang = currentLang || 'ja';
+        
+        // templateDataに直接設定（headerテンプレート用）
+        templateData.seoLang = lang;
+        templateData.userLang = lang;
+        templateData.hreflangs = generateHreflangs(req);
+        
+        winston.info('[auto-translate] Set header template variables', {
+            seoLang: lang,
+            userLang: lang,
+            hreflangCount: templateData.hreflangs ? templateData.hreflangs.length : 0,
+            url: req.url,
+            currentLang: currentLang
+        });
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed in filterMiddlewareRenderHeader:', err);
+    }
+    
+    return data;
+};
+
+/**
  * Add admin navigation menu
  */
 plugin.addAdminMenu = function(header, callback) {
@@ -348,6 +390,102 @@ async function translateAndSaveContent(type, id, content, settings) {
         winston.error('[auto-translate] Translation and save failed:', err);
         throw err;
     }
+}
+
+/**
+ * Hook: Add hreflang tags to link tags
+ */
+plugin.addHreflangTags = async function(data) {
+    try {
+        winston.info('[auto-translate] addHreflangTags hook called', {
+            hasReq: !!data.req,
+            hasLinks: !!data.links,
+            linksCount: data.links ? data.links.length : 0
+        });
+        
+        const { req, links } = data;
+        
+        if (!req) {
+            winston.warn('[auto-translate] No request object in addHreflangTags');
+            return data;
+        }
+        
+        // 現在の言語を検出
+        const currentLang = await detectLanguage(req);
+        
+        // hreflangリンクを生成
+        const hreflangs = generateHreflangs(req);
+        
+        // linksにhreflangタグを追加
+        hreflangs.forEach(hreflang => {
+            const linkTag = {
+                rel: 'alternate',
+                hreflang: hreflang.lang,
+                href: hreflang.url
+            };
+            data.links.push(linkTag);
+            winston.verbose('[auto-translate] Added hreflang link', linkTag);
+        });
+        
+        winston.info('[auto-translate] Added hreflang tags to link tags', {
+            count: hreflangs.length,
+            currentLang,
+            totalLinks: data.links.length
+        });
+        
+    } catch (err) {
+        winston.error('[auto-translate] Failed to add hreflang tags:', err);
+    }
+    
+    return data;
+};
+
+/**
+ * Generate hreflang links for all supported languages
+ */
+function generateHreflangs(req) {
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    // 現在のURLを構築（クエリパラメータを含む）
+    const protocol = req.protocol || 'https';
+    const host = req.get('host');
+    const path = req.originalUrl ? req.originalUrl.split('?')[0] : req.path;
+    const baseUrl = `${protocol}://${host}${path}`;
+    
+    // 各言語のhrefリンクを生成
+    const hreflangs = LANG_KEYS.map(langKey => {
+        const url = new URL(baseUrl);
+        // 既存のクエリパラメータを保持
+        if (req.query) {
+            Object.keys(req.query).forEach(key => {
+                if (key !== 'locale' && key !== 'lang') {
+                    url.searchParams.set(key, req.query[key]);
+                }
+            });
+        }
+        url.searchParams.set('locale', langKey);
+        
+        return {
+            lang: langKey,
+            url: url.href
+        };
+    });
+    
+    // デフォルト言語（x-default）も追加
+    hreflangs.push({
+        lang: 'x-default',
+        url: baseUrl
+    });
+    
+    winston.verbose('[auto-translate] Generated hreflangs', {
+        count: hreflangs.length,
+        baseUrl,
+        path,
+        languages: LANG_KEYS
+    });
+    
+    return hreflangs;
 }
 
 /**

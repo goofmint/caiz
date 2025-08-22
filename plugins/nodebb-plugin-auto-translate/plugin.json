@@ -23,6 +23,10 @@
       "method": "init"
     },
     {
+      "hook": "filter:middleware.renderHeader",
+      "method": "filterMiddlewareRenderHeader"
+    },
+    {
       "hook": "filter:admin.header.build",
       "method": "addAdminMenu"
     },

@@ -1,16 +1,36 @@
 <!DOCTYPE html>
-<html lang="{function.localeToHTML, userLang, defaultLang}" {{{if languageDirection}}}data-dir="{languageDirection}" style="direction: {languageDirection};"{{{end}}}>
+<html lang="{{{ if seoLang }}}{seoLang}{{{ else }}}{function.localeToHTML, userLang, defaultLang}{{{ end }}}" {{{if languageDirection}}}data-dir="{languageDirection}" style="direction: {languageDirection};"{{{end}}}>
 <head>
 	<title>{browserTitle}</title>
 	{{{each metaTags}}}{function.buildMetaTag}{{{end}}}
 	<link rel="stylesheet" type="text/css" href="{relative_path}/assets/client{{{if bootswatchSkin}}}-{bootswatchSkin}{{{end}}}{{{ if (languageDirection=="rtl") }}}-rtl{{{ end }}}.css?{config.cache-buster}" />
 	{{{each linkTags}}}{function.buildLinkTag}{{{end}}}
+	
+	<!-- SEO: Hreflang links for multi-language support -->
+	{{{ if hreflangs }}}
+	{{{ each hreflangs }}}
+	<link rel="alternate" hreflang="{./lang}" href="{./url}" />
+	{{{ end }}}
+	{{{ end }}}
 
 	<script>
 		var config = JSON.parse('{{configJSON}}');
 		var app = {
 			user: JSON.parse('{{userJSON}}')
 		};
+		
+		// Auto-translate language detection
+		(function() {
+			var urlParams = new URLSearchParams(window.location.search);
+			var locale = urlParams.get('locale') || urlParams.get('lang');
+			if (locale) {
+				var supportedLangs = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur","id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+				if (supportedLangs.includes(locale)) {
+					document.documentElement.setAttribute('lang', locale);
+				}
+			}
+		})();
+		
 		document.documentElement.style.setProperty('--panel-offset', `0px`);
 	</script>
 
