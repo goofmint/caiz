@@ -16,12 +16,12 @@ class PromptManager {
      */
     buildTranslationPrompt(content, settings) {
         try {
-            if (!settings?.prompts?.translationPrompt) {
-                throw new Error('Translation prompt not configured in settings');
+            if (!settings?.prompts?.systemPrompt) {
+                throw new Error('System prompt not configured in settings');
             }
             
-            // Use the configured translation prompt and replace placeholders
-            const prompt = settings.prompts.translationPrompt
+            // Use the configured system prompt and replace placeholders
+            const prompt = settings.prompts.systemPrompt
                 .replace('{content}', content)
                 .replace('{supportedLanguages}', JSON.stringify(this.supportedLanguages));
             
