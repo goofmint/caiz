@@ -1,0 +1,20 @@
+{
+    "auto-translate": "Auto Translate",
+    "show-original": "Show Original",
+    "show-translation": "Show Translation",
+    "original-title": "Show original title",
+    "translation-title": "Show translation",
+    "loading": "Loading...",
+    "admin": {
+        "title": "Auto Translate",
+        "description": "Automatic translation plugin using Gemini API",
+        "api-settings": "API Settings",
+        "api-key": "Gemini API Key",
+        "get-api-key": "Get API Key",
+        "test-connection": "Test Connection",
+        "prompt-settings": "Prompt Settings",
+        "system-prompt": "System Prompt",
+        "system-prompt-help": "System prompt that defines the AI translator's role",
+        "save": "Save Settings"
+    }
+}
