@@ -60,15 +60,18 @@ class SettingsManager {
             // Validate settings
             await this.validateSettings(settings);
             
-            // If API key is masked, preserve the existing one
-            if (settings.api && settings.api.geminiApiKey) {
-                if (this.isMaskedApiKey(settings.api.geminiApiKey)) {
-                    settings.api.geminiApiKey = this.settings.api.geminiApiKey;
+            // Merge with existing settings, preserving API key if not provided
+            const mergedSettings = this.mergeSettings(this.settings || DEFAULT_SETTINGS, settings);
+            
+            // If no API key provided in new settings, keep the existing one
+            if (!settings.api || !settings.api.geminiApiKey) {
+                if (this.settings && this.settings.api && this.settings.api.geminiApiKey) {
+                    mergedSettings.api = mergedSettings.api || {};
+                    mergedSettings.api.geminiApiKey = this.settings.api.geminiApiKey;
                 }
             }
             
-            // Merge with defaults to ensure all fields exist
-            this.settings = this.mergeSettings(DEFAULT_SETTINGS, settings);
+            this.settings = mergedSettings;
             
             // Save to database
             await db.setObject(this.settingsKey, this.settings);

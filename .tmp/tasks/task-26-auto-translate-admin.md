@@ -13,6 +13,15 @@ NodeBB向けの自動翻訳プラグインに管理画面を追加し、翻訳�
 
 ## 技術仕様
 
+### 対応言語
+
+enはen-USやen-GBではなく、単にenとする。
+
+```js
+const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                   "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+```
+
 ### プラグイン構成
 ```
 plugins/nodebb-plugin-auto-translate/
@@ -118,7 +127,6 @@ interface LanguageSettings {
 // static/admin.js - 管理画面制御
 class AutoTranslateAdmin {
     init() {
-        // タブ切り替え機能
         // フォーム送信処理
         // プロンプトプレビュー機能
         // API接続テスト機能
@@ -141,6 +149,7 @@ class AutoTranslateAdmin {
 ### バックエンド実装
 
 #### 設定管理
+
 ```javascript
 // lib/config/settings.js - 設定の保存・読み込み
 class SettingsManager {
@@ -190,17 +199,14 @@ class GeminiApiClient {
 
 ### セキュリティ考慮事項
 
-1. **APIキーの暗号化保存**
-   - データベース内でAPIキーを暗号化
-   - 管理画面での表示時はマスク処理
-
-2. **入力検証**
+1. **入力検証**
    - プロンプトテンプレートのサニタイズ
    - 数値設定の範囲チェック
    - XSS対策
 
-3. **権限制御**
+2. **権限制御**
    - 管理者のみアクセス可能
+   - REST API実装禁止
    - Socket.IO接続時の権限確認
 
 ### データベーススキーマ
@@ -242,7 +248,6 @@ class GeminiApiClient {
 
 ### フェーズ2: プロンプト編集機能
 - プロンプトエディターUI
-- プロンプトテンプレートの管理
 - プレビュー機能
 
 ### フェーズ3: API統合
@@ -251,7 +256,6 @@ class GeminiApiClient {
 - エラーハンドリング
 
 ### フェーズ4: 高度な機能
-- バッチ翻訳機能
 - 翻訳履歴の管理
 - パフォーマンス最適化
 

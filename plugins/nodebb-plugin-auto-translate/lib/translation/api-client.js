@@ -1,7 +1,7 @@
 'use strict';
 
 const winston = require.main.require('winston');
-const { GoogleGenerativeAI } = require('@google/genai');
+const { GoogleGenAI } = require('@google/genai');
 
 class GeminiApiClient {
     constructor() {
@@ -24,10 +24,7 @@ class GeminiApiClient {
         }
         
         try {
-            this.client = new GoogleGenerativeAI(settings.api.geminiApiKey);
-            this.model = this.client.getGenerativeModel({
-                model: settings.api.model || this.defaultSettings.model
-            });
+            this.client = new GoogleGenAI({apiKey: settings.api.geminiApiKey});
             
             winston.info('[auto-translate] Gemini API client initialized');
         } catch (err) {
@@ -40,44 +37,36 @@ class GeminiApiClient {
      * Test API connection
      */
     async testConnection(apiKey) {
+        if (!apiKey) {
+            throw new Error('API key is required');
+        }
+        
         try {
-            const testClient = new GoogleGenerativeAI(apiKey);
-            const testModel = testClient.getGenerativeModel({ model: 'gemini-pro' });
+            const ai = new GoogleGenAI({apiKey: apiKey});
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.0-flash-001',
+                contents: 'Hello'
+            });
             
-            const result = await Promise.race([
-                testModel.generateContent('Hello'),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout')), 10000)
-                )
-            ]);
-            
-            if (result?.response?.text()) {
-                winston.info('[auto-translate] API connection test successful');
-                return {
-                    success: true,
-                    message: 'API connection successful',
-                    model: 'gemini-pro'
-                };
-            } else {
-                throw new Error('Invalid API response');
+            // Check proper response structure
+            if (response.candidates && response.candidates.length > 0 &&
+                response.candidates[0].content && response.candidates[0].content.parts &&
+                response.candidates[0].content.parts.length > 0) {
+                
+                const text = response.candidates[0].content.parts[0].text;
+                if (text) {
+                    winston.info('[auto-translate] API connection test successful');
+                    return { 
+                        success: true,
+                        message: 'API connection successful'
+                    };
+                }
             }
+            
+            throw new Error('Failed to connect to Gemini API');
         } catch (err) {
-            winston.error('[auto-translate] API connection test failed:', err);
-            
-            let errorMessage = 'API connection failed';
-            if (err.message.includes('API_KEY_INVALID')) {
-                errorMessage = 'Invalid API key';
-            } else if (err.message.includes('Timeout')) {
-                errorMessage = 'Connection timeout';
-            } else if (err.message.includes('QUOTA_EXCEEDED')) {
-                errorMessage = 'API quota exceeded';
-            }
-            
-            return {
-                success: false,
-                message: errorMessage,
-                error: err.message
-            };
+            winston.error('[auto-translate] Error testing connection:', err);
+            throw new Error('Invalid API key or connection failed');
         }
     }
     

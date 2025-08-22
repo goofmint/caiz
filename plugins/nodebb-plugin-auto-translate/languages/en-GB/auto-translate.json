@@ -10,10 +10,6 @@
         "prompt-settings": "Prompt Settings",
         "system-prompt": "System Prompt",
         "system-prompt-help": "System prompt that defines the AI translator's role",
-        "preview-prompt": "Preview Prompt",
-        "prompt-preview": "Prompt Preview",
-        "save": "Save Settings",
-        "reset": "Reset",
-        "close": "Close"
+        "save": "Save Settings"
     }
 }

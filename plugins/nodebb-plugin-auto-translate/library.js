@@ -66,7 +66,7 @@ function setupAdminRoutes(router, middleware) {
  * Render admin page
  */
 function renderAdmin(req, res) {
-    res.render('admin/plugins/auto-translate/settings', {
+    res.render('admin/plugins/auto-translate', {
         title: '[[auto-translate:admin.title]]'
     });
 }
@@ -75,62 +75,67 @@ function renderAdmin(req, res) {
  * Setup socket handlers for admin
  */
 function setupSocketHandlers() {
-    socketPlugins['auto-translate'] = {
-        // Get current settings
-        getSettings: async function(socket, data) {
-            await requireAdmin(socket);
-            
-            try {
-                const settings = await plugin.settingsManager.getSettings();
-                return settings;
-            } catch (err) {
-                winston.error('[auto-translate] Failed to get settings:', err);
-                throw err;
-            }
-        },
+    const sockets = require.main.require('./src/socket.io/plugins');
+    sockets.autoTranslate = {};
+    
+    // Get current settings
+    sockets.autoTranslate.getSettings = async function(socket, data) {
+        await requireAdmin(socket);
         
-        // Save settings
-        saveSettings: async function(socket, data) {
-            await requireAdmin(socket);
-            
-            try {
-                await plugin.settingsManager.saveSettings(data);
-                winston.info('[auto-translate] Settings saved by uid:', socket.uid);
-                return { success: true };
-            } catch (err) {
-                winston.error('[auto-translate] Failed to save settings:', err);
-                throw err;
-            }
-        },
+        try {
+            const settings = await plugin.settingsManager.getSettings();
+            return settings;
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get settings:', err);
+            throw err;
+        }
+    };
+    
+    // Save settings
+    sockets.autoTranslate.saveSettings = async function(socket, data) {
+        await requireAdmin(socket);
         
-        // Test API connection
-        testConnection: async function(socket, data) {
-            await requireAdmin(socket);
-            
-            try {
-                const result = await plugin.apiClient.testConnection(data.apiKey);
-                return result;
-            } catch (err) {
-                winston.error('[auto-translate] API test failed:', err);
-                throw err;
-            }
-        },
+        try {
+            await plugin.settingsManager.saveSettings(data);
+            winston.info('[auto-translate] Settings saved by uid:', socket.uid);
+            return { success: true };
+        } catch (err) {
+            winston.error('[auto-translate] Failed to save settings:', err);
+            throw err;
+        }
+    };
+    
+    // Test API connection
+    sockets.autoTranslate.testConnection = async function(socket, data) {
+        await requireAdmin(socket);
         
-        // Preview prompt
-        previewPrompt: async function(socket, data) {
-            await requireAdmin(socket);
-            
-            try {
-                const prompt = plugin.promptManager.buildTranslationPrompt(
-                    data.content || 'Sample content',
-                    data.targetLang || 'ja',
-                    data.sourceLang || 'en'
-                );
-                return { prompt };
-            } catch (err) {
-                winston.error('[auto-translate] Prompt preview failed:', err);
-                throw err;
+        let apiKey = data.apiKey;
+        
+        // If useSavedKey is true, get the saved API key
+        if (data.useSavedKey && !apiKey) {
+            const settings = await plugin.settingsManager.getRawSettings();
+            if (settings.api && settings.api.geminiApiKey) {
+                apiKey = settings.api.geminiApiKey;
             }
+        }
+        
+        winston.info('[auto-translate] Test connection called with data:', { 
+            hasApiKey: !!apiKey, 
+            apiKeyLength: apiKey ? apiKey.length : 0,
+            apiKeyPrefix: apiKey ? apiKey.substring(0, 6) + '...' : 'none',
+            useSavedKey: !!data.useSavedKey
+        });
+        
+        if (!apiKey) {
+            throw new Error('API key is required');
+        }
+        
+        try {
+            const result = await plugin.apiClient.testConnection(apiKey);
+            return result;
+        } catch (err) {
+            winston.error('[auto-translate] API test failed:', err);
+            throw err;
         }
     };
     
@@ -145,7 +150,8 @@ async function requireAdmin(socket) {
         throw new Error('[[error:not-logged-in]]');
     }
     
-    const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+    const user = require.main.require('./src/user');
+    const isAdmin = await user.isAdministrator(socket.uid);
     if (!isAdmin) {
         throw new Error('[[error:no-privileges]]');
     }

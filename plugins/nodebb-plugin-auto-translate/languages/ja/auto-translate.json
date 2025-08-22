@@ -10,10 +10,6 @@
         "prompt-settings": "プロンプト設定",
         "system-prompt": "システムプロンプト",
         "system-prompt-help": "翻訳AIの役割を定義するプロンプト",
-        "preview-prompt": "プロンプトプレビュー",
-        "prompt-preview": "プロンプトプレビュー",
-        "save": "設定を保存",
-        "reset": "リセット",
-        "close": "閉じる"
+        "save": "設定を保存"
     }
 }

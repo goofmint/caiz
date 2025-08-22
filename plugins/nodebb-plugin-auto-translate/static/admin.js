@@ -3,24 +3,24 @@
 define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Settings, alerts) {
     const ACP = {};
     let currentSettings = {};
+    let connectionTested = false;
     
     ACP.init = function () {
-        Settings.load('auto-translate', $('.auto-translate-settings'));
-        
         // Load current settings
         loadSettings();
         
         // Bind event handlers
         $('#save-settings').on('click', saveSettings);
-        $('#reset-settings').on('click', resetSettings);
         $('#test-connection').on('click', testApiConnection);
-        $('#preview-prompt').on('click', previewPrompt);
+        
+        // Initial save button state
+        updateSaveButtonState(false);
         
         console.log('[auto-translate] Admin panel initialized');
     };
     
     function loadSettings() {
-        window.socket.emit('plugins.auto-translate.getSettings', {}, function(err, settings) {
+        window.socket.emit('plugins.autoTranslate.getSettings', {}, function(err, settings) {
             if (err) {
                 console.error('[auto-translate] Failed to load settings:', err);
                 alerts.error('Failed to load settings: ' + err.message);
@@ -33,31 +33,46 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
     }
     
     function populateForm(settings) {
-        // API settings
-        if (settings.api) {
-            $('#gemini-api-key').val(settings.api.geminiApiKey || '');
-        }
+        // API settings - don't populate API key, leave it empty for security
+        // User can enter new API key if needed
         
         // Prompt settings
         if (settings.prompts) {
             $('#system-prompt').val(settings.prompts.systemPrompt || '');
         }
         
+        // If API key is already saved, enable save button (already tested)
+        if (settings.api && settings.api.geminiApiKey) {
+            updateSaveButtonState(true);
+        }
+        
         console.log('[auto-translate] Settings populated');
     }
     
     function gatherFormData() {
-        return {
-            api: {
-                geminiApiKey: $('#gemini-api-key').val()
-            },
+        const data = {
             prompts: {
                 systemPrompt: $('#system-prompt').val()
             }
         };
+        
+        // Only include API key if it's been entered
+        const apiKey = $('#gemini-api-key').val();
+        if (apiKey && apiKey.trim()) {
+            data.api = {
+                geminiApiKey: apiKey.trim()
+            };
+        }
+        
+        return data;
     }
     
     function saveSettings() {
+        if (!connectionTested) {
+            alerts.error('Please test the API connection first');
+            return;
+        }
+        
         const $saveBtn = $('#save-settings');
         const originalText = $saveBtn.html();
         
@@ -65,7 +80,7 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
         
         const settings = gatherFormData();
         
-        window.socket.emit('plugins.auto-translate.saveSettings', settings, function(err, result) {
+        window.socket.emit('plugins.autoTranslate.saveSettings', settings, function(err, result) {
             $saveBtn.prop('disabled', false).html(originalText);
             
             if (err) {
@@ -84,24 +99,15 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
         });
     }
     
-    function resetSettings() {
-        if (!confirm('Are you sure you want to reset all settings to default values?')) {
-            return;
-        }
-        
-        // Reset to default values
-        $('#gemini-api-key').val('');
-        $('#system-prompt').val('You are a professional translator. Translate the following content accurately while preserving the original meaning and context.');
-        
-        alerts.success('Settings reset to default values');
-    }
-    
     function testApiConnection() {
         const apiKey = $('#gemini-api-key').val();
         
-        if (!apiKey) {
-            alerts.error('Please enter an API key first');
-            return;
+        // If no API key entered, test with saved one
+        if (!apiKey || !apiKey.trim()) {
+            if (!currentSettings.api || !currentSettings.api.geminiApiKey) {
+                alerts.error('Please enter a Gemini API key first');
+                return;
+            }
         }
         
         const $testBtn = $('#test-connection');
@@ -109,40 +115,38 @@ define('admin/plugins/auto-translate', ['settings', 'alerts'], function (Setting
         
         $testBtn.prop('disabled', true).html('<i class="fa fa-spin fa-spinner"></i> Testing...');
         
-        window.socket.emit('plugins.auto-translate.testConnection', { apiKey: apiKey }, function(err, result) {
+        // Use entered API key or request test with saved key
+        const testData = apiKey && apiKey.trim() ? { apiKey: apiKey } : { useSavedKey: true };
+        
+        window.socket.emit('plugins.autoTranslate.testConnection', testData, function(err, result) {
             $testBtn.prop('disabled', false).html(originalText);
             
             if (err) {
                 console.error('[auto-translate] Connection test failed:', err);
-                alerts.error('Connection test failed: ' + err.message);
+                alerts.error(err.message || 'Connection failed');
+                updateSaveButtonState(false);
                 return;
             }
             
             if (result.success) {
-                alerts.success('API connection successful! Model: ' + result.model);
+                alerts.success('Connection successful! Gemini API is working.');
+                updateSaveButtonState(true);
             } else {
-                alerts.error('API connection failed: ' + result.message);
+                alerts.error('API connection failed: ' + (result.message || 'Unknown error'));
+                updateSaveButtonState(false);
             }
         });
     }
     
-    function previewPrompt() {
-        const settings = gatherFormData();
+    function updateSaveButtonState(enabled) {
+        connectionTested = enabled;
+        const $saveBtn = $('#save-settings');
         
-        window.socket.emit('plugins.auto-translate.previewPrompt', {
-            content: 'Hello, this is a sample content for translation preview.',
-            targetLang: 'ja',
-            sourceLang: 'en'
-        }, function(err, result) {
-            if (err) {
-                console.error('[auto-translate] Prompt preview failed:', err);
-                alerts.error('Prompt preview failed: ' + err.message);
-                return;
-            }
-            
-            $('#prompt-preview-content').text(result.prompt);
-            $('#prompt-preview-modal').modal('show');
-        });
+        if (enabled) {
+            $saveBtn.prop('disabled', false).removeClass('btn-secondary').addClass('btn-primary');
+        } else {
+            $saveBtn.prop('disabled', true).removeClass('btn-primary').addClass('btn-secondary');
+        }
     }
     
     return ACP;

@@ -23,7 +23,7 @@
                                 <label class="col-sm-3 col-form-label" for="gemini-api-key">[[auto-translate:admin.api-key]]</label>
                                 <div class="col-sm-9">
                                     <div class="input-group">
-                                        <input type="password" id="gemini-api-key" name="geminiApiKey" class="form-control" placeholder="AIzaSy...">
+                                        <input type="text" id="gemini-api-key" name="geminiApiKey" class="form-control" placeholder="AIzaSy...">
                                         <button class="btn btn-outline-secondary" type="button" id="test-connection">
                                             <i class="fa fa-plug"></i> [[auto-translate:admin.test-connection]]
                                         </button>
@@ -50,14 +50,6 @@
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-sm-3"></div>
-                            <div class="col-sm-9">
-                                <button type="button" id="preview-prompt" class="btn btn-outline-info">
-                                    <i class="fa fa-eye"></i> [[auto-translate:admin.preview-prompt]]
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -66,29 +58,8 @@
                         <button type="button" id="save-settings" class="btn btn-primary">
                             <i class="fa fa-save"></i> [[auto-translate:admin.save]]
                         </button>
-                        <button type="button" id="reset-settings" class="btn btn-outline-secondary ms-2">
-                            <i class="fa fa-undo"></i> [[auto-translate:admin.reset]]
-                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Preview Modal -->
-<div class="modal fade" id="prompt-preview-modal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">[[auto-translate:admin.prompt-preview]]</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <pre id="prompt-preview-content" class="bg-light p-3 rounded"></pre>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">[[auto-translate:admin.close]]</button>
             </div>
         </div>
     </div>
