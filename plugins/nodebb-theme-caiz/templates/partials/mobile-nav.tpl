@@ -36,26 +36,6 @@
 		</div>
 	</div>
 	<div class="bottombar-nav-right d-flex gap-3 align-items-center">
-		<!-- Language Switcher -->
-		{{{ if languageSwitcher }}}
-		<div class="language-switcher dropdown">
-			<button class="btn btn-link dropdown-toggle p-2" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-				<i class="fa fa-globe me-1"></i>
-				<span class="language-name d-none d-sm-inline">{languageSwitcher.name}</span>
-			</button>
-			<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-				{{{ each languageSwitcher.languages }}}
-				<li>
-					<a class="dropdown-item{{{ if ./active }}} active{{{ end }}}" href="{./url}">
-						{./name}
-						{{{ if ./active }}}<i class="fa fa-check ms-2"></i>{{{ end }}}
-					</a>
-				</li>
-				{{{ end }}}
-			</ul>
-		</div>
-		{{{ end }}}
-		
 		<div>
 			{{{ if config.loggedIn }}}
 			<ul id="logged-in-menu" class="list-unstyled d-flex align-items-center w-100 gap-3 mb-0">

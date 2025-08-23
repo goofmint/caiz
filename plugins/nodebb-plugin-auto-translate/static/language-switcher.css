@@ -96,17 +96,18 @@
   }
 }
 
-/* Integration with mobile header */
-.bottombar-nav .language-switcher {
+/* Integration with brand header */
+.brand-container .language-switcher {
   margin: 0;
+  align-self: center;
 }
 
-.bottombar-nav .language-switcher .btn-link {
+.brand-container .language-switcher .btn-link {
   color: inherit;
 }
 
-.bottombar-nav .language-switcher .btn-link:hover,
-.bottombar-nav .language-switcher .btn-link:focus {
+.brand-container .language-switcher .btn-link:hover,
+.brand-container .language-switcher .btn-link:focus {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
