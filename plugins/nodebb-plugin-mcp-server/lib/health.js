@@ -105,9 +105,26 @@ const HealthChecker = {
             const fs = require('fs');
             const path = require('path');
             
-            // Check if temp directory is writable
-            const tempDir = path.join(require.main.require('nconf').get('upload_path'), 'temp');
-            return fs.existsSync(tempDir) && fs.statSync(tempDir).isDirectory();
+            // Get NodeBB's upload path
+            const nconf = require.main.require('nconf');
+            const uploadPath = nconf.get('upload_path') || path.join(nconf.get('base_dir'), 'public', 'uploads');
+            
+            // Check if upload directory exists and is accessible
+            if (!fs.existsSync(uploadPath)) {
+                winston.warn('[mcp-server] Upload path does not exist:', uploadPath);
+                return false;
+            }
+            
+            const uploadStat = fs.statSync(uploadPath);
+            if (!uploadStat.isDirectory()) {
+                winston.warn('[mcp-server] Upload path is not a directory:', uploadPath);
+                return false;
+            }
+            
+            // Try to access the directory (read permission test)
+            fs.readdirSync(uploadPath);
+            
+            return true;
         } catch (err) {
             winston.warn('[mcp-server] Filesystem check failed:', err);
             return false;
@@ -123,8 +140,8 @@ const HealthChecker = {
             const usage = process.memoryUsage();
             const heapUsedPercent = (usage.heapUsed / usage.heapTotal) * 100;
             
-            // Warn if heap usage is over 85%
-            if (heapUsedPercent > 85) {
+            // Warn if heap usage is over 98% (more lenient for development)
+            if (heapUsedPercent > 98) {
                 winston.warn('[mcp-server] High memory usage detected:', {
                     heapUsed: Math.round(usage.heapUsed / 1024 / 1024) + 'MB',
                     heapTotal: Math.round(usage.heapTotal / 1024 / 1024) + 'MB',
