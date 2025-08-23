@@ -1,0 +1,31 @@
+{
+  "name": "nodebb-plugin-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP (Model Context Protocol) server implementation for NodeBB",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goofmint/caiz"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "mcp",
+    "server",
+    "api"
+  ],
+  "author": {
+    "name": "Caiz Team",
+    "email": "support@caiz.dev"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/goofmint/caiz/issues"
+  },
+  "readmeFilename": "README.md",
+  "nbbpm": {
+    "compatibility": "^3.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
