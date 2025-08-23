@@ -73,12 +73,18 @@ plugin.filterMiddlewareRenderHeader = async function(data) {
         templateData.seoLang = lang;
         templateData.userLang = lang;
         templateData.hreflangs = generateHreflangs(req);
-        templateData.languageSwitcher = generateLanguageSwitcherData(req, lang);
+        templateData.languageSwitcher = await generateLanguageSwitcherData(req, lang);
         
         winston.info('[auto-translate] Set header template variables', {
             seoLang: lang,
             userLang: lang,
             hreflangCount: templateData.hreflangs ? templateData.hreflangs.length : 0,
+            hasLanguageSwitcher: !!templateData.languageSwitcher,
+            languageSwitcherData: templateData.languageSwitcher ? {
+                code: templateData.languageSwitcher.code,
+                name: templateData.languageSwitcher.name,
+                languageCount: templateData.languageSwitcher.languages ? templateData.languageSwitcher.languages.length : 0
+            } : null,
             url: req.url,
             currentLang: currentLang
         });
@@ -487,11 +493,44 @@ const LANGUAGE_NAMES = {
 };
 
 /**
- * Generate language switcher data for dropdown
+ * Get translated language names using user's language settings
  */
-function generateLanguageSwitcherData(req, currentLang) {
+async function getTranslatedLanguageNames(userLang) {
+    const translator = require.main.require('./src/translator');
     const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
                        "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    const translatedNames = {};
+    
+    for (const langKey of LANG_KEYS) {
+        const translatedName = await translator.translate(`[[auto-translate:languages.${langKey}]]`, userLang);
+        translatedNames[langKey] = translatedName;
+    }
+    
+    return translatedNames;
+}
+
+/**
+ * Generate language switcher data for dropdown
+ */
+async function generateLanguageSwitcherData(req, currentLang) {
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    // ユーザーの言語設定を取得
+    let userDisplayLang = 'en-GB'; // デフォルト
+    if (req.uid) {
+        try {
+            const User = require.main.require('./src/user');
+            const userSettings = await User.getSettings(req.uid);
+            userDisplayLang = userSettings.userLang || userSettings.language || 'en-GB';
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get user display language:', err);
+        }
+    }
+    
+    // ユーザーの表示言語で翻訳された言語名を取得
+    const translatedNames = await getTranslatedLanguageNames(userDisplayLang);
     
     // 現在のURLを構築（クエリパラメータを含む）
     const protocol = req.protocol || 'https';
@@ -515,7 +554,7 @@ function generateLanguageSwitcherData(req, currentLang) {
         
         return {
             code: langKey,
-            name: LANGUAGE_NAMES[langKey] || langKey,
+            name: translatedNames[langKey] || langKey,
             url: url.href,
             active: langKey === currentLang
         };
@@ -523,7 +562,7 @@ function generateLanguageSwitcherData(req, currentLang) {
     
     const currentLanguageData = {
         code: currentLang,
-        name: LANGUAGE_NAMES[currentLang] || currentLang,
+        name: translatedNames[currentLang] || currentLang,
         languages: languages
     };
     

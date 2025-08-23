@@ -34,7 +34,7 @@
 			<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
 				{{{ each languageSwitcher.languages }}}
 				<li>
-					<a class="dropdown-item{{{ if ./active }}} active{{{ end }}}" href="{./url}">
+					<a class="dropdown-item{{{ if ./active }}} active{{{ end }}}" href="{./url}" data-lang="{./code}">
 						{./name}
 						{{{ if ./active }}}<i class="fa fa-check ms-2"></i>{{{ end }}}
 					</a>
