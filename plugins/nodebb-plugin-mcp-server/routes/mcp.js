@@ -131,5 +131,38 @@ module.exports = function(router) {
         });
     });
 
+    /**
+     * MCP Session endpoint
+     * GET /api/mcp/session
+     */
+    router.get('/api/mcp/session', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] MCP session requested');
+            
+            // Bearer token認証の実装は次のフェーズで追加予定
+            // const MCPAuth = require('../lib/auth');
+            // const token = MCPAuth.extractBearerToken(req);
+            // 
+            // if (!token) {
+            //     return MCPAuth.send401Response(res, {
+            //         error: 'invalid_token',
+            //         errorDescription: 'Bearer token required for MCP session access'
+            //     });
+            // }
+            
+            // 現在は常に401を返す（実装準備段階）
+            res.status(501).json({
+                error: 'not_implemented',
+                error_description: 'MCP session endpoint is not yet implemented'
+            });
+        } catch (err) {
+            winston.error('[mcp-server] MCP session error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while processing session request'
+            });
+        }
+    });
+
     return router;
 };
