@@ -1,4 +1,4 @@
-# タスク13: MCPサーバー - メタデータ公開
+# タスク33: MCPサーバー - メタデータ公開
 
 ## 概要
 OAuth 2.0 Resource Server Metadataを公開するエンドポイント `/.well-known/oauth-protected-resource` を実装します。このエンドポイントは、MCPクライアントが当サーバーのリソース保護情報を取得するために使用されます。
@@ -18,8 +18,8 @@ OAuth 2.0 Resource Server Metadataを返します。
 ```javascript
 {
   "resource": "https://caiz.test",
-  "authorization_servers": ["https://auth.caiz.test"],
-  "jwks_uri": "https://auth.caiz.test/.well-known/jwks.json",
+  "authorization_servers": ["https://caiz.test"],
+  "jwks_uri": "https://caiz.test/.well-known/jwks.json",
   "scopes_supported": [
     "mcp:read",
     "mcp:write",
