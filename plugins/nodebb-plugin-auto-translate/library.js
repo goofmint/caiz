@@ -527,10 +527,12 @@ function generateLanguageSwitcherData(req, currentLang) {
         languages: languages
     };
     
-    winston.verbose('[auto-translate] Generated language switcher data', {
+    winston.info('[auto-translate] Generated language switcher data', {
         currentLang,
         currentName: currentLanguageData.name,
-        languageCount: languages.length
+        languageCount: languages.length,
+        activeLanguages: languages.filter(l => l.active).map(l => l.code),
+        requestUrl: baseUrl
     });
     
     return currentLanguageData;
@@ -831,10 +833,14 @@ plugin.filterTopicBuild = async function(data) {
  * Detect language from request
  */
 async function detectLanguage(req) {
-    winston.verbose('[auto-translate] Detecting language for user:', {
+    winston.info('[auto-translate] Detecting language for user:', {
         uid: req.uid,
         hasUser: !!req.user,
+        url: req.url,
+        originalUrl: req.originalUrl,
         urlParams: req.query,
+        locale: req.query.locale,
+        lang: req.query.lang,
         userSettings: req.user ? req.user.settings : 'none'
     });
     

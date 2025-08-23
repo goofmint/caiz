@@ -27,7 +27,7 @@
 		<!-- Language Switcher -->
 		{{{ if languageSwitcher }}}
 		<div class="language-switcher dropdown">
-			<button class="btn btn-link dropdown-toggle p-2" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+			<button class="btn btn-link dropdown-toggle p-2" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Current: {languageSwitcher.code}">
 				<i class="fa fa-globe me-2"></i>
 				<span class="language-name">{languageSwitcher.name}</span>
 			</button>
