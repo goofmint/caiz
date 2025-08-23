@@ -1,0 +1,11 @@
+{
+    "mcp-server": "MCP Server",
+    "admin": {
+        "title": "MCP Server Administration",
+        "description": "Configure and monitor the MCP server",
+        "status": "Server Status",
+        "health": "Health Checks",
+        "capabilities": "Capabilities",
+        "configuration": "Configuration"
+    }
+}

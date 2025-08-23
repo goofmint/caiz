@@ -1,0 +1,19 @@
+{
+  "id": "nodebb-plugin-mcp-server",
+  "name": "NodeBB MCP Server",
+  "description": "MCP (Model Context Protocol) server implementation for NodeBB",
+  "url": "https://github.com/goofmint/caiz",
+  "library": "./library.js",
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "init"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminMenu"
+    }
+  ],
+  "templates": "./templates",
+  "languages": "languages"
+}
