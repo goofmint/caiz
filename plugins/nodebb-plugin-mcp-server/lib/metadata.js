@@ -1,6 +1,7 @@
 'use strict';
 
 const winston = require.main.require('winston');
+const nconf = require.main.require('nconf');
 
 /**
  * OAuth 2.0 Resource Server Metadata provider
@@ -14,11 +15,25 @@ class ResourceServerMetadata {
     static getMetadata() {
         winston.verbose('[mcp-server] Generating resource server metadata');
         
-        // RFC 8414準拠のリソースサーバーメタデータを返す
-        // 実装は次のフェーズで追加予定
-        // 基本構造：resource, authorization_servers, jwks_uri, scopes_supported など
-        
-        throw new Error('Implementation pending - interface only');
+        try {
+            const baseUrl = this.getBaseUrl();
+            
+            return {
+                resource: baseUrl,
+                authorization_servers: this.getAuthorizationServers(),
+                jwks_uri: `${baseUrl}/.well-known/jwks.json`,
+                scopes_supported: this.getSupportedScopes(),
+                response_types_supported: ["code"],
+                subject_types_supported: ["public"],
+                token_endpoint_auth_methods_supported: [
+                    "client_secret_basic",
+                    "client_secret_post"
+                ]
+            };
+        } catch (err) {
+            winston.error('[mcp-server] Failed to generate metadata:', err);
+            throw err;
+        }
     }
     
     /**
@@ -28,12 +43,35 @@ class ResourceServerMetadata {
     static validateConfiguration() {
         winston.verbose('[mcp-server] Validating metadata configuration');
         
-        // 現在の設定の妥当性を検証
-        // 必須フィールドの存在確認
-        // URL形式の検証
-        // スコープ定義の確認
-        
-        throw new Error('Implementation pending - interface only');
+        try {
+            const baseUrl = this.getBaseUrl();
+            
+            // Check if base URL is valid
+            if (!baseUrl || !baseUrl.startsWith('http')) {
+                winston.error('[mcp-server] Invalid base URL configuration:', baseUrl);
+                return false;
+            }
+            
+            // Check if scopes are defined
+            const scopes = this.getSupportedScopes();
+            if (!Array.isArray(scopes) || scopes.length === 0) {
+                winston.error('[mcp-server] No scopes defined');
+                return false;
+            }
+            
+            // Check authorization servers
+            const authServers = this.getAuthorizationServers();
+            if (!Array.isArray(authServers) || authServers.length === 0) {
+                winston.error('[mcp-server] No authorization servers configured');
+                return false;
+            }
+            
+            winston.info('[mcp-server] Metadata configuration is valid');
+            return true;
+        } catch (err) {
+            winston.error('[mcp-server] Metadata configuration validation failed:', err);
+            return false;
+        }
     }
     
     /**
@@ -41,12 +79,11 @@ class ResourceServerMetadata {
      * @returns {Array<string>} Supported scopes
      */
     static getSupportedScopes() {
-        winston.verbose('[mcp-server] Getting supported OAuth scopes');
-        
-        // MCPサーバー用のスコープ定義を返す
-        // mcp:read, mcp:write, mcp:admin などの基本スコープ
-        
-        throw new Error('Implementation pending - interface only');
+        return [
+            "mcp:read",
+            "mcp:write", 
+            "mcp:admin"
+        ];
     }
     
     /**
@@ -54,12 +91,21 @@ class ResourceServerMetadata {
      * @returns {Array<string>} Authorization server URLs
      */
     static getAuthorizationServers() {
-        winston.verbose('[mcp-server] Getting authorization server endpoints');
-        
-        // 認証サーバーのエンドポイント一覧を返す
-        // 環境設定から動的に取得
-        
-        throw new Error('Implementation pending - interface only');
+        const baseUrl = this.getBaseUrl();
+        return [baseUrl];
+    }
+    
+    /**
+     * Get base URL for the server
+     * @returns {string} Base URL
+     * @private
+     */
+    static getBaseUrl() {
+        const url = nconf.get('url');
+        if (!url) {
+            throw new Error('NodeBB URL not configured in nconf');
+        }
+        return url;
     }
 }
 

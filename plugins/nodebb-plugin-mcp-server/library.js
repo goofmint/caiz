@@ -28,12 +28,58 @@ plugin.init = async function(params) {
         // Setup admin routes
         setupAdminRoutes(router, middleware);
         
+        // Setup .well-known routes at root level (after admin routes)
+        setupWellKnownRoutes(params.app);
+        
         winston.info('[mcp-server] MCP Server Plugin initialized successfully');
     } catch (err) {
         winston.error('[mcp-server] Failed to initialize plugin:', err);
         throw err;
     }
 };
+
+/**
+ * Setup .well-known routes at root level
+ * @param {Object} app - Express app instance
+ */
+function setupWellKnownRoutes(app) {
+    const ResourceServerMetadata = require('./lib/metadata');
+    
+    app.get('/.well-known/oauth-protected-resource', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Resource server metadata requested');
+            
+            // Validate configuration before returning metadata
+            if (!ResourceServerMetadata.validateConfiguration()) {
+                return res.status(500).json({
+                    error: 'server_error',
+                    error_description: 'Invalid server configuration'
+                });
+            }
+            
+            const metadata = ResourceServerMetadata.getMetadata();
+            
+            // Set appropriate headers for metadata endpoint
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json(metadata);
+            
+            winston.verbose('[mcp-server] Resource server metadata sent successfully');
+        } catch (err) {
+            winston.error('[mcp-server] Resource server metadata error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating metadata'
+            });
+        }
+    });
+}
 
 /**
  * Setup admin routes
