@@ -81,11 +81,11 @@
   - [x] 28: 言語切替を右側に追加（ドロップダウン）
 - MCPサーバー
   - [x] 32: プラグインの雛形を書く
-    - `/mcp/health` のみ追加して疎通確認
-  - [ ] 33: メタデータ公開
+    - `/api/mcp/health` のみ追加して疎通確認
+  - [x] 33: メタデータ公開
     - `/.well-known/oauth-protected-resource` を返す
-  - [ ] 401とWWW-Authenticate
-    - 未認証の `/mcp/session` に 401 と `WWW-Authenticate` を返す
+  - [ ] 34: 401とWWW-Authenticate
+    - 未認証の `/api/mcp/session` に 401 と `WWW-Authenticate` を返す
   - [ ] 認証モジュール骨子
     - Bearer 抽出・401送出の共通化
   - [ ] JWT/JWKS 検証

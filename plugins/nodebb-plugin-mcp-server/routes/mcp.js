@@ -131,5 +131,45 @@ module.exports = function(router) {
         });
     });
 
+    /**
+     * MCP Session endpoint
+     * GET /api/mcp/session
+     */
+    router.get('/api/mcp/session', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] MCP session requested');
+            
+            const MCPAuth = require('../lib/auth');
+            const token = MCPAuth.extractBearerToken(req);
+            
+            if (!token) {
+                winston.verbose('[mcp-server] No Bearer token provided');
+                return MCPAuth.send401Response(res, {
+                    error: 'invalid_token',
+                    errorDescription: 'Bearer token required for MCP session access',
+                    realm: MCPAuth.getDefaultRealm(),
+                    scope: MCPAuth.getDefaultScope()
+                });
+            }
+            
+            // TODO: Validate token with JWT/JWKS in next phase
+            // For now, any token is rejected since we don't have JWT validation yet
+            winston.verbose('[mcp-server] Token validation not yet implemented');
+            return MCPAuth.send401Response(res, {
+                error: 'invalid_token',
+                errorDescription: 'Token validation not yet implemented',
+                realm: MCPAuth.getDefaultRealm(),
+                scope: MCPAuth.getDefaultScope()
+            });
+            
+        } catch (err) {
+            winston.error('[mcp-server] MCP session error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while processing session request'
+            });
+        }
+    });
+
     return router;
 };

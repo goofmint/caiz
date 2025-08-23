@@ -1,11 +1,11 @@
 # Task 32: MCPサーバープラグインの雛形作成
 
 ## 概要
-NodeBBでMCPサーバー機能を提供するプラグインの基本構造を作成する。最初のステップとして`/mcp/health`エンドポイントのみを実装し、MCPサーバーとしての疎通確認を行えるようにする。
+NodeBBでMCPサーバー機能を提供するプラグインの基本構造を作成する。最初のステップとして`/api/mcp/health`エンドポイントのみを実装し、MCPサーバーとしての疎通確認を行えるようにする。
 
 ## 要件
 - NodeBBプラグインとしてMCPサーバー機能を提供
-- `/mcp/health`エンドポイントで健康状態を確認
+- `/api/mcp/health`エンドポイントで健康状態を確認
 - MCPプロトコルの基本構造に準拠
 - 将来的な機能拡張に対応できる設計
 
@@ -30,7 +30,7 @@ plugins/nodebb-plugin-mcp-server/
 
 ## エンドポイント設計
 
-### GET /mcp/health
+### GET /api/mcp/health
 MCPサーバーの健康状態を確認するエンドポイント
 
 **レスポンス例:**
@@ -85,7 +85,7 @@ const router = express.Router();
 
 /**
  * Health check endpoint for MCP server
- * GET /mcp/health
+ * GET /api/mcp/health
  */
 router.get('/health', async (req, res) => {
     // MCPサーバーの健康状態を返す
@@ -188,6 +188,6 @@ module.exports = HealthChecker;
 
 ## 次のステップ
 1. 基本プラグイン構造の実装
-2. `/mcp/health`エンドポイントの実装
+2. `/api/mcp/health`エンドポイントの実装
 3. 管理画面の追加
 4. テストとドキュメント整備
