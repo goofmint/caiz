@@ -73,11 +73,18 @@ plugin.filterMiddlewareRenderHeader = async function(data) {
         templateData.seoLang = lang;
         templateData.userLang = lang;
         templateData.hreflangs = generateHreflangs(req);
+        templateData.languageSwitcher = await generateLanguageSwitcherData(req, lang);
         
         winston.info('[auto-translate] Set header template variables', {
             seoLang: lang,
             userLang: lang,
             hreflangCount: templateData.hreflangs ? templateData.hreflangs.length : 0,
+            hasLanguageSwitcher: !!templateData.languageSwitcher,
+            languageSwitcherData: templateData.languageSwitcher ? {
+                code: templateData.languageSwitcher.code,
+                name: templateData.languageSwitcher.name,
+                languageCount: templateData.languageSwitcher.languages ? templateData.languageSwitcher.languages.length : 0
+            } : null,
             url: req.url,
             currentLang: currentLang
         });
@@ -460,6 +467,117 @@ plugin.addHreflangTags = async function(data) {
 };
 
 /**
+ * Language display names map
+ */
+const LANGUAGE_NAMES = {
+    "en": "English",
+    "zh-CN": "中文(简体)",
+    "hi": "हिन्दी",
+    "es": "Español",
+    "ar": "العربية",
+    "fr": "Français",
+    "bn": "বাংলা",
+    "ru": "Русский",
+    "pt": "Português",
+    "ur": "اردو",
+    "id": "Bahasa Indonesia",
+    "de": "Deutsch",
+    "ja": "Japanese",
+    "fil": "Filipino",
+    "tr": "Türkçe",
+    "ko": "한국어",
+    "fa": "فارسی",
+    "sw": "Kiswahili",
+    "ha": "Hausa",
+    "it": "Italiano"
+};
+
+/**
+ * Get translated language names using user's language settings
+ */
+async function getTranslatedLanguageNames(userLang) {
+    const translator = require.main.require('./src/translator');
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    const translatedNames = {};
+    
+    for (const langKey of LANG_KEYS) {
+        const translatedName = await translator.translate(`[[auto-translate:languages.${langKey}]]`, userLang);
+        translatedNames[langKey] = translatedName;
+    }
+    
+    return translatedNames;
+}
+
+/**
+ * Generate language switcher data for dropdown
+ */
+async function generateLanguageSwitcherData(req, currentLang) {
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    // ユーザーの言語設定を取得
+    let userDisplayLang = 'en-GB'; // デフォルト
+    if (req.uid) {
+        try {
+            const User = require.main.require('./src/user');
+            const userSettings = await User.getSettings(req.uid);
+            userDisplayLang = userSettings.userLang || userSettings.language || 'en-GB';
+        } catch (err) {
+            winston.error('[auto-translate] Failed to get user display language:', err);
+        }
+    }
+    
+    // ユーザーの表示言語で翻訳された言語名を取得
+    const translatedNames = await getTranslatedLanguageNames(userDisplayLang);
+    
+    // 現在のURLを構築（クエリパラメータを含む）
+    const protocol = req.protocol || 'https';
+    const host = req.get('host');
+    const path = req.originalUrl ? req.originalUrl.split('?')[0] : req.path;
+    const baseUrl = `${protocol}://${host}${path}`;
+    
+    // 各言語の切替リンクを生成
+    const languages = LANG_KEYS.map(langKey => {
+        const url = new URL(baseUrl);
+        
+        // 既存のクエリパラメータを保持
+        if (req.query) {
+            Object.keys(req.query).forEach(key => {
+                if (key !== 'locale' && key !== 'lang') {
+                    url.searchParams.set(key, req.query[key]);
+                }
+            });
+        }
+        url.searchParams.set('locale', langKey);
+        
+        return {
+            code: langKey,
+            name: translatedNames[langKey] || langKey,
+            url: url.href,
+            active: langKey === currentLang
+        };
+    });
+    
+    const currentLanguageData = {
+        code: currentLang,
+        name: translatedNames[currentLang] || currentLang,
+        languages: languages
+    };
+    
+    winston.info('[auto-translate] Generated language switcher data', {
+        currentLang,
+        currentName: currentLanguageData.name,
+        languageCount: languages.length,
+        activeLanguages: languages.filter(l => l.active).map(l => l.code),
+        requestUrl: baseUrl
+    });
+    
+    return currentLanguageData;
+}
+
+/**
  * Generate hreflang links for all supported languages
  */
 function generateHreflangs(req) {
@@ -754,10 +872,14 @@ plugin.filterTopicBuild = async function(data) {
  * Detect language from request
  */
 async function detectLanguage(req) {
-    winston.verbose('[auto-translate] Detecting language for user:', {
+    winston.info('[auto-translate] Detecting language for user:', {
         uid: req.uid,
         hasUser: !!req.user,
+        url: req.url,
+        originalUrl: req.originalUrl,
         urlParams: req.query,
+        locale: req.query.locale,
+        lang: req.query.lang,
         userSettings: req.user ? req.user.settings : 'none'
     });
     

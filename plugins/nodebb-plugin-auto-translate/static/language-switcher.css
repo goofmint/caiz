@@ -1,0 +1,122 @@
+/**
+ * Language Switcher Dropdown Styles
+ */
+
+.language-switcher {
+  position: relative;
+}
+
+.language-switcher .btn-link {
+  color: var(--bs-dark);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--bs-border-radius);
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+.language-switcher .btn-link:hover,
+.language-switcher .btn-link:focus {
+  color: var(--bs-primary);
+  background-color: var(--bs-light);
+}
+
+.language-switcher .btn-link:active,
+.language-switcher .btn-link.show {
+  color: var(--bs-primary);
+  background-color: var(--bs-light);
+}
+
+.language-switcher .fa-globe {
+  color: inherit;
+}
+
+.language-switcher .dropdown-menu {
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  box-shadow: var(--bs-dropdown-box-shadow);
+}
+
+.language-switcher .dropdown-item {
+  padding: 0.5rem 1rem;
+  color: var(--bs-dropdown-link-color);
+  text-decoration: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.language-switcher .dropdown-item:hover,
+.language-switcher .dropdown-item:focus {
+  background-color: var(--bs-dropdown-link-hover-bg);
+  color: var(--bs-dropdown-link-hover-color);
+}
+
+.language-switcher .dropdown-item.active,
+.language-switcher .dropdown-item.active:hover,
+.language-switcher .dropdown-item.active:focus {
+  background-color: var(--bs-primary);
+  color: var(--bs-primary-text-emphasis);
+}
+
+.language-switcher .dropdown-item.active .fa-check {
+  color: inherit;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 576px) {
+  .language-switcher .language-name {
+    display: none !important;
+  }
+  
+  .language-switcher .btn-link {
+    padding: 0.375rem;
+  }
+  
+  .language-switcher .dropdown-menu {
+    min-width: 180px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .language-switcher .btn-link {
+    color: var(--bs-light);
+  }
+  
+  .language-switcher .btn-link:hover,
+  .language-switcher .btn-link:focus,
+  .language-switcher .btn-link:active,
+  .language-switcher .btn-link.show {
+    background-color: var(--bs-dark);
+  }
+}
+
+/* Integration with brand header */
+.brand-container .language-switcher {
+  margin: 0;
+  align-self: center;
+}
+
+.brand-container .language-switcher .btn-link {
+  color: inherit;
+}
+
+.brand-container .language-switcher .btn-link:hover,
+.brand-container .language-switcher .btn-link:focus {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Accessibility improvements */
+.language-switcher .dropdown-toggle:focus {
+  outline: 2px solid var(--bs-focus-ring-color);
+  outline-offset: 2px;
+}
+
+.language-switcher .dropdown-item:focus {
+  outline: none;
+}

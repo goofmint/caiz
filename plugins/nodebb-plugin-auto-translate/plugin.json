@@ -8,13 +8,15 @@
     "static": "./static"
   },
   "css": [
-    "static/style.css"
+    "static/style.css",
+    "static/language-switcher.css"
   ],
   "acpScripts": [
     "static/admin.js"
   ],
   "scripts": [
-    "static/main.js"
+    "static/main.js",
+    "static/language-switcher-client.js"
   ],
   "languages": "languages",
   "hooks": [
