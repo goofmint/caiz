@@ -2,6 +2,15 @@
 
 const winston = require.main.require('winston');
 
+// Get plugin version from package.json
+let pluginVersion = '1.0.0';
+try {
+    const packageInfo = require('../package.json');
+    pluginVersion = packageInfo.version;
+} catch (err) {
+    winston.warn('[mcp-server] Could not load package.json, using default version');
+}
+
 // Get MCP server instance
 function getMCPServer() {
     const plugin = require('../library');
@@ -112,13 +121,13 @@ module.exports = function(router) {
     router.get('/api/mcp', (req, res) => {
         res.json({
             name: 'NodeBB MCP Server',
-            version: '1.0.0',
+            version: pluginVersion,
             endpoints: {
                 health: '/api/mcp/health',
                 metadata: '/api/mcp/metadata',
                 capabilities: '/api/mcp/capabilities'
             },
-            documentation: 'https://github.com/goofmint/caiz/docs/mcp-server'
+            documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
         });
     });
 

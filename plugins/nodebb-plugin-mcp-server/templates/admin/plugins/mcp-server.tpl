@@ -145,7 +145,7 @@
                         <hr>
                         <dl>
                             <dt>[[mcp-server:admin.documentation]]</dt>
-                            <dd><a href="https://github.com/goofmint/caiz/docs/mcp-server" target="_blank">[[mcp-server:admin.github-documentation]]</a></dd>
+                            <dd><a href="https://github.com/goofmint/caiz/tree/main/docs/mcp-server" target="_blank" rel="noopener noreferrer">[[mcp-server:admin.github-documentation]]</a></dd>
                             
                             <dt>[[mcp-server:admin.api-endpoints]]</dt>
                             <dd>
