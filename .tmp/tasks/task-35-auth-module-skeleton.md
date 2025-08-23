@@ -51,8 +51,20 @@ class MCPAuth {
      */
     static requireAuth(requiredScopes = [], options = {}) {
         // Express middleware that handles authentication
-        // Sets req.auth on success, calls send401Response on failure
-        // Implementation details will be added in next phase
+        // - On success: sets req.auth and calls next()
+        // - On failure: returns error per "エラーハンドリングの標準化"
+        //
+        // Extraction rules:
+        // - Accept only `Authorization: Bearer <token>` (case-insensitive scheme)
+        // - Ignore multiple/duplicated Authorization headers (treat as invalid_token)
+        // - Do NOT accept tokens via query/body by default (can be enabled via options.allowQueryToken)
+        //
+        // Status mapping:
+        // - missing token => 401 (WWW-Authenticate: Bearer realm=..., error="invalid_token")
+        // - malformed/invalid/expired/invalid_issuer => 401
+        // - insufficient_scope => 403
+        //
+        // Always set: `WWW-Authenticate: Bearer ...` with appropriate params on 401/403
     }
     
     /**
@@ -61,8 +73,10 @@ class MCPAuth {
      * @returns {Function} Express middleware function
      */
     static optionalAuth(options = {}) {
-        // Express middleware that attempts authentication but doesn't fail on missing token
-        // Sets req.auth if token is valid, continues without it if no token provided
+        // Attempts authentication but doesn't fail when no token is provided.
+        // - No token: continue without `req.auth`
+        // - Token present & valid: set `req.auth` and continue
+        // - Token present but invalid/expired/issuer mismatch: return 401 (not pass-through)
         // Implementation details will be added in next phase
     }
     
@@ -83,8 +97,19 @@ class MCPAuth {
      * @returns {Object} Standardized auth context
      */
     static createAuthContext(tokenPayload) {
-        // Create consistent auth object structure
-        // Implementation details will be added in next phase
+        // Standardized structure (minimum):
+        // {
+        //   userId: tokenPayload.sub,        // string
+        //   username: tokenPayload.preferred_username || tokenPayload.username || null,
+        //   scopes: Array<string>,           // normalized from scope/scp
+        //   issuer: tokenPayload.iss,
+        //   audience: tokenPayload.aud,      // string | string[]
+        //   tokenId: tokenPayload.jti || null,
+        //   issuedAt: tokenPayload.iat ? new Date(iat*1000) : null,
+        //   notBefore: tokenPayload.nbf ? new Date(nbf*1000) : null,
+        //   expiresAt: tokenPayload.exp ? new Date(exp*1000) : null,
+        //   claims: tokenPayload              // raw claims for advanced use
+        // }
     }
 }
 ```
@@ -141,15 +166,30 @@ router.get('/api/mcp/metadata',
 - `expired_token`: トークンの有効期限切れ
 - `invalid_issuer`: トークンの発行者が不正
 
-### レスポンス形式の一貫性
-```javascript
-// 全ての401レスポンスは同一形式
-{
-    "error": "invalid_token",
-    "error_description": "具体的なエラー内容",
-    "realm": "MCP Server",
-    "scope": "mcp:read mcp:write"
-}
+### レスポンス形式とステータスの一貫性
+- 401 Unauthorized: `invalid_token` / `expired_token` / `invalid_issuer` など「認証不備」
+- 403 Forbidden: `insufficient_scope` など「認可不備」
+
+常に `WWW-Authenticate: Bearer ...` を付与（401/403 いずれも）。例:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="MCP Server", error="invalid_token", error_description="Malformed token"
+Cache-Control: no-store
+Pragma: no-cache
+Content-Type: application/json
+
+{ "error": "invalid_token", "error_description": "Malformed token" }
+```
+
+```http
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer realm="MCP Server", error="insufficient_scope", scope="mcp:admin"
+Cache-Control: no-store
+Pragma: no-cache
+Content-Type: application/json
+
+{ "error": "insufficient_scope", "error_description": "Admin access required" }
 ```
 
 ## 設定管理
