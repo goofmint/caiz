@@ -61,28 +61,44 @@ module.exports = function(router) {
      * Get server metadata
      * GET /api/mcp/metadata
      */
-    router.get('/api/mcp/metadata', async (req, res) => {
-        try {
-            winston.verbose('[mcp-server] Metadata requested');
-            
-            const server = getMCPServer();
-            if (!server) {
-                return res.status(503).json({
-                    error: 'MCP server not available'
+    router.get('/api/mcp/metadata', 
+        require('../lib/auth').optionalAuth(),
+        async (req, res) => {
+            try {
+                winston.verbose('[mcp-server] Metadata requested');
+                
+                const server = getMCPServer();
+                if (!server) {
+                    return res.status(503).json({
+                        error: 'MCP server not available'
+                    });
+                }
+                
+                const metadata = server.getMetadata();
+                
+                // If authenticated, add user-specific information
+                if (req.auth) {
+                    metadata.user_specific_info = {
+                        authenticated: true,
+                        user_id: req.auth.userId,
+                        scopes: req.auth.scopes
+                    };
+                    winston.verbose('[mcp-server] Added user-specific metadata for user:', req.auth.userId);
+                } else {
+                    winston.verbose('[mcp-server] Sending public metadata');
+                }
+                
+                res.json(metadata);
+                winston.verbose('[mcp-server] Metadata sent');
+                
+            } catch (err) {
+                winston.error('[mcp-server] Metadata error:', err);
+                res.status(500).json({
+                    error: err.message
                 });
             }
-            
-            const metadata = server.getMetadata();
-            res.json(metadata);
-            
-            winston.verbose('[mcp-server] Metadata sent');
-        } catch (err) {
-            winston.error('[mcp-server] Metadata error:', err);
-            res.status(500).json({
-                error: err.message
-            });
         }
-    });
+    );
 
     /**
      * Get server capabilities
@@ -135,41 +151,39 @@ module.exports = function(router) {
      * MCP Session endpoint
      * GET /api/mcp/session
      */
-    router.get('/api/mcp/session', (req, res) => {
-        try {
-            winston.verbose('[mcp-server] MCP session requested');
-            
-            const MCPAuth = require('../lib/auth');
-            const token = MCPAuth.extractBearerToken(req);
-            
-            if (!token) {
-                winston.verbose('[mcp-server] No Bearer token provided');
-                return MCPAuth.send401Response(res, {
-                    error: 'invalid_token',
-                    errorDescription: 'Bearer token required for MCP session access',
-                    realm: MCPAuth.getDefaultRealm(),
-                    scope: MCPAuth.getDefaultScope()
+    router.get('/api/mcp/session', 
+        require('../lib/auth').requireAuth(['mcp:read']),
+        (req, res) => {
+            try {
+                winston.verbose('[mcp-server] MCP session requested');
+                
+                // req.auth is set by requireAuth middleware after successful JWT validation
+                const authContext = req.auth;
+                
+                // Return session information
+                const sessionInfo = {
+                    user_id: authContext.userId,
+                    username: authContext.username,
+                    scopes: authContext.scopes,
+                    expires_at: authContext.expiresAt ? authContext.expiresAt.toISOString() : null,
+                    issued_at: authContext.issuedAt ? authContext.issuedAt.toISOString() : null,
+                    issuer: authContext.issuer,
+                    audience: authContext.audience,
+                    token_id: authContext.tokenId
+                };
+                
+                res.json(sessionInfo);
+                winston.verbose('[mcp-server] Session info sent for user:', authContext.userId);
+                
+            } catch (err) {
+                winston.error('[mcp-server] MCP session error:', err);
+                res.status(500).json({
+                    error: 'server_error',
+                    error_description: 'Internal server error while processing session request'
                 });
             }
-            
-            // TODO: Validate token with JWT/JWKS in next phase
-            // For now, any token is rejected since we don't have JWT validation yet
-            winston.verbose('[mcp-server] Token validation not yet implemented');
-            return MCPAuth.send401Response(res, {
-                error: 'invalid_token',
-                errorDescription: 'Token validation not yet implemented',
-                realm: MCPAuth.getDefaultRealm(),
-                scope: MCPAuth.getDefaultScope()
-            });
-            
-        } catch (err) {
-            winston.error('[mcp-server] MCP session error:', err);
-            res.status(500).json({
-                error: 'server_error',
-                error_description: 'Internal server error while processing session request'
-            });
         }
-    });
+    );
 
     return router;
 };

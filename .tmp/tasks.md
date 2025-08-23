@@ -86,9 +86,9 @@
     - `/.well-known/oauth-protected-resource` を返す
   - [x] 34: 401とWWW-Authenticate
     - 未認証の `/api/mcp/session` に 401 と `WWW-Authenticate` を返す
-  - [ ] 35: 認証モジュール骨子
+  - [x] 35: 認証モジュール骨子
     - Bearer 抽出・401送出の共通化
-  - [ ] JWT/JWKS 検証
+  - [ ] 36: JWT/JWKS 検証
     - `aud/iss/exp` 検証と JWKs 取得
   - [ ] 認証済セッション応答
     - 正しいトークンで `/mcp/session` が200で基本情報を返す
