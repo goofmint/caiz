@@ -80,9 +80,9 @@
   - [x] 30: ユーザーのブラウザ設定に基づいて言語を自動的に切り替える
   - [x] 28: 言語切替を右側に追加（ドロップダウン）
 - MCPサーバー
-  - [ ] プラグインの雛形を書く
+  - [x] 32: プラグインの雛形を書く
     - `/mcp/health` のみ追加して疎通確認
-  - [ ] メタデータ公開
+  - [ ] 33: メタデータ公開
     - `/.well-known/oauth-protected-resource` を返す
   - [ ] 401とWWW-Authenticate
     - 未認証の `/mcp/session` に 401 と `WWW-Authenticate` を返す
