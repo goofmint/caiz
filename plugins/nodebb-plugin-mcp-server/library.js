@@ -2,7 +2,6 @@
 
 const winston = require.main.require('winston');
 const MCPServer = require('./lib/server');
-const mcpRoutes = require('./routes/mcp');
 
 const plugin = {
     server: null
@@ -23,7 +22,8 @@ plugin.init = async function(params) {
         await plugin.server.initialize();
         
         // Setup MCP routes under /api/mcp
-        router.use('/api/mcp', mcpRoutes);
+        const mcpRoutes = require('./routes/mcp');
+        mcpRoutes(router);
         
         // Setup admin routes
         setupAdminRoutes(router, middleware);
@@ -66,7 +66,7 @@ plugin.addAdminMenu = function(header, callback) {
     header.plugins.push({
         route: '/plugins/mcp-server',
         icon: 'fa-server',
-        name: 'MCP Server'
+        name: '[[mcp-server:admin.title]]'
     });
     
     callback(null, header);

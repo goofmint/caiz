@@ -4,6 +4,12 @@
   "description": "MCP (Model Context Protocol) server implementation for NodeBB",
   "url": "https://github.com/goofmint/caiz",
   "library": "./library.js",
+  "staticDirs": {
+    "static": "./static"
+  },
+  "acpScripts": [
+    "static/admin.js"
+  ],
   "hooks": [
     {
       "hook": "static:app.load",
@@ -15,5 +21,8 @@
     }
   ],
   "templates": "./templates",
-  "languages": "languages"
+  "languages": "languages",
+  "modules": {
+    "../admin/plugins/mcp-server.js": "static/admin.js"
+  }
 }
