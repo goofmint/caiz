@@ -15,32 +15,22 @@ class MCPAuth {
     static extractBearerToken(req) {
         winston.verbose('[mcp-server] Extracting Bearer token from request');
         
-        if (!req.headers || !req.headers.authorization) {
-            winston.verbose('[mcp-server] No Authorization header found');
+        if (!req || !req.headers || typeof req.headers.authorization !== 'string') {
+            winston.verbose('[mcp-server] No valid Authorization header found');
             return null;
         }
         
-        const authHeader = req.headers.authorization;
-        const parts = authHeader.split(' ');
+        const authHeader = req.headers.authorization.trim();
         
-        if (parts.length !== 2) {
-            winston.verbose('[mcp-server] Invalid Authorization header format');
+        // Use regex to match Bearer token format - permissive for JWT/base64url chars
+        const bearerMatch = authHeader.match(/^Bearer\s+([A-Za-z0-9\-._~+/=]+)$/i);
+        
+        if (!bearerMatch) {
+            winston.verbose('[mcp-server] Authorization header does not match Bearer token format');
             return null;
         }
         
-        const scheme = parts[0];
-        const token = parts[1];
-        
-        if (scheme.toLowerCase() !== 'bearer') {
-            winston.verbose('[mcp-server] Authorization scheme is not Bearer');
-            return null;
-        }
-        
-        if (!token) {
-            winston.verbose('[mcp-server] Bearer token is empty');
-            return null;
-        }
-        
+        const token = bearerMatch[1];
         winston.verbose('[mcp-server] Bearer token extracted successfully');
         return token;
     }
@@ -57,24 +47,40 @@ class MCPAuth {
     static generateWWWAuthenticateHeader(options = {}) {
         winston.verbose('[mcp-server] Generating WWW-Authenticate header');
         
-        const realm = options.realm || this.getDefaultRealm();
-        const scope = options.scope || this.getDefaultScope();
-        const error = options.error || 'invalid_token';
-        
-        let header = `Bearer realm="${realm}"`;
-        
-        if (scope) {
-            header += `, scope="${scope}"`;
+        /**
+         * Escape and quote value for HTTP header parameter per RFC 7235
+         * @param {string} value - Value to escape and quote
+         * @returns {string} Escaped and quoted value
+         */
+        function escapeAndQuote(value) {
+            if (typeof value !== 'string') {
+                return '""';
+            }
+            // Escape backslashes and double quotes per RFC 7235
+            const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            return `"${escaped}"`;
         }
         
-        if (error) {
-            header += `, error="${error}"`;
+        const params = [];
+        
+        // Always include realm (RFC 6750 requirement)
+        const realm = options.realm || this.getDefaultRealm();
+        params.push(`realm=${escapeAndQuote(realm)}`);
+        
+        // Include optional parameters only when provided
+        if (options.error) {
+            params.push(`error=${escapeAndQuote(options.error)}`);
         }
         
         if (options.errorDescription) {
-            header += `, error_description="${options.errorDescription}"`;
+            params.push(`error_description=${escapeAndQuote(options.errorDescription)}`);
         }
         
+        if (options.scope) {
+            params.push(`scope=${escapeAndQuote(options.scope)}`);
+        }
+        
+        const header = `Bearer ${params.join(', ')}`;
         winston.verbose('[mcp-server] WWW-Authenticate header generated:', header);
         return header;
     }
@@ -91,62 +97,56 @@ class MCPAuth {
     static send401Response(res, options = {}) {
         winston.verbose('[mcp-server] Sending 401 Unauthorized response');
         
-        const error = options.error || 'unauthorized';
-        const errorDescription = options.errorDescription || 'Bearer token required for MCP session access';
-        const realm = options.realm || this.getDefaultRealm();
-        const scope = options.scope || this.getDefaultScope();
+        // Check if headers have already been sent
+        if (res.headersSent) {
+            winston.warn('[mcp-server] Headers already sent, cannot send 401 response');
+            return;
+        }
         
-        const wwwAuthHeader = this.generateWWWAuthenticateHeader({
-            realm,
-            scope,
-            error: options.error || 'invalid_token',
-            errorDescription
-        });
-        
-        res.set({
-            'WWW-Authenticate': wwwAuthHeader,
-            'Content-Type': 'application/json'
-        });
-        
-        res.status(401).json({
-            error,
-            error_description: errorDescription,
-            realm,
-            scope
-        });
-        
-        winston.verbose('[mcp-server] 401 response sent');
+        try {
+            const wwwAuthHeader = this.generateWWWAuthenticateHeader({
+                realm: options.realm,
+                error: options.error,
+                errorDescription: options.errorDescription,
+                scope: options.scope
+            });
+            
+            // Safely set headers - validate header values to prevent injection
+            const safeHeaders = {};
+            
+            // WWW-Authenticate header is already escaped by generateWWWAuthenticateHeader
+            safeHeaders['WWW-Authenticate'] = wwwAuthHeader;
+            safeHeaders['Content-Type'] = 'application/json';
+            
+            res.set(safeHeaders);
+            res.status(401);
+            
+            // Create minimal JSON body with only error info when provided
+            const body = {};
+            if (options.error) {
+                body.error = options.error;
+            }
+            if (options.errorDescription) {
+                body.error_description = options.errorDescription;
+            }
+            
+            res.json(body);
+            winston.verbose('[mcp-server] 401 response sent successfully');
+            
+        } catch (err) {
+            winston.error('[mcp-server] Error sending 401 response:', err);
+            
+            // Fallback: try to send a basic 401 response
+            if (!res.headersSent) {
+                try {
+                    res.status(401).end();
+                } catch (fallbackErr) {
+                    winston.error('[mcp-server] Fallback 401 response also failed:', fallbackErr);
+                }
+            }
+        }
     }
     
-    /**
-     * Validate Bearer token format
-     * @param {string} token - Bearer token to validate
-     * @returns {boolean} True if token format is valid
-     */
-    static validateTokenFormat(token) {
-        winston.verbose('[mcp-server] Validating Bearer token format');
-        
-        if (!token || typeof token !== 'string') {
-            winston.verbose('[mcp-server] Token is not a string');
-            return false;
-        }
-        
-        // Basic format validation - at least 10 characters
-        if (token.length < 10) {
-            winston.verbose('[mcp-server] Token too short');
-            return false;
-        }
-        
-        // Check for valid characters (alphanumeric, -, _, ., ~, +, /)
-        const validTokenRegex = /^[A-Za-z0-9\-._~+/]+=*$/;
-        if (!validTokenRegex.test(token)) {
-            winston.verbose('[mcp-server] Token contains invalid characters');
-            return false;
-        }
-        
-        winston.verbose('[mcp-server] Token format is valid');
-        return true;
-    }
     
     /**
      * Get default authentication realm

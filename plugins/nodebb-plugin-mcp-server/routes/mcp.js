@@ -146,24 +146,20 @@ module.exports = function(router) {
                 winston.verbose('[mcp-server] No Bearer token provided');
                 return MCPAuth.send401Response(res, {
                     error: 'invalid_token',
-                    errorDescription: 'Bearer token required for MCP session access'
-                });
-            }
-            
-            if (!MCPAuth.validateTokenFormat(token)) {
-                winston.verbose('[mcp-server] Invalid token format');
-                return MCPAuth.send401Response(res, {
-                    error: 'invalid_token',
-                    errorDescription: 'Bearer token format is invalid'
+                    errorDescription: 'Bearer token required for MCP session access',
+                    realm: MCPAuth.getDefaultRealm(),
+                    scope: MCPAuth.getDefaultScope()
                 });
             }
             
             // TODO: Validate token with JWT/JWKS in next phase
-            // For now, any valid format token is rejected since we don't have JWT validation yet
+            // For now, any token is rejected since we don't have JWT validation yet
             winston.verbose('[mcp-server] Token validation not yet implemented');
             return MCPAuth.send401Response(res, {
                 error: 'invalid_token',
-                errorDescription: 'Token validation not yet implemented'
+                errorDescription: 'Token validation not yet implemented',
+                realm: MCPAuth.getDefaultRealm(),
+                scope: MCPAuth.getDefaultScope()
             });
             
         } catch (err) {
