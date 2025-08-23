@@ -1,7 +1,7 @@
 # タスク34: 401とWWW-Authenticate
 
 ## 概要
-未認証の`/mcp/session`エンドポイントに対して、適切な401 Unauthorizedレスポンスと`WWW-Authenticate`ヘッダーを返す機能を実装します。これにより、MCPクライアントが認証が必要であることを理解し、適切な認証フローを開始できます。
+未認証の`/api/mcp/session`エンドポイントに対して、適切な401 Unauthorizedレスポンスと`WWW-Authenticate`ヘッダーを返す機能を実装します。これにより、MCPクライアントが認証が必要であることを理解し、適切な認証フローを開始できます。
 
 ## 目的
 - OAuth 2.0 Bearer Token認証の標準的な401レスポンス実装
@@ -10,7 +10,7 @@
 
 ## エンドポイント仕様
 
-### `GET /mcp/session`
+### `GET /api/mcp/session`
 
 認証されたユーザーのセッション情報を返すエンドポイント。未認証の場合は401を返します。
 
@@ -80,7 +80,7 @@ class MCPAuth {
 ```
 
 ### 既存ファイル更新: `routes/mcp.js`
-新しいエンドポイント `/mcp/session` を追加します。
+新しいエンドポイント `/api/mcp/session` を追加します。
 
 ```javascript
 /**
@@ -112,7 +112,7 @@ router.get('/api/mcp/session', (req, res) => {
 
 ## チェックボックス
 - [ ] `lib/auth.js` ファイルの作成（インターフェースのみ）
-- [ ] `routes/mcp.js` に `/mcp/session` エンドポイント追加
+- [ ] `routes/mcp.js` に `/api/mcp/session` エンドポイント追加
 - [ ] 401レスポンス形式の定義
 - [ ] WWW-Authenticateヘッダーの実装
 - [ ] ドキュメントの整備
