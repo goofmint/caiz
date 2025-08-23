@@ -78,7 +78,34 @@
   - [x] 29: クエリーストリングに合わせて言語を切り替える（locale=??）
     - htmlタグのヘッダーも変更（<html lang="??"> と <meta name="og:locale" content="??"> と <link rel="alternate" hreflang="ja" href="https://example.com/?lang=??" />）
   - [x] 30: ユーザーのブラウザ設定に基づいて言語を自動的に切り替える
-  - [ ] 28: 言語切替を右側に追加（ドロップダウン）
+  - [x] 28: 言語切替を右側に追加（ドロップダウン）
+- MCPサーバー
+  - [ ] プラグインの雛形を書く
+    - `/mcp/health` のみ追加して疎通確認
+  - [ ] メタデータ公開
+    - `/.well-known/oauth-protected-resource` を返す
+  - [ ] 401とWWW-Authenticate
+    - 未認証の `/mcp/session` に 401 と `WWW-Authenticate` を返す
+  - [ ] 認証モジュール骨子
+    - Bearer 抽出・401送出の共通化
+  - [ ] JWT/JWKS 検証
+    - `aud/iss/exp` 検証と JWKs 取得
+  - [ ] 認証済セッション応答
+    - 正しいトークンで `/mcp/session` が200で基本情報を返す
+  - [ ] SSE 最小実装
+    - `GET /mcp/messages` で `text/event-stream` を開始、ハートビート送出
+  - [ ] JSON-RPC 受信の枠
+    - `POST /mcp/messages` を受けて JSON-RPC フォーマットを検査
+  - [ ] ツール定義の雛形
+    - `tools()` で利用可能メソッド一覧を返す（例: search）
+  - [ ] 検索ツールの中身
+    - `search` が固定データまたは簡易検索を返す
+  - [ ] レート制限
+    - `POST /mcp/messages` に rps 制限
+  - [ ] 逆プロキシ前提のヘッダ/タイムアウト
+    - SSE の `Cache-Control` 等ヘッダ固定、タイムアウト注意書き
+  - [ ]  タスク21 デバイスコード案内（任意）
+    - `/.well-known` に device_authorization_endpoint を追加/整備
 - API用トークンの管理
   - [ ] ユーザー情報（右側）にAPIトークンメニューアイコンの追加
   - [ ] APIトークン一覧の表示
@@ -88,7 +115,6 @@
   - [ ] MathJax
   - [ ] KaTeX
   - [ ] PlantUML
-- MCPサーバー
 - Webhook
 - 配信
   - [ ] RTMP受信
