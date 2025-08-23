@@ -12,7 +12,7 @@ OAuth 2.0 Bearer TokenとしてのJWTトークンの署名検証とクレーム�
 ## JWT検証要件
 
 ### 署名検証
-- RS256アルゴリズムによるRSA署名検証
+- JWTヘッダー`alg`が`RS256`であることを強制（`alg=none`や不一致は即拒否）
 - JWKSエンドポイントから公開鍵を動的取得
 - 鍵キャッシュによるパフォーマンス最適化
 - 鍵更新時の自動再取得機能
@@ -51,6 +51,7 @@ class MCPAuth {
      */
     static async validateJWT(token, options = {}) {
         // JWT tokenの形式チェック (header.payload.signature)
+        // ヘッダー検証: alg=RS256, typ=JWT(または未設定), kid 必須, crit 未対応なら拒否
         // JWKSから公開鍵取得
         // 署名検証 (RS256)
         // 標準クレーム検証 (iss, aud, exp, nbf, iat)
@@ -68,7 +69,9 @@ class MCPAuth {
         // JWKS URI からJWK Set取得
         // RSA公開鍵の抽出とPEM形式変換
         // メモリキャッシュによる性能最適化
-        // エラー処理とフォールバック
+        // HTTPキャッシュ尊重: Cache-Control/ETag/Last-Modified を保存し If-None-Match 等で再検証
+        // `kid`未ヒット時は即座に再取得(ただしレート制限・バックオフ・同時リクエスト集約)
+        // エラー処理とフォールバック（直近の有効キャッシュを一時的に継続使用するstale-while-revalidate）
     }
     
     /**
@@ -79,7 +82,7 @@ class MCPAuth {
     static extractPublicKeyFromJWK(jwk) {
         // JWKからRSA公開鍵パラメータ (n, e) 抽出
         // PEM形式への変換
-        // キー形式の検証
+        // キー形式の検証: kty=RSA, use=sig(または未指定), algがRS256互換, key_opsにverify含有
     }
     
     /**
@@ -174,6 +177,10 @@ const jwtConfig = {
 - 詳細なエラー情報の内部ログのみ記録
 - クライアントには最小限のエラー情報のみ提供
 - セキュリティインシデント検出のための監査ログ
+
+### リモート取得の安全性
+- JWKS取得は設定済みHTTPSエンドポイントのみに限定（ヘッダー`jku`は無視）
+- 企業プロキシ経由時も証明書検証を有効化し、自己署名は許可しない
 
 ## パフォーマンス最適化
 
