@@ -8,7 +8,8 @@
     "static": "./static"
   },
   "css": [
-    "static/style.css"
+    "static/style.css",
+    "static/language-switcher.css"
   ],
   "acpScripts": [
     "static/admin.js"

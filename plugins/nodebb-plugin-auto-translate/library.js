@@ -73,6 +73,7 @@ plugin.filterMiddlewareRenderHeader = async function(data) {
         templateData.seoLang = lang;
         templateData.userLang = lang;
         templateData.hreflangs = generateHreflangs(req);
+        templateData.languageSwitcher = generateLanguageSwitcherData(req, lang);
         
         winston.info('[auto-translate] Set header template variables', {
             seoLang: lang,
@@ -458,6 +459,82 @@ plugin.addHreflangTags = async function(data) {
     
     return data;
 };
+
+/**
+ * Language display names map
+ */
+const LANGUAGE_NAMES = {
+    "en": "English",
+    "zh-CN": "中文(简体)",
+    "hi": "हिन्दी",
+    "es": "Español",
+    "ar": "العربية",
+    "fr": "Français",
+    "bn": "বাংলা",
+    "ru": "Русский",
+    "pt": "Português",
+    "ur": "اردو",
+    "id": "Bahasa Indonesia",
+    "de": "Deutsch",
+    "ja": "Japanese",
+    "fil": "Filipino",
+    "tr": "Türkçe",
+    "ko": "한국어",
+    "fa": "فارسی",
+    "sw": "Kiswahili",
+    "ha": "Hausa",
+    "it": "Italiano"
+};
+
+/**
+ * Generate language switcher data for dropdown
+ */
+function generateLanguageSwitcherData(req, currentLang) {
+    const LANG_KEYS = ["en","zh-CN","hi","es","ar","fr","bn","ru","pt","ur",
+                       "id","de","ja","fil","tr","ko","fa","sw","ha","it"];
+    
+    // 現在のURLを構築（クエリパラメータを含む）
+    const protocol = req.protocol || 'https';
+    const host = req.get('host');
+    const path = req.originalUrl ? req.originalUrl.split('?')[0] : req.path;
+    const baseUrl = `${protocol}://${host}${path}`;
+    
+    // 各言語の切替リンクを生成
+    const languages = LANG_KEYS.map(langKey => {
+        const url = new URL(baseUrl);
+        
+        // 既存のクエリパラメータを保持
+        if (req.query) {
+            Object.keys(req.query).forEach(key => {
+                if (key !== 'locale' && key !== 'lang') {
+                    url.searchParams.set(key, req.query[key]);
+                }
+            });
+        }
+        url.searchParams.set('locale', langKey);
+        
+        return {
+            code: langKey,
+            name: LANGUAGE_NAMES[langKey] || langKey,
+            url: url.href,
+            active: langKey === currentLang
+        };
+    });
+    
+    const currentLanguageData = {
+        code: currentLang,
+        name: LANGUAGE_NAMES[currentLang] || currentLang,
+        languages: languages
+    };
+    
+    winston.verbose('[auto-translate] Generated language switcher data', {
+        currentLang,
+        currentName: currentLanguageData.name,
+        languageCount: languages.length
+    });
+    
+    return currentLanguageData;
+}
 
 /**
  * Generate hreflang links for all supported languages
