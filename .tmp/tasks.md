@@ -84,9 +84,9 @@
     - `/api/mcp/health` のみ追加して疎通確認
   - [x] 33: メタデータ公開
     - `/.well-known/oauth-protected-resource` を返す
-  - [ ] 34: 401とWWW-Authenticate
+  - [x] 34: 401とWWW-Authenticate
     - 未認証の `/api/mcp/session` に 401 と `WWW-Authenticate` を返す
-  - [ ] 認証モジュール骨子
+  - [ ] 35: 認証モジュール骨子
     - Bearer 抽出・401送出の共通化
   - [ ] JWT/JWKS 検証
     - `aud/iss/exp` 検証と JWKs 取得
