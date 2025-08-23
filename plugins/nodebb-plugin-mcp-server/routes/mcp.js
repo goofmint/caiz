@@ -131,5 +131,32 @@ module.exports = function(router) {
         });
     });
 
+    /**
+     * OAuth 2.0 Resource Server Metadata endpoint
+     * GET /.well-known/oauth-protected-resource
+     */
+    router.get('/.well-known/oauth-protected-resource', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Resource server metadata requested');
+            
+            // RFC 8414準拠のリソースサーバーメタデータを返す
+            // 実装は次のフェーズで追加予定
+            // const ResourceServerMetadata = require('../lib/metadata');
+            // const metadata = ResourceServerMetadata.getMetadata();
+            // res.json(metadata);
+            
+            res.status(501).json({
+                error: 'not_implemented',
+                error_description: 'OAuth 2.0 Resource Server Metadata endpoint is not yet implemented'
+            });
+        } catch (err) {
+            winston.error('[mcp-server] Resource server metadata error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating metadata'
+            });
+        }
+    });
+
     return router;
 };
