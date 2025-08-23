@@ -30,20 +30,22 @@ Cache-Control: no-store
 Pragma: no-cache
 
 {
-  "user_id": "12345",
+  "user_id": "12345",              // string; JWT 'sub'クレームから
   "username": "john_doe",
-  "display_name": "John Doe",
-  "email": "john.doe@example.com",
-  "scopes": ["mcp:read", "mcp:write"],
-  "expires_at": "2024-12-31T23:59:59Z",
-  "issued_at": "2024-01-01T00:00:00Z",
-  "issuer": "https://caiz.test",
-  "audience": "mcp-api",
-  "token_id": "jti_abc123",
+  "display_name": "John Doe",       // 'profile'スコープが必要
+  "email": "john.doe@example.com",  // 'email'スコープが必要
+  "scopes": ["mcp:read", "mcp:write"], // array; JWT 'scope'（スペース区切り）または'scp'から変換
+  "expires_at": "2025-12-31T23:59:59Z", // RFC3339 UTC; JWT 'exp'から
+  "issued_at": "2025-01-01T00:00:00Z",  // RFC3339 UTC; JWT 'iat'から
+  "issuer": "https://caiz.test",        // JWT 'iss'から
+  "audience": "mcp-api",                // JWT 'aud'から
+  "token_type": "access_token",
+  "token_id": "jti_abc123",             // JWT 'jti'から（デバッグ用途のみ）
+  "session_id": "sess_6f8d9a2b",        // サーバー生成ID; jtiとは別
   "session_info": {
-    "created_at": "2024-01-01T00:00:00Z",
-    "last_activity": "2024-01-01T12:00:00Z",
-    "ip_address": "192.168.1.1",
+    "created_at": "2025-01-01T00:00:00Z",    // RFC3339 UTC
+    "last_activity": "2025-01-01T12:00:00Z", // RFC3339 UTC
+    "ip_address": "203.0.113.10",            // ドキュメント用IPアドレス（RFC5737）
     "user_agent": "MCP-Client/1.0"
   },
   "capabilities": {
@@ -55,7 +57,18 @@ Pragma: no-cache
 ```
 
 #### エラー時レスポンス
-前タスクで実装済みの401/403レスポンスに従います。
+
+- **401 Unauthorized**（無効/欠落トークン）:
+  ```http
+  HTTP/1.1 401 Unauthorized
+  WWW-Authenticate: Bearer realm="MCP Server", error="invalid_token", error_description="Token validation failed"
+  ```
+
+- **403 Forbidden**（スコープ不足）:
+  ```http
+  HTTP/1.1 403 Forbidden
+  WWW-Authenticate: Bearer realm="MCP Server", error="insufficient_scope", scope="mcp:read", error_description="Token does not have sufficient scope"
+  ```
 
 ## インターフェース設計
 
@@ -95,10 +108,27 @@ class MCPSession {
      * @returns {Object} Session response object
      */
     static buildSessionResponse(authContext, request) {
-        // Extract user information from authContext
-        // Add session metadata (IP, user agent, etc.)
-        // Determine available capabilities based on scopes
-        // Build standardized response structure
+        const user = this.formatUserInfo(authContext);
+        const sessionInfo = this.extractSessionMetadata(request);
+        const scopes = this.parseScopes(authContext); // 'scope'（スペース区切り）または'scp'（配列）をサポート
+        const capabilities = this.getCapabilitiesFromScopes(scopes);
+        
+        return {
+            user_id: user.user_id,
+            username: user.username,
+            display_name: user.display_name,    // スコープによる条件付き
+            email: user.email,                   // スコープによる条件付き
+            scopes,
+            expires_at: this.toRFC3339(authContext.expiresAt),
+            issued_at: this.toRFC3339(authContext.issuedAt),
+            issuer: authContext.issuer,
+            audience: authContext.audience,
+            token_type: 'access_token',
+            token_id: authContext.tokenId,       // デバッグ用途のみで含める
+            session_id: sessionInfo.session_id,
+            session_info: sessionInfo,
+            capabilities
+        };
     }
     
     /**
@@ -107,8 +137,22 @@ class MCPSession {
      * @returns {Object} Available capabilities
      */
     static getCapabilitiesFromScopes(scopes) {
-        // Map OAuth scopes to MCP capabilities
-        // Return tools, prompts, and resources lists
+        const merged = { tools: new Set(), prompts: new Set(), resources: new Set() };
+        
+        for (const scope of scopes) {
+            const capabilities = SCOPE_CAPABILITIES_MAP[scope];
+            if (!capabilities) continue;
+            
+            capabilities.tools?.forEach(t => merged.tools.add(t));
+            capabilities.prompts?.forEach(p => merged.prompts.add(p));
+            capabilities.resources?.forEach(r => merged.resources.add(r));
+        }
+        
+        return {
+            tools: [...merged.tools].sort(),
+            prompts: [...merged.prompts].sort(),
+            resources: [...merged.resources].sort()
+        };
     }
     
     /**
@@ -117,9 +161,17 @@ class MCPSession {
      * @returns {Object} Session metadata
      */
     static extractSessionMetadata(request) {
-        // Get client IP address (considering proxies)
-        // Extract user agent string
-        // Add timestamps
+        // Express: app.set('trust proxy', true)が設定されていることを前提
+        const userAgent = request.get('user-agent') || 'Unknown';
+        const ipAddress = request.ip; // Expressがtrust proxy設定時に正規化
+        
+        return {
+            created_at: new Date().toISOString(),
+            last_activity: new Date().toISOString(),
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            session_id: `sess_${Math.random().toString(36).slice(2, 10)}`
+        };
     }
     
     /**
@@ -128,9 +180,36 @@ class MCPSession {
      * @returns {Object} Formatted user information
      */
     static formatUserInfo(authContext) {
-        // Standardize user information format
-        // Handle optional fields gracefully
-        // Ensure consistent data types
+        return {
+            user_id: String(authContext.userId || authContext.sub),
+            username: authContext.username || authContext.preferred_username,
+            display_name: authContext.scopes?.includes('profile') ? authContext.name : undefined,
+            email: authContext.scopes?.includes('email') ? authContext.email : undefined
+        };
+    }
+    
+    /**
+     * Convert Date object to RFC3339 string
+     * @param {Date} date - Date object
+     * @returns {string|undefined} RFC3339 formatted string
+     */
+    static toRFC3339(date) {
+        if (!date || !(date instanceof Date)) return undefined;
+        return date.toISOString();
+    }
+    
+    /**
+     * Parse scopes from various JWT formats
+     * @param {Object} authContext - Authentication context
+     * @returns {Array<string>} Array of scopes
+     */
+    static parseScopes(authContext) {
+        if (Array.isArray(authContext.scopes)) return authContext.scopes;
+        if (Array.isArray(authContext.scp)) return authContext.scp;
+        if (typeof authContext.scope === 'string') {
+            return authContext.scope.trim().split(/\s+/);
+        }
+        return [];
     }
 }
 ```
