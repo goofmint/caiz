@@ -21,3 +21,7 @@
 <li component="sidebar/drafts" class="nav-item mx-2 drafts dropstart" title="[[global:header.drafts]]" role="menuitem">
 <!-- IMPORT partials/sidebar/drafts.tpl -->
 </li>
+
+<li component="sidebar/api-tokens" class="nav-item mx-2 api-tokens dropstart" title="[[caiz:api-tokens]]" role="menuitem">
+<!-- IMPORT partials/sidebar/api-tokens.tpl -->
+</li>

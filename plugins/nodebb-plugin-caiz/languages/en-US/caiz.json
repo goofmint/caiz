@@ -246,5 +246,21 @@
     "click-new-application": "Click \"New Application\"",
     "get-bot-token": "Get token from Bot section",
     "set-oauth2-redirect": "Set redirect URL in OAuth2"
-  }
+  },
+  "api-tokens": "API Tokens",
+  "api-tokens-management": "API Tokens Management",
+  "view-api-tokens": "View API Tokens",
+  "create-api-token": "Create API Token",
+  "api-documentation": "API Documentation",
+  "api-token-created": "API token created successfully",
+  "api-token-deleted": "API token deleted successfully",
+  "api-token-updated": "API token updated successfully",
+  "loading-tokens": "Loading tokens...",
+  "no-api-tokens": "No API tokens yet",
+  "unnamed-token": "Unnamed Token",
+  "token-name-placeholder": "Enter token name",
+  "save-token-warning": "Please save this token now. You won't be able to see it again!",
+  "api-token": "API Token",
+  "token-copied": "Token copied to clipboard",
+  "confirm-delete-token": "Are you sure you want to delete this API token? This action cannot be undone."
 }

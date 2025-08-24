@@ -229,5 +229,21 @@
     "click-new-application": "「New Application」をクリック",
     "get-bot-token": "Botセクションでトークンを取得",
     "set-oauth2-redirect": "OAuth2でリダイレクトURLを設定"
-  }
+  },
+  "api-tokens": "APIトークン",
+  "api-tokens-management": "APIトークン管理",
+  "view-api-tokens": "APIトークンを表示",
+  "create-api-token": "APIトークンを作成",
+  "api-documentation": "APIドキュメント",
+  "api-token-created": "APIトークンを作成しました",
+  "api-token-deleted": "APIトークンを削除しました",
+  "api-token-updated": "APIトークンを更新しました",
+  "loading-tokens": "トークンを読み込んでいます...",
+  "no-api-tokens": "APIトークンがまだありません",
+  "unnamed-token": "名前なしトークン",
+  "token-name-placeholder": "トークン名を入力",
+  "save-token-warning": "このトークンを今すぐ保存してください。二度と表示されません！",
+  "api-token": "APIトークン",
+  "token-copied": "トークンをクリップボードにコピーしました",
+  "confirm-delete-token": "このAPIトークンを削除してもよろしいですか？この操作は取り消せません。"
 }

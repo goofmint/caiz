@@ -22,7 +22,8 @@
     "static/community-edit-notifications.js",
     "static/community-edit-core.js",
     "static/members-only.js",
-    "static/slack-oauth-handler.js"
+    "static/slack-oauth-handler.js",
+    "static/api-tokens.js"
   ],
   "scss": [
     "static/style.scss"
