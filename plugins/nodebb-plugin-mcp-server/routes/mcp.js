@@ -18,7 +18,279 @@ function getMCPServer() {
     return instance.server;
 }
 
+/**
+ * Handle JSON-RPC 2.0 message processing
+ */
+function processJsonRpcMessage(message, req) {
+    winston.verbose('[mcp-server] Processing JSON-RPC method:', message.method);
+
+    // Handle MCP initialize request
+    if (message.method === 'initialize') {
+        const response = {
+            jsonrpc: '2.0',
+            result: {
+                protocolVersion: '2024-11-05',
+                capabilities: {
+                    tools: {},
+                    prompts: {},
+                    resources: {},
+                    logging: {}
+                },
+                serverInfo: {
+                    name: 'NodeBB MCP Server',
+                    version: pluginVersion
+                }
+            },
+            id: message.id
+        };
+        
+        winston.verbose('[mcp-server] Sending initialize response');
+        return response;
+    }
+
+    // Handle tools/list request
+    if (message.method === 'tools/list') {
+        const response = {
+            jsonrpc: '2.0',
+            result: {
+                tools: [
+                    {
+                        name: 'search',
+                        description: 'Search NodeBB content',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                query: {
+                                    type: 'string',
+                                    description: 'Search query'
+                                }
+                            },
+                            required: ['query']
+                        }
+                    }
+                ]
+            },
+            id: message.id
+        };
+        
+        winston.verbose('[mcp-server] Sending tools list');
+        return response;
+    }
+
+    // Handle tools/call request
+    if (message.method === 'tools/call') {
+        if (message.params?.name === 'search') {
+            const response = {
+                jsonrpc: '2.0',
+                result: {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Search results for: ${message.params.arguments?.query || 'N/A'}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
+                        }
+                    ]
+                },
+                id: message.id
+            };
+            
+            winston.verbose('[mcp-server] Sending search results');
+            return response;
+        }
+        
+        // Tool not found
+        return {
+            jsonrpc: '2.0',
+            error: {
+                code: -32601,
+                message: 'Method not found',
+                data: `Tool '${message.params?.name}' not found`
+            },
+            id: message.id
+        };
+    }
+
+    // Method not found
+    return {
+        jsonrpc: '2.0',
+        error: {
+            code: -32601,
+            message: 'Method not found',
+            data: `Method '${message.method}' not supported`
+        },
+        id: message.id
+    };
+}
+
 module.exports = function(router) {
+    /**
+     * MCP over HTTP Endpoint
+     * POST /api/mcp - JSON-RPC messages
+     * GET /api/mcp - Server-Sent Events (optional)
+     */
+    
+    /**
+     * POST /api/mcp - JSON-RPC 2.0 Message Processing
+     * This is the main MCP endpoint as per specification
+     */
+    router.post('/api/mcp', 
+        require('../lib/auth').requireAuth(['mcp:read']),
+        (req, res) => {
+            try {
+                winston.verbose('[mcp-server] MCP POST request received');
+
+                // Validate Accept header
+                const acceptHeader = req.get('Accept');
+                if (!acceptHeader || (!acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream'))) {
+                    winston.warn('[mcp-server] Missing or invalid Accept header');
+                    return res.status(400).json({
+                        jsonrpc: '2.0',
+                        error: {
+                            code: -32600,
+                            message: 'Invalid Request - Accept header must include application/json or text/event-stream'
+                        }
+                    });
+                }
+
+                // Basic JSON-RPC validation
+                if (!req.body || typeof req.body !== 'object') {
+                    winston.warn('[mcp-server] Invalid request body');
+                    return res.status(400).json({
+                        jsonrpc: '2.0',
+                        error: {
+                            code: -32600,
+                            message: 'Invalid Request - Body must be valid JSON'
+                        }
+                    });
+                }
+
+                let messages = Array.isArray(req.body) ? req.body : [req.body];
+                let responses = [];
+                let hasResponses = false;
+
+                // Process each message
+                for (const message of messages) {
+                    // Validate JSON-RPC 2.0 format
+                    if (!message.jsonrpc || message.jsonrpc !== '2.0') {
+                        responses.push({
+                            jsonrpc: '2.0',
+                            error: {
+                                code: -32600,
+                                message: 'Invalid Request - jsonrpc must be 2.0'
+                            },
+                            id: message.id || null
+                        });
+                        hasResponses = true;
+                        continue;
+                    }
+
+                    if (!message.method || typeof message.method !== 'string') {
+                        responses.push({
+                            jsonrpc: '2.0',
+                            error: {
+                                code: -32600,
+                                message: 'Invalid Request - method required and must be string'
+                            },
+                            id: message.id || null
+                        });
+                        hasResponses = true;
+                        continue;
+                    }
+
+                    // Process message and get response
+                    const response = processJsonRpcMessage(message, req);
+                    
+                    // Only add response if message has ID (requests, not notifications)
+                    if (message.id !== undefined) {
+                        responses.push(response);
+                        hasResponses = true;
+                    }
+                }
+
+                // Send appropriate response based on MCP specification
+                if (!hasResponses) {
+                    // Pure notifications - return 202 Accepted with no body
+                    res.status(202).send();
+                    winston.verbose('[mcp-server] Processed notifications, sent 202 Accepted');
+                } else {
+                    // Has responses - return 200 with JSON
+                    res.set('Content-Type', 'application/json');
+                    const responseBody = Array.isArray(req.body) ? responses : responses[0];
+                    res.status(200).json(responseBody);
+                    winston.verbose('[mcp-server] Processed requests, sent responses');
+                }
+
+            } catch (err) {
+                winston.error('[mcp-server] JSON-RPC processing error:', err);
+                res.status(500).json({
+                    jsonrpc: '2.0',
+                    error: {
+                        code: -32603,
+                        message: 'Internal error',
+                        data: err.message
+                    },
+                    id: req.body?.id || null
+                });
+            }
+        }
+    );
+
+    /**
+     * GET /api/mcp - Server-Sent Events (Optional)
+     */
+    router.get('/api/mcp', 
+        require('../lib/auth').requireAuth(['mcp:read']),
+        (req, res) => {
+            try {
+                winston.verbose('[mcp-server] MCP GET request received');
+
+                // Check Accept header for SSE
+                const acceptHeader = req.get('Accept');
+                if (!acceptHeader || !acceptHeader.includes('text/event-stream')) {
+                    winston.verbose('[mcp-server] GET request without SSE accept header, returning 405');
+                    res.set('Allow', 'POST');
+                    return res.status(405).json({
+                        error: 'Method Not Allowed',
+                        message: 'GET method only supports Server-Sent Events. Include Accept: text/event-stream header.'
+                    });
+                }
+
+                winston.verbose('[mcp-server] Starting SSE connection');
+
+                // Set SSE headers
+                res.writeHead(200, {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+                });
+
+                // Send initial connection notification
+                res.write('data: {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}\n\n');
+
+                // Send periodic heartbeat
+                const heartbeatInterval = setInterval(() => {
+                    res.write('data: {"jsonrpc": "2.0", "method": "notifications/ping", "params": {"timestamp": "' + new Date().toISOString() + '"}}\n\n');
+                }, 30000);
+
+                // Handle client disconnect
+                req.on('close', () => {
+                    winston.verbose('[mcp-server] SSE connection closed');
+                    clearInterval(heartbeatInterval);
+                });
+
+                winston.verbose('[mcp-server] SSE connection established');
+
+            } catch (err) {
+                winston.error('[mcp-server] SSE connection error:', err);
+                res.status(500).json({
+                    error: 'server_error',
+                    error_description: 'Failed to establish SSE connection'
+                });
+            }
+        }
+    );
+
     /**
      * Health check endpoint for MCP server
      * GET /api/mcp/health
@@ -131,69 +403,6 @@ module.exports = function(router) {
     });
 
     /**
-     * Root endpoint - returns basic information
-     * GET /api/mcp and GET /api/mcp/
-     */
-    router.get('/api/mcp', (req, res) => {
-        res.json({
-            name: 'NodeBB MCP Server',
-            version: pluginVersion,
-            protocol: 'mcp',
-            protocolVersion: '2024-11-05',
-            transport: 'http',
-            endpoints: {
-                messages: '/api/mcp/messages',
-                health: '/api/mcp/health',
-                metadata: '/api/mcp/metadata',
-                capabilities: '/api/mcp/capabilities',
-                session: '/api/mcp/session'
-            },
-            capabilities: {
-                tools: true,
-                prompts: false,
-                resources: false,
-                logging: true
-            },
-            authentication: {
-                required: true,
-                type: 'oauth2',
-                discoveryUrl: '/.well-known/oauth-protected-resource'
-            },
-            documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
-        });
-    });
-    
-    // Handle trailing slash
-    router.get('/api/mcp/', (req, res) => {
-        res.json({
-            name: 'NodeBB MCP Server',
-            version: pluginVersion,
-            protocol: 'mcp',
-            protocolVersion: '2024-11-05',
-            transport: 'http',
-            endpoints: {
-                messages: '/api/mcp/messages',
-                health: '/api/mcp/health',
-                metadata: '/api/mcp/metadata',
-                capabilities: '/api/mcp/capabilities',
-                session: '/api/mcp/session'
-            },
-            capabilities: {
-                tools: true,
-                prompts: false,
-                resources: false,
-                logging: true
-            },
-            authentication: {
-                required: true,
-                type: 'oauth2',
-                discoveryUrl: '/.well-known/oauth-protected-resource'
-            },
-            documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
-        });
-    });
-
-    /**
      * MCP Session endpoint
      * GET /api/mcp/session
      */
@@ -224,196 +433,6 @@ module.exports = function(router) {
                 res.status(500).json({
                     error: 'server_error',
                     error_description: 'Internal server error while processing session request'
-                });
-            }
-        }
-    );
-
-    /**
-     * MCP Messages SSE endpoint
-     * GET /api/mcp/messages
-     */
-    router.get('/api/mcp/messages', 
-        require('../lib/auth').requireAuth(['mcp:read']),
-        (req, res) => {
-            try {
-                winston.verbose('[mcp-server] SSE connection requested');
-
-                // Set SSE headers
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Cache-Control'
-                });
-
-                // Send initial connection message
-                res.write('data: {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}\n\n');
-
-                // Send heartbeat every 30 seconds
-                const heartbeatInterval = setInterval(() => {
-                    res.write('data: {"jsonrpc": "2.0", "method": "notifications/ping", "params": {}}\n\n');
-                }, 30000);
-
-                // Handle client disconnect
-                req.on('close', () => {
-                    winston.verbose('[mcp-server] SSE connection closed');
-                    clearInterval(heartbeatInterval);
-                });
-
-                winston.verbose('[mcp-server] SSE connection established');
-
-            } catch (err) {
-                winston.error('[mcp-server] SSE connection error:', err);
-                res.status(500).json({
-                    error: 'server_error',
-                    error_description: 'Failed to establish SSE connection'
-                });
-            }
-        }
-    );
-
-    /**
-     * MCP JSON-RPC endpoint  
-     * POST /api/mcp/messages
-     */
-    router.post('/api/mcp/messages',
-        require('../lib/auth').requireAuth(['mcp:read']),
-        (req, res) => {
-            try {
-                winston.verbose('[mcp-server] JSON-RPC message received');
-
-                // Basic JSON-RPC validation
-                if (!req.body || typeof req.body !== 'object') {
-                    return res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: {
-                            code: -32600,
-                            message: 'Invalid Request'
-                        }
-                    });
-                }
-
-                const { jsonrpc, method, params, id } = req.body;
-
-                if (jsonrpc !== '2.0') {
-                    return res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: {
-                            code: -32600,
-                            message: 'Invalid Request - jsonrpc must be 2.0'
-                        },
-                        id: id || null
-                    });
-                }
-
-                if (!method || typeof method !== 'string') {
-                    return res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: {
-                            code: -32600,
-                            message: 'Invalid Request - method required'
-                        },
-                        id: id || null
-                    });
-                }
-
-                winston.verbose('[mcp-server] Processing JSON-RPC method:', method);
-
-                // Handle MCP initialize request
-                if (method === 'initialize') {
-                    const response = {
-                        jsonrpc: '2.0',
-                        result: {
-                            protocolVersion: '2024-11-05',
-                            capabilities: {
-                                tools: {},
-                                prompts: {},
-                                resources: {},
-                                logging: {}
-                            },
-                            serverInfo: {
-                                name: 'NodeBB MCP Server',
-                                version: pluginVersion
-                            }
-                        },
-                        id
-                    };
-                    
-                    winston.verbose('[mcp-server] Sending initialize response');
-                    return res.json(response);
-                }
-
-                // Handle tools/list request
-                if (method === 'tools/list') {
-                    const response = {
-                        jsonrpc: '2.0',
-                        result: {
-                            tools: [
-                                {
-                                    name: 'search',
-                                    description: 'Search NodeBB content',
-                                    inputSchema: {
-                                        type: 'object',
-                                        properties: {
-                                            query: {
-                                                type: 'string',
-                                                description: 'Search query'
-                                            }
-                                        },
-                                        required: ['query']
-                                    }
-                                }
-                            ]
-                        },
-                        id
-                    };
-                    
-                    winston.verbose('[mcp-server] Sending tools list');
-                    return res.json(response);
-                }
-
-                // Handle tools/call request
-                if (method === 'tools/call') {
-                    if (params?.name === 'search') {
-                        const response = {
-                            jsonrpc: '2.0',
-                            result: {
-                                content: [
-                                    {
-                                        type: 'text',
-                                        text: `Search results for: ${params.arguments?.query || 'N/A'}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
-                                    }
-                                ]
-                            },
-                            id
-                        };
-                        
-                        winston.verbose('[mcp-server] Sending search results');
-                        return res.json(response);
-                    }
-                }
-
-                // Method not found
-                res.status(404).json({
-                    jsonrpc: '2.0',
-                    error: {
-                        code: -32601,
-                        message: 'Method not found'
-                    },
-                    id: id || null
-                });
-
-            } catch (err) {
-                winston.error('[mcp-server] JSON-RPC processing error:', err);
-                res.status(500).json({
-                    jsonrpc: '2.0',
-                    error: {
-                        code: -32603,
-                        message: 'Internal error'
-                    },
-                    id: req.body?.id || null
                 });
             }
         }
