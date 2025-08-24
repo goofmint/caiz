@@ -46,7 +46,7 @@ $(document).ready(function() {
         $('#token-empty-state').addClass('d-none');
         $('#token-list-container').addClass('d-none');
         
-        window.socket.emit('apiTokens.get', {}, function(err, tokens) {
+        window.socket.emit('plugins.apiTokens.get', {}, function(err, tokens) {
             $('#token-loading').addClass('d-none');
             
             if (err) {
@@ -105,7 +105,7 @@ $(document).ready(function() {
         bootbox.confirm('[[caiz:confirm-delete-token]]', function(confirmed) {
             if (!confirmed) return;
             
-            window.socket.emit('apiTokens.delete', { tokenId: tokenId }, function(err, result) {
+            window.socket.emit('plugins.apiTokens.delete', { tokenId: tokenId }, function(err, result) {
                 if (err) {
                     alerts && alerts.error(err.message);
                     return;
@@ -139,7 +139,7 @@ $(document).ready(function() {
 
     // Create new API token
     APITokens.createToken = function(tokenData) {
-        window.socket.emit('apiTokens.create', tokenData, function(err, result) {
+        window.socket.emit('plugins.apiTokens.create', tokenData, function(err, result) {
             if (err) {
                 alerts && alerts.error(err.message);
                 return;
