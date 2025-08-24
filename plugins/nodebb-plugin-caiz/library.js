@@ -551,6 +551,60 @@ sockets.caiz.saveSlackNotificationSettings = async function(socket, data) {
   return await communitySlackSettings.saveNotificationSettings(data.cid, data.settings);
 };
 
+// API Tokens socket handlers
+sockets.apiTokens = sockets.apiTokens || {};
+
+sockets.apiTokens.get = async function(socket, data) {
+  // User authentication check
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  // Get API tokens for the user
+  // Implementation: Retrieve token information from database
+  // For now, return empty array as this is just the UI implementation
+  return [];
+};
+
+sockets.apiTokens.create = async function(socket, data) {
+  // User authentication check
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.name) {
+    throw new Error('[[error:invalid-data]]');
+  }
+  
+  // Create API token
+  // Implementation: Generate token and save to database
+  // For now, return success with mock token for UI testing
+  const crypto = require('crypto');
+  const mockToken = 'nbb_' + crypto.randomBytes(32).toString('hex');
+  
+  return { 
+    success: true,
+    token: mockToken,
+    id: Date.now().toString(),
+    name: data.name
+  };
+};
+
+sockets.apiTokens.delete = async function(socket, data) {
+  // User authentication check
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  if (!data || !data.tokenId) {
+    throw new Error('[[error:invalid-data]]');
+  }
+  
+  // Delete API token
+  // Implementation: Remove token from database
+  return { success: true };
+};
+
 // Discord notification settings socket handlers
 sockets.caiz.getDiscordNotificationSettings = async function(socket, data) {
   if (!socket.uid) {
