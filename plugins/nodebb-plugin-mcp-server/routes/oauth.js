@@ -205,5 +205,50 @@ module.exports = function(router, middleware) {
         }
     });
 
+    /**
+     * OAuth Token Endpoint
+     * POST /oauth/token
+     */
+    router.post('/oauth/token', async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Token exchange requested');
+            
+            const OAuthToken = require('../lib/oauth-token');
+            
+            // Pass OAuthAuth instance to access authorization codes
+            const tokenResponse = await OAuthToken.exchangeCodeForToken(req.body, OAuthAuth);
+            
+            // Set security headers
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            });
+            
+            res.json(tokenResponse);
+            winston.verbose('[mcp-server] Access token issued successfully');
+            
+        } catch (err) {
+            winston.error('[mcp-server] Token exchange error:', err);
+            
+            // Determine appropriate error code
+            let errorCode = 'invalid_grant';
+            if (err.message.includes('Missing required parameter') || 
+                err.message.includes('Invalid') && err.message.includes('format')) {
+                errorCode = 'invalid_request';
+            } else if (err.message.includes('Unsupported grant_type')) {
+                errorCode = 'unsupported_grant_type';
+            } else if (err.message.includes('Failed to retrieve user information')) {
+                errorCode = 'server_error';
+            }
+            
+            // OAuth 2.0 error response format
+            res.status(400).json({
+                error: errorCode,
+                error_description: err.message
+            });
+        }
+    });
+
     return router;
 };
