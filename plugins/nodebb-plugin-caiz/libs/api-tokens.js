@@ -5,7 +5,7 @@ const db = require.main.require('./src/database');
 const winston = require.main.require('winston');
 const { v7: uuidv7 } = require('uuid');
 
-const API_TOKEN_PEPPER = process.env.CAIZ_API_TOKEN_PEPPER || crypto.randomBytes(32).toString('hex');
+const API_TOKEN_PEPPER = 'caiz-api-token-pepper-fixed-secret-key-2024';
 const MAX_TOKEN_NAME_LENGTH = 100;
 const MIN_TOKEN_NAME_LENGTH = 1;
 const ALLOWED_PERMISSIONS = ['read', 'write']; // 将来拡張可能
