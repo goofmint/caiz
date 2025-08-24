@@ -42,7 +42,7 @@ function hashToken(token) {
  * @returns {boolean} True if token is valid
  */
 function verifyToken(token, storedHash) {
-    const expected = crypto.createHash('sha256').update(token).digest('hex');
+    const expected = hashToken(token);
     
     const actual = Buffer.from(storedHash, 'hex');
     const predicted = Buffer.from(expected, 'hex');
