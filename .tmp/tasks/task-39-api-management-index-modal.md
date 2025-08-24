@@ -17,12 +17,12 @@
 ### モーダルテンプレート
 ```html
 <!-- templates/partials/modals/api-token-list.tpl -->
-<div class="modal fade" id="api-token-list-modal" tabindex="-1" role="dialog">
+<div class="modal fade" id="api-token-list-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="api-token-list-modal-title">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">[[caiz:api-tokens-management]]</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="api-token-list-modal-title">[[caiz:api-tokens-management]]</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="[[global:close]]"></button>
             </div>
             <div class="modal-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -33,8 +33,9 @@
                 </div>
                 
                 <!-- Loading state -->
-                <div id="token-loading" class="text-center py-4">
-                    <i class="fa fa-spinner fa-spin"></i> [[caiz:loading-tokens]]
+                <div id="token-loading" class="text-center py-4" role="status" aria-live="polite">
+                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                    <span>[[caiz:loading-tokens]]</span>
                 </div>
                 
                 <!-- Empty state -->
@@ -49,7 +50,7 @@
                 
                 <!-- Token list -->
                 <div id="token-list-container" class="d-none">
-                    <!-- Dynamic content will be inserted here -->
+                    <!-- Dynamic content will be inserted here via Benchpress templates or DOM APIs with proper escaping (no innerHTML with untrusted data). -->
                 </div>
             </div>
         </div>
@@ -60,6 +61,7 @@
 ### JavaScript機能拡張
 ```javascript
 // static/api-tokens.js に追加予定の関数
+// 注意: サーバー側のソケットは sockets.plugins.caiz.apiTokens.* を想定
 
 /**
  * Show API token list modal
@@ -67,6 +69,7 @@
 APITokens.showListModal = function() {
     // モーダルの表示と初期化
     // WebSocket通信でトークン一覧を取得
+    // socket.emit('plugins.caiz.apiTokens.getDetailed', {}, callback)
     // レンダリング処理
 };
 
@@ -85,9 +88,9 @@ APITokens.renderTokenList = function(tokens) {
  * @param {string} tokenId - Token ID
  */
 APITokens.handleTokenDelete = function(tokenId) {
-    // 削除確認ダイアログ
-    // WebSocket通信で削除実行
-    // リスト更新
+    // アクションボタンのクリックハンドリング（イベント委譲）
+    // 削除: 確認ダイアログ→socket.emit('plugins.caiz.apiTokens.delete', { tokenId })
+    // 403/404 等の権限/存在エラー処理とトースト通知
 };
 ```
 
