@@ -17,6 +17,10 @@ plugin.init = async function (params) {
   Base.router = router;
   Base.middleware = middleware;
   Base.controllers = controllers;
+  
+  // Initialize API tokens database
+  const apiTokens = require('./libs/api-tokens');
+  await apiTokens.initializeDatabase();
   // `/communities` を `/categories` の中身と同じように動かす
   router.get('/api/communities', controllers.categories.list);
   router.get('/api/communities/user', middleware.authenticateRequest, Community.User);
@@ -555,53 +559,33 @@ sockets.caiz.saveSlackNotificationSettings = async function(socket, data) {
 sockets.apiTokens = sockets.apiTokens || {};
 
 sockets.apiTokens.get = async function(socket, data) {
-  // User authentication check
-  if (!socket.uid) {
-    throw new Error('[[error:not-logged-in]]');
-  }
-  
-  // Get API tokens for the user
-  // Implementation: Retrieve token information from database
-  // For now, return empty array as this is just the UI implementation
-  return [];
+  const apiTokens = require('./libs/api-tokens');
+  return await apiTokens.getUserTokens(socket.uid);
 };
 
 sockets.apiTokens.create = async function(socket, data) {
-  // User authentication check
-  if (!socket.uid) {
-    throw new Error('[[error:not-logged-in]]');
-  }
-  
-  if (!data || !data.name) {
-    throw new Error('[[error:invalid-data]]');
-  }
-  
-  // Create API token
-  // Implementation: Generate token and save to database
-  // For now, return success with mock token for UI testing
-  const crypto = require('crypto');
-  const mockToken = 'nbb_' + crypto.randomBytes(32).toString('hex');
-  
-  return { 
-    success: true,
-    token: mockToken,
-    id: Date.now().toString(),
-    name: data.name
-  };
+  const apiTokens = require('./libs/api-tokens');
+  return await apiTokens.createToken(socket.uid, data);
 };
 
-sockets.apiTokens.delete = async function(socket, data) {
-  // User authentication check
-  if (!socket.uid) {
-    throw new Error('[[error:not-logged-in]]');
-  }
+sockets.apiTokens.update = async function(socket, data) {
+  const apiTokens = require('./libs/api-tokens');
   
   if (!data || !data.tokenId) {
     throw new Error('[[error:invalid-data]]');
   }
   
-  // Delete API token
-  // Implementation: Remove token from database
+  return await apiTokens.updateToken(socket.uid, data.tokenId, data);
+};
+
+sockets.apiTokens.delete = async function(socket, data) {
+  const apiTokens = require('./libs/api-tokens');
+  
+  if (!data || !data.tokenId) {
+    throw new Error('[[error:invalid-data]]');
+  }
+  
+  await apiTokens.deleteToken(socket.uid, data.tokenId);
   return { success: true };
 };
 
