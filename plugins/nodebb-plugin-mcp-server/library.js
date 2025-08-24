@@ -113,6 +113,34 @@ function setupWellKnownRoutes(app) {
             });
         }
     });
+    
+    // OAuth Authorization Server Discovery endpoint
+    app.get('/.well-known/oauth-authorization-server', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] OAuth Discovery metadata requested');
+            
+            const OAuthDiscovery = require('./lib/oauth-discovery');
+            const metadata = OAuthDiscovery.getMetadata();
+            
+            // Set appropriate headers
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json(metadata);
+            winston.verbose('[mcp-server] OAuth Discovery metadata sent successfully');
+        } catch (err) {
+            winston.error('[mcp-server] OAuth Discovery error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating OAuth metadata'
+            });
+        }
+    });
 }
 
 /**
