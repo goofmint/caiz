@@ -245,5 +245,11 @@
   "save-token-warning": "このトークンを今すぐ保存してください。二度と表示されません！",
   "api-token": "APIトークン",
   "token-copied": "トークンをクリップボードにコピーしました",
-  "confirm-delete-token": "このAPIトークンを削除してもよろしいですか？この操作は取り消せません。"
+  "confirm-delete-token": "このAPIトークンを削除してもよろしいですか？この操作は取り消せません。",
+  "your-api-tokens": "あなたのAPIトークン",
+  "no-tokens-description": "まだAPIトークンを作成していません。",
+  "create-first-token": "最初のトークンを作成",
+  "token-created": "作成日時",
+  "delete-token": "削除",
+  "unknown": "不明"
 }
