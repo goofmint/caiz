@@ -70,7 +70,7 @@ $(document).ready(function() {
         
         let processedTokens = 0;
         tokens.forEach(function(token) {
-            const createdDate = token.created_at ? new Date(token.created_at).toLocaleDateString() : '[[caiz:unknown]]';
+            const createdDate = token.createdAt ? new Date(token.createdAt).toLocaleDateString() : '[[caiz:unknown]]';
             const tokenData = {
                 id: token.id,
                 name: token.name || '[[caiz:unnamed-token]]',
