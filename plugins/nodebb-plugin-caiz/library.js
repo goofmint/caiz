@@ -10,6 +10,7 @@ const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
 const { GetMemberRole } = require('./libs/community/core');
+const apiTokens = require('./libs/api-tokens');
 
 plugin.init = async function (params) {
   const { router, middleware, controllers } = params;
@@ -19,7 +20,6 @@ plugin.init = async function (params) {
   Base.controllers = controllers;
   
   // Initialize API tokens database
-  const apiTokens = require('./libs/api-tokens');
   await apiTokens.initializeDatabase();
   // `/communities` を `/categories` の中身と同じように動かす
   router.get('/api/communities', controllers.categories.list);
@@ -559,18 +559,14 @@ sockets.caiz.saveSlackNotificationSettings = async function(socket, data) {
 sockets.apiTokens = sockets.apiTokens || {};
 
 sockets.apiTokens.get = async function(socket, data) {
-  const apiTokens = require('./libs/api-tokens');
   return await apiTokens.getUserTokens(socket.uid);
 };
 
 sockets.apiTokens.create = async function(socket, data) {
-  const apiTokens = require('./libs/api-tokens');
   return await apiTokens.createToken(socket.uid, data);
 };
 
 sockets.apiTokens.update = async function(socket, data) {
-  const apiTokens = require('./libs/api-tokens');
-  
   if (!data || !data.tokenId) {
     throw new Error('[[error:invalid-data]]');
   }
@@ -579,8 +575,6 @@ sockets.apiTokens.update = async function(socket, data) {
 };
 
 sockets.apiTokens.delete = async function(socket, data) {
-  const apiTokens = require('./libs/api-tokens');
-  
   if (!data || !data.tokenId) {
     throw new Error('[[error:invalid-data]]');
   }
