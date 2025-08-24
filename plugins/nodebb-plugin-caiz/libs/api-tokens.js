@@ -102,27 +102,36 @@ async function getUserTokens(uid) {
         throw new Error('[[error:not-logged-in]]');
     }
     
-    const query = `
-        SELECT token_id, name, token_prefix, permissions, is_active, 
-               created_at, updated_at, last_used_at, expires_at
-        FROM api_tokens 
-        WHERE uid = ? AND revoked_at IS NULL
-        ORDER BY created_at DESC
-    `;
+    // Get list of token IDs for user
+    const tokenIds = await db.getSortedSetRevRange(`uid:${uid}:api-tokens`, 0, -1) || [];
     
-    const tokens = await db.query(query, [uid]);
+    if (!tokenIds.length) {
+        return [];
+    }
     
-    return tokens.map(token => ({
-        id: token.token_id,
-        name: token.name,
-        prefix: token.token_prefix,
-        permissions: JSON.parse(token.permissions || '[]'),
-        isActive: Boolean(token.is_active),
-        createdAt: token.created_at,
-        updatedAt: token.updated_at,
-        lastUsedAt: token.last_used_at,
-        expiresAt: token.expires_at
-    }));
+    // Get token data for each ID
+    const tokens = await Promise.all(
+        tokenIds.map(async (tokenId) => {
+            const token = await db.getObject(`api-token:${tokenId}`);
+            if (!token || token.revoked_at) {
+                return null;
+            }
+            
+            return {
+                id: token.token_id,
+                name: token.name,
+                prefix: token.token_prefix,
+                permissions: JSON.parse(token.permissions || '[]'),
+                isActive: token.is_active !== 'false',
+                createdAt: parseInt(token.created_at, 10),
+                updatedAt: parseInt(token.updated_at, 10),
+                lastUsedAt: token.last_used_at ? parseInt(token.last_used_at, 10) : null,
+                expiresAt: token.expires_at ? parseInt(token.expires_at, 10) : null
+            };
+        })
+    );
+    
+    return tokens.filter(Boolean);
 }
 
 /**
@@ -133,14 +142,20 @@ async function getUserTokens(uid) {
  * @returns {Promise<boolean>} True if name is unique
  */
 async function isTokenNameUnique(uid, name, excludeTokenId = null) {
-    const query = excludeTokenId
-        ? 'SELECT COUNT(*) as count FROM api_tokens WHERE uid = ? AND LOWER(name) = LOWER(?) AND token_id != ? AND revoked_at IS NULL'
-        : 'SELECT COUNT(*) as count FROM api_tokens WHERE uid = ? AND LOWER(name) = LOWER(?) AND revoked_at IS NULL';
+    const tokenIds = await db.getSortedSetRevRange(`uid:${uid}:api-tokens`, 0, -1) || [];
     
-    const params = excludeTokenId ? [uid, name, excludeTokenId] : [uid, name];
-    const result = await db.query(query, params);
+    for (const tokenId of tokenIds) {
+        if (excludeTokenId && tokenId === excludeTokenId) {
+            continue;
+        }
+        
+        const token = await db.getObject(`api-token:${tokenId}`);
+        if (token && !token.revoked_at && token.name.toLowerCase() === name.toLowerCase()) {
+            return false;
+        }
+    }
     
-    return result[0].count === 0;
+    return true;
 }
 
 /**
@@ -168,54 +183,42 @@ async function createToken(uid, data) {
     const tokenHash = hashToken(token);
     const now = Date.now();
     
-    // Insert into database with retry on hash collision
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Store token data
+    const tokenData = {
+        token_id: tokenId,
+        uid: uid,
+        name: name,
+        token_prefix: prefix,
+        token_hash: tokenHash,
+        permissions: JSON.stringify(permissions),
+        is_active: true,
+        created_at: now,
+        updated_at: now,
+        last_used_at: null,
+        expires_at: null,
+        revoked_at: null
+    };
     
-    while (retryCount < maxRetries) {
-        try {
-            const query = `
-                INSERT INTO api_tokens (
-                    token_id, uid, name, token_prefix, token_hash, 
-                    permissions, is_active, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            
-            await db.query(query, [
-                tokenId, uid, name, prefix, tokenHash,
-                JSON.stringify(permissions), true, now, now
-            ]);
-            
-            winston.info(`[caiz] API token created for user ${uid}, token_id: ${tokenId}`);
-            
-            return {
-                token: token,
-                id: tokenId,
-                name: name,
-                prefix: prefix,
-                permissions: permissions,
-                isActive: true,
-                createdAt: now
-            };
-            
-        } catch (error) {
-            if (error.code === 'ER_DUP_ENTRY' && error.message.includes('token_hash')) {
-                retryCount++;
-                if (retryCount >= maxRetries) {
-                    winston.error(`[caiz] Failed to create unique token hash after ${maxRetries} attempts`);
-                    throw new Error('[[caiz:error.token-generation-failed]]');
-                }
-                // Generate new token and retry
-                const newTokenData = generateApiToken();
-                token = newTokenData.token;
-                tokenId = newTokenData.tokenId;
-                prefix = newTokenData.prefix;
-                tokenHash = hashToken(token);
-            } else {
-                throw error;
-            }
-        }
-    }
+    // Save to database
+    await db.setObject(`api-token:${tokenId}`, tokenData);
+    
+    // Add to user's token list (sorted by creation time)
+    await db.sortedSetAdd(`uid:${uid}:api-tokens`, now, tokenId);
+    
+    // Store token hash mapping for quick lookup
+    await db.setObject(`api-token-hash:${tokenHash}`, { token_id: tokenId });
+    
+    winston.info(`[caiz] API token created for user ${uid}, token_id: ${tokenId}`);
+    
+    return {
+        token: token,
+        id: tokenId,
+        name: name,
+        prefix: prefix,
+        permissions: permissions,
+        isActive: true,
+        createdAt: now
+    };
 }
 
 /**
@@ -231,18 +234,13 @@ async function updateToken(uid, tokenId, data) {
     }
     
     // Check token exists and belongs to user
-    const existing = await db.queryOne(
-        'SELECT * FROM api_tokens WHERE token_id = ? AND uid = ? AND revoked_at IS NULL',
-        [tokenId, uid]
-    );
+    const existing = await db.getObject(`api-token:${tokenId}`);
     
-    if (!existing) {
+    if (!existing || existing.uid != uid || existing.revoked_at) {
         throw new Error('[[caiz:error.token-not-found]]');
     }
     
     const updates = {};
-    const updateFields = [];
-    const updateValues = [];
     
     // Validate and prepare updates
     if (data.name !== undefined) {
@@ -252,65 +250,49 @@ async function updateToken(uid, tokenId, data) {
             throw new Error('[[caiz:error.token-name-exists]]');
         }
         updates.name = name;
-        updateFields.push('name = ?');
-        updateValues.push(name);
     }
     
     if (data.isActive !== undefined) {
-        updates.isActive = Boolean(data.isActive);
-        updateFields.push('is_active = ?');
-        updateValues.push(updates.isActive);
+        updates.is_active = Boolean(data.isActive);
     }
     
     if (data.permissions !== undefined) {
         const permissions = validatePermissions(data.permissions);
-        updates.permissions = permissions;
-        updateFields.push('permissions = ?');
-        updateValues.push(JSON.stringify(permissions));
+        updates.permissions = JSON.stringify(permissions);
     }
     
     if (data.expiresAt !== undefined) {
         if (data.expiresAt && new Date(data.expiresAt) <= new Date()) {
             throw new Error('[[caiz:error.invalid-expiry-date]]');
         }
-        updates.expiresAt = data.expiresAt;
-        updateFields.push('expires_at = ?');
-        updateValues.push(data.expiresAt);
+        updates.expires_at = data.expiresAt ? new Date(data.expiresAt).getTime() : null;
     }
     
-    if (updateFields.length === 0) {
+    if (Object.keys(updates).length === 0) {
         throw new Error('[[error:no-changes]]');
     }
     
     // Add updated_at
-    const now = Date.now();
-    updateFields.push('updated_at = ?');
-    updateValues.push(now);
-    updateValues.push(tokenId);
+    updates.updated_at = Date.now();
     
-    const query = `UPDATE api_tokens SET ${updateFields.join(', ')} WHERE token_id = ?`;
-    await db.query(query, updateValues);
+    // Update in database
+    await db.setObject(`api-token:${tokenId}`, updates);
     
     winston.info(`[caiz] API token updated: ${tokenId} by user ${uid}`);
     
     // Return updated token metadata
-    const updated = await db.queryOne(
-        `SELECT token_id, name, token_prefix, permissions, is_active, 
-                created_at, updated_at, last_used_at, expires_at
-         FROM api_tokens WHERE token_id = ?`,
-        [tokenId]
-    );
+    const updated = await db.getObject(`api-token:${tokenId}`);
     
     return {
         id: updated.token_id,
         name: updated.name,
         prefix: updated.token_prefix,
         permissions: JSON.parse(updated.permissions || '[]'),
-        isActive: Boolean(updated.is_active),
-        createdAt: updated.created_at,
-        updatedAt: updated.updated_at,
-        lastUsedAt: updated.last_used_at,
-        expiresAt: updated.expires_at
+        isActive: updated.is_active !== 'false',
+        createdAt: parseInt(updated.created_at, 10),
+        updatedAt: parseInt(updated.updated_at, 10),
+        lastUsedAt: updated.last_used_at ? parseInt(updated.last_used_at, 10) : null,
+        expiresAt: updated.expires_at ? parseInt(updated.expires_at, 10) : null
     };
 }
 
@@ -326,21 +308,26 @@ async function deleteToken(uid, tokenId) {
     }
     
     // Check token exists and belongs to user
-    const existing = await db.queryOne(
-        'SELECT token_id FROM api_tokens WHERE token_id = ? AND uid = ? AND revoked_at IS NULL',
-        [tokenId, uid]
-    );
+    const existing = await db.getObject(`api-token:${tokenId}`);
     
-    if (!existing) {
+    if (!existing || existing.uid != uid || existing.revoked_at) {
         throw new Error('[[caiz:error.token-not-found]]');
     }
     
     // Soft delete by setting revoked_at
     const now = Date.now();
-    await db.query(
-        'UPDATE api_tokens SET revoked_at = ?, updated_at = ? WHERE token_id = ?',
-        [now, now, tokenId]
-    );
+    await db.setObject(`api-token:${tokenId}`, {
+        revoked_at: now,
+        updated_at: now
+    });
+    
+    // Remove from user's token list
+    await db.sortedSetRemove(`uid:${uid}:api-tokens`, tokenId);
+    
+    // Remove hash mapping
+    if (existing.token_hash) {
+        await db.delete(`api-token-hash:${existing.token_hash}`);
+    }
     
     winston.info(`[caiz] API token deleted: ${tokenId} by user ${uid}`);
     return true;
@@ -350,39 +337,8 @@ async function deleteToken(uid, tokenId) {
  * Initialize database table if not exists
  */
 async function initializeDatabase() {
-    const tableExists = await db.query(`
-        SELECT COUNT(*) as count 
-        FROM information_schema.tables 
-        WHERE table_schema = DATABASE() AND table_name = 'api_tokens'
-    `);
-    
-    if (tableExists[0].count === 0) {
-        winston.info('[caiz] Creating api_tokens table');
-        
-        await db.query(`
-            CREATE TABLE api_tokens (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                token_id VARCHAR(36) NOT NULL UNIQUE,
-                uid INT NOT NULL,
-                name VARCHAR(100) NOT NULL,
-                token_prefix CHAR(8) NOT NULL,
-                token_hash VARCHAR(64) NOT NULL UNIQUE,
-                permissions JSON NOT NULL DEFAULT ('[]'),
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at BIGINT NOT NULL,
-                updated_at BIGINT NOT NULL,
-                last_used_at BIGINT NULL,
-                expires_at BIGINT NULL,
-                revoked_at BIGINT NULL,
-                
-                INDEX idx_uid (uid),
-                INDEX idx_uid_prefix (uid, token_prefix),
-                UNIQUE KEY unique_user_name (uid, name)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        `);
-        
-        winston.info('[caiz] api_tokens table created successfully');
-    }
+    // NodeBB uses KVS-style database, no table creation needed
+    winston.info('[caiz] API tokens database initialized');
 }
 
 module.exports = {
