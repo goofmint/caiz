@@ -17,6 +17,10 @@ plugin.init = async function(params) {
     winston.info('[mcp-server] Initializing MCP Server Plugin');
     
     try {
+        // Initialize JWKS manager first
+        const JWKSManager = require('./lib/jwks');
+        await JWKSManager.initialize();
+        
         // Initialize MCP server instance
         plugin.server = new MCPServer();
         await plugin.server.initialize();
@@ -44,7 +48,9 @@ plugin.init = async function(params) {
  */
 function setupWellKnownRoutes(app) {
     const ResourceServerMetadata = require('./lib/metadata');
+    const JWKSManager = require('./lib/jwks');
     
+    // OAuth Resource Server Metadata endpoint
     app.get('/.well-known/oauth-protected-resource', (req, res) => {
         try {
             winston.verbose('[mcp-server] Resource server metadata requested');
@@ -76,6 +82,34 @@ function setupWellKnownRoutes(app) {
             res.status(500).json({
                 error: 'server_error',
                 error_description: 'Internal server error while generating metadata'
+            });
+        }
+    });
+    
+    // JWKS endpoint
+    app.get('/.well-known/jwks.json', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] JWKS requested');
+            
+            const jwks = JWKSManager.getJWKS();
+            
+            // Set appropriate headers for JWKS endpoint
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json(jwks);
+            
+            winston.verbose('[mcp-server] JWKS sent successfully');
+        } catch (err) {
+            winston.error('[mcp-server] JWKS endpoint error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating JWKS'
             });
         }
     });
