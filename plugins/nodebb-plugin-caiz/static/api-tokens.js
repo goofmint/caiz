@@ -65,38 +65,38 @@ $(document).ready(function() {
             return;
         }
         
-        let tokenListHtml = '';
+        const container = $('#token-list-container');
+        container.empty();
+        
+        let processedTokens = 0;
         tokens.forEach(function(token) {
             const createdDate = token.created_at ? new Date(token.created_at).toLocaleDateString() : '[[caiz:unknown]]';
+            const tokenData = {
+                id: token.id,
+                name: token.name || '[[caiz:unnamed-token]]',
+                createdDate: createdDate
+            };
             
-            tokenListHtml += `
-                <div class="token-item border rounded p-3 mb-3">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${token.name || '[[caiz:unnamed-token]]'}</h6>
-                            <small class="text-muted">[[caiz:token-created]]: ${createdDate}</small>
-                        </div>
-                        <div class="token-actions">
-                            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-token-id="${token.id}">
-                                <i class="fa fa-trash"></i> [[caiz:delete-token]]
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        $('#token-list-container').html(tokenListHtml).removeClass('d-none');
-        
-        // Bind action handlers
-        $('#token-list-container').off('click', '[data-action]').on('click', '[data-action]', function(e) {
-            e.preventDefault();
-            const action = $(this).data('action');
-            const tokenId = $(this).data('token-id');
-            
-            if (action === 'delete') {
-                APITokens.handleTokenDelete(tokenId);
-            }
+            app.parseAndTranslate('partials/modals/api-token-item', tokenData, function(html) {
+                container.append(html);
+                processedTokens++;
+                
+                // When all tokens are processed, show container and bind handlers
+                if (processedTokens === tokens.length) {
+                    container.removeClass('d-none');
+                    
+                    // Bind action handlers
+                    container.off('click', '[data-action]').on('click', '[data-action]', function(e) {
+                        e.preventDefault();
+                        const action = $(this).data('action');
+                        const tokenId = $(this).data('token-id');
+                        
+                        if (action === 'delete') {
+                            APITokens.handleTokenDelete(tokenId);
+                        }
+                    });
+                }
+            });
         });
     };
 
@@ -148,25 +148,25 @@ $(document).ready(function() {
             
             // Show the new token to the user
             if (result && result.token) {
-                bootbox.alert({
-                    title: '[[caiz:api-token-created]]',
-                    message: `
-                        <div class="alert alert-warning">
-                            <strong>[[caiz:save-token-warning]]</strong>
-                        </div>
-                        <div class="form-group">
-                            <label>[[caiz:api-token]]</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" value="${result.token}" readonly id="new-token-value">
-                                <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('new-token-value').value); window.APITokens && window.APITokens.showCopySuccess && window.APITokens.showCopySuccess();">
-                                    <i class="fa fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `,
-                    callback: function() {
-                        APITokens.loadTokens(); // Reload token list
-                    }
+                app.parseAndTranslate('partials/modals/api-token-created', { token: result.token }, function(html) {
+                    bootbox.alert({
+                        title: '[[caiz:api-token-created]]',
+                        message: html,
+                        callback: function() {
+                            APITokens.loadTokens(); // Reload token list
+                        }
+                    });
+                    
+                    // Bind copy button after modal is shown
+                    setTimeout(function() {
+                        $('[data-action="copy-token"]').off('click').on('click', function() {
+                            const tokenInput = document.getElementById('new-token-value');
+                            if (tokenInput) {
+                                navigator.clipboard.writeText(tokenInput.value);
+                                APITokens.showCopySuccess();
+                            }
+                        });
+                    }, 100);
                 });
             }
         });
