@@ -12,7 +12,7 @@ const plugin = {
  * @param {Object} params - NodeBB initialization parameters
  */
 plugin.init = async function(params) {
-    const { router, middleware } = params;
+    const { router, middleware, app } = params;
     
     winston.info('[mcp-server] Initializing MCP Server Plugin');
     
@@ -37,7 +37,14 @@ plugin.init = async function(params) {
         setupAdminRoutes(router, middleware);
         
         // Setup .well-known routes at root level (after admin routes)
-        setupWellKnownRoutes(router);
+        // Try both app and router approaches
+        if (app) {
+            winston.verbose('[mcp-server] Setting up .well-known routes using app');
+            setupWellKnownRoutes(app);
+        } else {
+            winston.verbose('[mcp-server] Setting up .well-known routes using router');
+            setupWellKnownRoutes(router);
+        }
         
         winston.info('[mcp-server] MCP Server Plugin initialized successfully');
     } catch (err) {
@@ -48,14 +55,14 @@ plugin.init = async function(params) {
 
 /**
  * Setup .well-known routes at root level
- * @param {Object} router - Express router instance
+ * @param {Object} routerOrApp - Express router or app instance
  */
-function setupWellKnownRoutes(router) {
+function setupWellKnownRoutes(routerOrApp) {
     const ResourceServerMetadata = require('./lib/metadata');
     const JWKSManager = require('./lib/jwks');
     
     // OAuth Resource Server Metadata endpoint
-    router.get('/.well-known/oauth-protected-resource', (req, res) => {
+    routerOrApp.get('/.well-known/oauth-protected-resource', (req, res) => {
         try {
             winston.verbose('[mcp-server] Resource server metadata requested');
             
@@ -91,7 +98,7 @@ function setupWellKnownRoutes(router) {
     });
     
     // JWKS endpoint
-    router.get('/.well-known/jwks.json', (req, res) => {
+    routerOrApp.get('/.well-known/jwks.json', (req, res) => {
         try {
             winston.verbose('[mcp-server] JWKS requested');
             
@@ -119,7 +126,7 @@ function setupWellKnownRoutes(router) {
     });
     
     // OAuth Authorization Server Discovery endpoint
-    router.get('/.well-known/oauth-authorization-server', (req, res) => {
+    routerOrApp.get('/.well-known/oauth-authorization-server', (req, res) => {
         try {
             winston.verbose('[mcp-server] OAuth Discovery metadata requested');
             

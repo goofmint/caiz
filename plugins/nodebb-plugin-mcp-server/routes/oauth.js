@@ -9,7 +9,7 @@ module.exports = function(router, middleware) {
      * OAuth Authorization Endpoint
      * GET /oauth/authorize
      */
-    router.get('/oauth/authorize', middleware.authenticate, async (req, res) => {
+    router.get('/oauth/authorize', middleware.ensureLoggedIn, async (req, res) => {
         try {
             winston.verbose('[mcp-server] OAuth authorization request received');
 
@@ -105,7 +105,7 @@ module.exports = function(router, middleware) {
      * OAuth Authorization Form Submit
      * POST /oauth/authorize
      */
-    router.post('/oauth/authorize', middleware.authenticate, async (req, res) => {
+    router.post('/oauth/authorize', middleware.ensureLoggedIn, async (req, res) => {
         try {
             winston.verbose('[mcp-server] OAuth authorization form submitted');
 
