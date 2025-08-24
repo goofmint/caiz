@@ -12,14 +12,24 @@ APIトークンを保存するためのデータベーステーブル設計
 // api_tokens テーブル構造
 {
   id: 'auto_increment_primary_key',
+  token_id: 'uuid_v7_unique',              // 公開識別子（レスポンスに含む）
   uid: 'user_id_foreign_key',
   name: 'token_display_name',
-  token_hash: 'hashed_token_value', // セキュリティのためハッシュ化
-  created_at: 'timestamp',
-  last_used_at: 'timestamp_nullable',
+  token_prefix: 'char(8)',                 // UX用（secret先頭8文字）
+  token_hash: 'hmac_sha256_hex',           // 秘密値のHMAC
+  permissions: 'json_array',               // 許可スコープの配列
   is_active: 'boolean_default_true',
-  permissions: 'json_array_or_string' // 将来の権限管理用
+  created_at: 'timestamp',
+  updated_at: 'timestamp',
+  last_used_at: 'timestamp_nullable',
+  expires_at: 'timestamp_nullable',        // 任意の有効期限
+  revoked_at: 'timestamp_nullable'         // 失効日時（ソフトデリート）
 }
+
+// 制約/インデックス:
+// - UNIQUE(token_id), UNIQUE(token_hash), UNIQUE(uid, LOWER(name))
+// - INDEX(uid), INDEX(uid, token_prefix)
+// - CHECK(permissions ⊆ 許可済みスコープ集合)
 ```
 
 ### 2. WebSocketハンドラー実装
@@ -48,6 +58,24 @@ sockets.apiTokens.create = async function(socket, data) {
 }
 ```
 
+#### apiTokens.update
+APIトークンのメタデータを更新する（トークン本体は更新不可）
+
+```javascript
+sockets.apiTokens.update = async function(socket, data) {
+  // 認証チェック
+  // 所有者確認（もしくは管理権限の検証）
+  // 入力バリデーション
+  //  - 更新可能フィールド: name, is_active, permissions, expires_at
+  //  - name は同一ユーザー内で一意（ケースインセンシティブ）
+  //  - permissions は許可済みスコープのみ
+  //  - expires_at は過去日時不可、最大TTLを超過不可
+  // DB更新（updated_at を更新）
+  // 監査ログに記録
+  // 成功レスポンス: 更新後のメタデータ
+}
+```
+
 #### apiTokens.delete
 APIトークンを削除する
 
@@ -64,22 +92,42 @@ sockets.apiTokens.delete = async function(socket, data) {
 #### トークン生成機能
 ```javascript
 // セキュアなランダムトークン生成
+// 仕様:
+//  - secret は 32 bytes (256-bit) 以上の乱数
+//  - エンコードは base64url（パディングなし）
+//  - token_id は UUIDv7（表示や監査、O(1) ルックアップに使用）
+//  - token_prefix は secret の先頭8文字（表示・UX用、重複の可能性あり）
+//  - クライアントに返す文字列: `${token_id}.${secretB64u}`
 function generateApiToken() {
-  // crypto.randomBytesを使用
-  // base64url形式で返却
+  // crypto.randomBytes(32)
+  // token_id = uuidv7()
+  // secretB64u = base64url(secret)
+  // prefix = secretB64u.slice(0, 8)
+  // return { token: `${token_id}.${secretB64u}`, tokenId: token_id, prefix }
 }
 ```
 
 #### ハッシュ化機能
 ```javascript
 // トークンハッシュ化（保存用）
-function hashToken(token) {
-  // bcryptまたはcrypto.createHashを使用
+// 推奨: HMAC-SHA-256(token) with server-side pepper/secret
+function hashToken(token, pepper) {
+  // 例:
+  //   const hmac = crypto.createHmac('sha256', pepper);
+  //   return hmac.update(token).digest('hex');
 }
 
 // トークン検証（認証時用）
-function verifyToken(token, hash) {
-  // ハッシュ値との比較
+function verifyToken(token, storedHash, pepper) {
+  // 計算:
+  //   const expected = crypto
+  //     .createHmac('sha256', pepper)
+  //     .update(token)
+  //     .digest('hex');
+  // 比較:
+  //   const actual = Buffer.from(storedHash, 'hex');
+  //   const predicted = Buffer.from(expected, 'hex');
+  //   return crypto.timingSafeEqual(predicted, actual);
 }
 ```
 
