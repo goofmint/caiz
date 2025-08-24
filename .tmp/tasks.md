@@ -94,7 +94,7 @@
     - 正しいトークンで `/api/mcp/session` が200で基本情報を返す
   - API用トークンの管理
     - [x] 38: ユーザー情報（sidebar/right）にAPIトークンメニューアイコンの追加
-    - [ ] 39: APIトークン一覧の表示
+    - [x] 39: APIトークン一覧の表示
     - [ ] 40: APIトークンの作成、更新、削除
   - [ ] SSE 最小実装
     - `GET /mcp/messages` で `text/event-stream` を開始、ハートビート送出

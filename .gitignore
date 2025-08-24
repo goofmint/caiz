@@ -10,3 +10,4 @@ plugins/nodebb-plugin-s3-uploads
 nginx/selfsigned.crt
 nginx/selfsigned.key
 plugins/nodebb-plugin-auto-translate/node_modules
+plugins/nodebb-plugin-caiz/node_modules/
