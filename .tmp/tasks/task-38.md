@@ -18,9 +18,9 @@ NodeBBのユーザー情報サイドバー（右側）にAPIトークン管理�
 <!-- templates/partials/sidebar-right.tpl -->
 <!-- 既存のユーザー情報セクションに以下を追加 -->
 <div class="sidebar-menu-item">
-    <a href="/user/{username}/api-tokens" class="api-token-link">
+    <a href="#" class="api-token-link" data-ajaxify="false">
         <i class="fa fa-key" aria-hidden="true"></i>
-        <span>API Tokens</span>
+        <span>[[caiz:api-tokens]]</span>
     </a>
 </div>
 ```
@@ -60,18 +60,81 @@ $(document).ready(function() {
 });
 ```
 
-### ルーティング（将来実装予定）
+### WebSocket通信（将来実装予定）
 ```javascript
-// library.js
-// APIトークン管理画面へのルーティング設定
-router.get('/user/:userslug/api-tokens', middleware.authenticate, renderAPITokens);
-
-function renderAPITokens(req, res) {
-    res.render('user/api-tokens', {
-        title: 'API Tokens',
-        userslug: req.params.userslug
+// static/lib/main.js
+// APIトークン管理のWebSocket通信
+function loadAPITokens() {
+    window.socket.emit('modules.apiTokens.get', {}, function(err, tokens) {
+        if (err) {
+            app.alertError(err.message);
+            return;
+        }
+        displayAPITokens(tokens);
     });
 }
+
+function createAPIToken(tokenData) {
+    window.socket.emit('modules.apiTokens.create', tokenData, function(err, result) {
+        if (err) {
+            app.alertError(err.message);
+            return;
+        }
+        app.alertSuccess('[[caiz:api-token-created]]');
+        loadAPITokens(); // リロード
+    });
+}
+
+function deleteAPIToken(tokenId) {
+    window.socket.emit('modules.apiTokens.delete', { tokenId: tokenId }, function(err, result) {
+        if (err) {
+            app.alertError(err.message);
+            return;
+        }
+        app.alertSuccess('[[caiz:api-token-deleted]]');
+        loadAPITokens(); // リロード
+    });
+}
+```
+
+### サーバーサイドWebSocketハンドラー（将来実装予定）
+```javascript
+// library.js
+// WebSocketイベントハンドラーの登録
+SocketPlugins.apiTokens = {
+    get: function(socket, data, callback) {
+        // ユーザー認証チェック
+        if (!socket.uid) {
+            return callback(new Error('[[error:not-logged-in]]'));
+        }
+        
+        // APIトークン一覧を取得
+        // 実装予定: データベースからトークン情報を取得
+        callback(null, []);
+    },
+    
+    create: function(socket, data, callback) {
+        // ユーザー認証チェック
+        if (!socket.uid) {
+            return callback(new Error('[[error:not-logged-in]]'));
+        }
+        
+        // APIトークン作成
+        // 実装予定: トークン生成とデータベース保存
+        callback(null, { success: true });
+    },
+    
+    delete: function(socket, data, callback) {
+        // ユーザー認証チェック
+        if (!socket.uid) {
+            return callback(new Error('[[error:not-logged-in]]'));
+        }
+        
+        // APIトークン削除
+        // 実装予定: トークン削除処理
+        callback(null, { success: true });
+    }
+};
 ```
 
 ## 国際化対応
@@ -81,13 +144,19 @@ function renderAPITokens(req, res) {
 // languages/en-US/caiz.json
 {
     "api-tokens": "API Tokens",
-    "manage-api-tokens": "Manage API Tokens"
+    "manage-api-tokens": "Manage API Tokens",
+    "api-token-created": "API token created successfully",
+    "api-token-deleted": "API token deleted successfully",
+    "api-token-updated": "API token updated successfully"
 }
 
 // languages/ja/caiz.json  
 {
     "api-tokens": "APIトークン",
-    "manage-api-tokens": "APIトークン管理"
+    "manage-api-tokens": "APIトークン管理",
+    "api-token-created": "APIトークンを作成しました",
+    "api-token-deleted": "APIトークンを削除しました",
+    "api-token-updated": "APIトークンを更新しました"
 }
 ```
 
