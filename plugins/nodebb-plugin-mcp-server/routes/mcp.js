@@ -148,9 +148,16 @@ module.exports = function(router) {
                 capabilities: '/api/mcp/capabilities',
                 session: '/api/mcp/session'
             },
+            capabilities: {
+                tools: true,
+                prompts: false,
+                resources: false,
+                logging: true
+            },
             authentication: {
+                required: true,
                 type: 'oauth2',
-                authorizationUrl: '/.well-known/oauth-protected-resource'
+                discoveryUrl: '/.well-known/oauth-protected-resource'
             },
             documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
         });
@@ -171,9 +178,16 @@ module.exports = function(router) {
                 capabilities: '/api/mcp/capabilities',
                 session: '/api/mcp/session'
             },
+            capabilities: {
+                tools: true,
+                prompts: false,
+                resources: false,
+                logging: true
+            },
             authentication: {
+                required: true,
                 type: 'oauth2',
-                authorizationUrl: '/.well-known/oauth-protected-resource'
+                discoveryUrl: '/.well-known/oauth-protected-resource'
             },
             documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
         });
