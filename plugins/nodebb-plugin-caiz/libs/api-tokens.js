@@ -5,7 +5,6 @@ const db = require.main.require('./src/database');
 const winston = require.main.require('winston');
 const { v7: uuidv7 } = require('uuid');
 
-const API_TOKEN_PEPPER = 'caiz-api-token-pepper-fixed-secret-key-2024';
 const MAX_TOKEN_NAME_LENGTH = 100;
 const MIN_TOKEN_NAME_LENGTH = 1;
 const ALLOWED_PERMISSIONS = ['read', 'write']; // 将来拡張可能
@@ -28,13 +27,12 @@ function generateApiToken() {
 }
 
 /**
- * Hash token using HMAC-SHA-256 with server-side pepper
+ * Hash token using SHA-256 (tokens are already high-entropy)
  * @param {string} token - The token to hash
  * @returns {string} Hexadecimal hash
  */
 function hashToken(token) {
-    const hmac = crypto.createHmac('sha256', API_TOKEN_PEPPER);
-    return hmac.update(token).digest('hex');
+    return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /**
@@ -44,10 +42,7 @@ function hashToken(token) {
  * @returns {boolean} True if token is valid
  */
 function verifyToken(token, storedHash) {
-    const expected = crypto
-        .createHmac('sha256', API_TOKEN_PEPPER)
-        .update(token)
-        .digest('hex');
+    const expected = crypto.createHash('sha256').update(token).digest('hex');
     
     const actual = Buffer.from(storedHash, 'hex');
     const predicted = Buffer.from(expected, 'hex');
