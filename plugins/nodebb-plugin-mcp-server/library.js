@@ -12,11 +12,15 @@ const plugin = {
  * @param {Object} params - NodeBB initialization parameters
  */
 plugin.init = async function(params) {
-    const { router, middleware } = params;
+    const { router, middleware, app } = params;
     
     winston.info('[mcp-server] Initializing MCP Server Plugin');
     
     try {
+        // Initialize JWKS manager first
+        const JWKSManager = require('./lib/jwks');
+        await JWKSManager.initialize();
+        
         // Initialize MCP server instance
         plugin.server = new MCPServer();
         await plugin.server.initialize();
@@ -25,11 +29,22 @@ plugin.init = async function(params) {
         const mcpRoutes = require('./routes/mcp');
         mcpRoutes(router);
         
+        // Setup OAuth routes
+        const oauthRoutes = require('./routes/oauth');
+        oauthRoutes(router, middleware);
+        
         // Setup admin routes
         setupAdminRoutes(router, middleware);
         
         // Setup .well-known routes at root level (after admin routes)
-        setupWellKnownRoutes(params.app);
+        // Try both app and router approaches
+        if (app) {
+            winston.verbose('[mcp-server] Setting up .well-known routes using app');
+            setupWellKnownRoutes(app);
+        } else {
+            winston.verbose('[mcp-server] Setting up .well-known routes using router');
+            setupWellKnownRoutes(router);
+        }
         
         winston.info('[mcp-server] MCP Server Plugin initialized successfully');
     } catch (err) {
@@ -40,12 +55,14 @@ plugin.init = async function(params) {
 
 /**
  * Setup .well-known routes at root level
- * @param {Object} app - Express app instance
+ * @param {Object} routerOrApp - Express router or app instance
  */
-function setupWellKnownRoutes(app) {
+function setupWellKnownRoutes(routerOrApp) {
     const ResourceServerMetadata = require('./lib/metadata');
+    const JWKSManager = require('./lib/jwks');
     
-    app.get('/.well-known/oauth-protected-resource', (req, res) => {
+    // OAuth Resource Server Metadata endpoint
+    routerOrApp.get('/.well-known/oauth-protected-resource', (req, res) => {
         try {
             winston.verbose('[mcp-server] Resource server metadata requested');
             
@@ -76,6 +93,62 @@ function setupWellKnownRoutes(app) {
             res.status(500).json({
                 error: 'server_error',
                 error_description: 'Internal server error while generating metadata'
+            });
+        }
+    });
+    
+    // JWKS endpoint
+    routerOrApp.get('/.well-known/jwks.json', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] JWKS requested');
+            
+            const jwks = JWKSManager.getJWKS();
+            
+            // Set appropriate headers for JWKS endpoint
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json(jwks);
+            
+            winston.verbose('[mcp-server] JWKS sent successfully');
+        } catch (err) {
+            winston.error('[mcp-server] JWKS endpoint error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating JWKS'
+            });
+        }
+    });
+    
+    // OAuth Authorization Server Discovery endpoint
+    routerOrApp.get('/.well-known/oauth-authorization-server', (req, res) => {
+        try {
+            winston.verbose('[mcp-server] OAuth Discovery metadata requested');
+            
+            const OAuthDiscovery = require('./lib/oauth-discovery');
+            const metadata = OAuthDiscovery.getMetadata();
+            
+            // Set appropriate headers
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            res.json(metadata);
+            winston.verbose('[mcp-server] OAuth Discovery metadata sent successfully');
+        } catch (err) {
+            winston.error('[mcp-server] OAuth Discovery error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error while generating OAuth metadata'
             });
         }
     });

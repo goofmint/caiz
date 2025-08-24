@@ -88,10 +88,10 @@
     - 未認証の `/api/mcp/session` に 401 と `WWW-Authenticate` を返す
   - [x] 35: 認証モジュール骨子
     - Bearer 抽出・401送出の共通化
-  - [ ] 36: JWT/JWKS 検証
+  - [x] 36: JWT/JWKS 検証
     - `aud/iss/exp` 検証と JWKs 取得
-  - [ ] 認証済セッション応答
-    - 正しいトークンで `/mcp/session` が200で基本情報を返す
+  - [ ] 37: 認証済セッション応答
+    - 正しいトークンで `/api/mcp/session` が200で基本情報を返す
   - [ ] SSE 最小実装
     - `GET /mcp/messages` で `text/event-stream` を開始、ハートビート送出
   - [ ] JSON-RPC 受信の枠
