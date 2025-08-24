@@ -30,5 +30,20 @@
         "documentation": "Documentation",
         "github-documentation": "GitHub Documentation",
         "api-endpoints": "API Endpoints"
+    },
+    "oauth": {
+        "title": "Authorisation Required",
+        "client_request": "The following application is requesting permissions:",
+        "requested_permissions": "Requested Permissions:",
+        "approve": "Approve",
+        "deny": "Deny",
+        "security_notice": "By approving, this application will be able to perform the specified actions on your behalf.",
+        "logged_in_as": "Logged in as:",
+        "logout": "Logout"
+    },
+    "scope": {
+        "mcp:read": "Read Access - View content and information",
+        "mcp:write": "Write Access - Modify and create data",
+        "mcp:admin": "Admin Access - Change system settings"
     }
 }

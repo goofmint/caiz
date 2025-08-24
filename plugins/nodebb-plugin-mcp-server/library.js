@@ -29,6 +29,10 @@ plugin.init = async function(params) {
         const mcpRoutes = require('./routes/mcp');
         mcpRoutes(router);
         
+        // Setup OAuth routes
+        const oauthRoutes = require('./routes/oauth');
+        oauthRoutes(router, middleware);
+        
         // Setup admin routes
         setupAdminRoutes(router, middleware);
         

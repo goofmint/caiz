@@ -30,5 +30,20 @@
         "documentation": "ドキュメント",
         "github-documentation": "GitHubドキュメント",
         "api-endpoints": "APIエンドポイント"
+    },
+    "oauth": {
+        "title": "認可確認",
+        "client_request": "以下のアプリケーションが権限を要求しています：",
+        "requested_permissions": "要求されている権限:",
+        "approve": "承認",
+        "deny": "拒否",
+        "security_notice": "承認すると、このアプリケーションはあなたのアカウントに代わって指定された操作を実行できるようになります。",
+        "logged_in_as": "ログイン中:",
+        "logout": "ログアウト"
+    },
+    "scope": {
+        "mcp:read": "読み取りアクセス - コンテンツと情報の表示",
+        "mcp:write": "書き込みアクセス - データの変更と作成", 
+        "mcp:admin": "管理者アクセス - システム設定の変更"
     }
 }
