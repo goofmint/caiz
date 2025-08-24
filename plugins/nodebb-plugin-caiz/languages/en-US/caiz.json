@@ -268,5 +268,14 @@
   "create-first-token": "Create First Token",
   "token-created": "Created",
   "delete-token": "Delete",
-  "unknown": "Unknown"
+  "unknown": "Unknown",
+  "error": {
+    "token-name-length": "Token name must be between 1 and 100 characters",
+    "invalid-permissions": "Invalid permissions",
+    "invalid-permission-scope": "Invalid permission scope",
+    "token-name-exists": "Token name already exists",
+    "token-generation-failed": "Failed to generate token",
+    "token-not-found": "Token not found",
+    "invalid-expiry-date": "Expiry date must be in the future"
+  }
 }

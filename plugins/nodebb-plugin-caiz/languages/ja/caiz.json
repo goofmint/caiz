@@ -251,5 +251,14 @@
   "create-first-token": "最初のトークンを作成",
   "token-created": "作成日時",
   "delete-token": "削除",
-  "unknown": "不明"
+  "unknown": "不明",
+  "error": {
+    "token-name-length": "トークン名は1文字以上100文字以下で入力してください",
+    "invalid-permissions": "無効な権限設定です",
+    "invalid-permission-scope": "許可されていない権限スコープです",
+    "token-name-exists": "このトークン名は既に使用されています",
+    "token-generation-failed": "トークンの生成に失敗しました",
+    "token-not-found": "トークンが見つかりません",
+    "invalid-expiry-date": "有効期限は現在より後の日時を指定してください"
+  }
 }
