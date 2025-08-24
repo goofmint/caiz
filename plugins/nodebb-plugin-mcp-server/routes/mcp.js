@@ -132,16 +132,48 @@ module.exports = function(router) {
 
     /**
      * Root endpoint - returns basic information
-     * GET /api/mcp/
+     * GET /api/mcp and GET /api/mcp/
      */
     router.get('/api/mcp', (req, res) => {
         res.json({
             name: 'NodeBB MCP Server',
             version: pluginVersion,
+            protocol: 'mcp',
+            protocolVersion: '2024-11-05',
+            transport: 'http',
             endpoints: {
+                messages: '/api/mcp/messages',
                 health: '/api/mcp/health',
                 metadata: '/api/mcp/metadata',
-                capabilities: '/api/mcp/capabilities'
+                capabilities: '/api/mcp/capabilities',
+                session: '/api/mcp/session'
+            },
+            authentication: {
+                type: 'oauth2',
+                authorizationUrl: '/.well-known/oauth-protected-resource'
+            },
+            documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
+        });
+    });
+    
+    // Handle trailing slash
+    router.get('/api/mcp/', (req, res) => {
+        res.json({
+            name: 'NodeBB MCP Server',
+            version: pluginVersion,
+            protocol: 'mcp',
+            protocolVersion: '2024-11-05',
+            transport: 'http',
+            endpoints: {
+                messages: '/api/mcp/messages',
+                health: '/api/mcp/health',
+                metadata: '/api/mcp/metadata',
+                capabilities: '/api/mcp/capabilities',
+                session: '/api/mcp/session'
+            },
+            authentication: {
+                type: 'oauth2',
+                authorizationUrl: '/.well-known/oauth-protected-resource'
             },
             documentation: 'https://github.com/goofmint/caiz/tree/main/docs/mcp-server'
         });
