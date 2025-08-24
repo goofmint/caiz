@@ -12,10 +12,6 @@
 <!-- IMPORT partials/sidebar/notifications.tpl -->
 </li>
 
-<li component="sidebar/api-tokens" class="nav-item mx-2 api-tokens dropstart" title="[[caiz:api-tokens]]" role="menuitem">
-<!-- IMPORT partials/sidebar/api-tokens.tpl -->
-</li>
-
 {{{ if canChat }}}
 <li class="nav-item mx-2 chats dropstart" title="[[global:header.chats]]" role="menuitem">
 <!-- IMPORT partials/sidebar/chats.tpl -->
@@ -24,4 +20,8 @@
 
 <li component="sidebar/drafts" class="nav-item mx-2 drafts dropstart" title="[[global:header.drafts]]" role="menuitem">
 <!-- IMPORT partials/sidebar/drafts.tpl -->
+</li>
+
+<li component="sidebar/api-tokens" class="nav-item mx-2 api-tokens dropstart" title="[[caiz:api-tokens]]" role="menuitem">
+<!-- IMPORT partials/sidebar/api-tokens.tpl -->
 </li>
