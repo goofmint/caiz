@@ -160,20 +160,18 @@ module.exports = function(router) {
                 // req.auth is set by requireAuth middleware after successful JWT validation
                 const authContext = req.auth;
                 
-                // Return session information
-                const sessionInfo = {
-                    user_id: authContext.userId,
-                    username: authContext.username,
-                    scopes: authContext.scopes,
-                    expires_at: authContext.expiresAt ? authContext.expiresAt.toISOString() : null,
-                    issued_at: authContext.issuedAt ? authContext.issuedAt.toISOString() : null,
-                    issuer: authContext.issuer,
-                    audience: authContext.audience,
-                    token_id: authContext.tokenId
-                };
+                // Build comprehensive session response using MCPSession
+                const MCPSession = require('../lib/session');
+                const sessionResponse = MCPSession.buildSessionResponse(authContext, req);
                 
-                res.json(sessionInfo);
-                winston.verbose('[mcp-server] Session info sent for user:', authContext.userId);
+                // Set security headers
+                res.set({
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
+                });
+                
+                res.json(sessionResponse);
+                winston.verbose('[mcp-server] Session response sent for user:', authContext.userId);
                 
             } catch (err) {
                 winston.error('[mcp-server] MCP session error:', err);
