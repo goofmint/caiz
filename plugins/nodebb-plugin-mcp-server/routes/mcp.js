@@ -137,6 +137,7 @@ module.exports = function(router) {
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
+                winston.verbose('[mcp-server] Request headers:', JSON.stringify(req.headers));
 
                 // Validate Accept header
                 const acceptHeader = req.get('Accept');
@@ -403,7 +404,7 @@ module.exports = function(router) {
     });
 
     /**
-     * MCP Session endpoint
+     * MCP Session endpoint - returns authenticated user session info
      * GET /api/mcp/session
      */
     router.get('/api/mcp/session', 
@@ -412,12 +413,33 @@ module.exports = function(router) {
             try {
                 winston.verbose('[mcp-server] MCP session requested');
                 
-                // Simple session response
+                // Build session response using authenticated user info
                 const sessionResponse = {
-                    authenticated: true,
-                    type: 'bearer',
-                    scopes: req.auth.scopes,
-                    timestamp: new Date().toISOString()
+                    status: 'authenticated',
+                    user: {
+                        uid: req.auth.userId,
+                        username: req.auth.username,
+                        email: req.auth.email,
+                        displayname: req.auth.displayname
+                    },
+                    token: {
+                        id: req.auth.token.id,
+                        name: req.auth.token.name,
+                        permissions: req.auth.token.permissions,
+                        created_at: req.auth.token.created_at,
+                        last_used_at: req.auth.token.last_used_at
+                    },
+                    capabilities: {
+                        mcp_version: '1.0',
+                        supported_tools: ['search', 'read'],
+                        max_message_size: 1048576
+                    },
+                    session: {
+                        authenticated: true,
+                        type: 'bearer',
+                        scopes: req.auth.scopes,
+                        timestamp: new Date().toISOString()
+                    }
                 };
                 
                 // Set security headers
@@ -426,8 +448,8 @@ module.exports = function(router) {
                     'Pragma': 'no-cache'
                 });
                 
-                res.json(sessionResponse);
-                winston.verbose('[mcp-server] Session response sent');
+                res.status(200).json(sessionResponse);
+                winston.verbose('[mcp-server] Session response sent for user:', req.auth.userId);
                 
             } catch (err) {
                 winston.error('[mcp-server] MCP session error:', err);

@@ -4,17 +4,21 @@ const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
 
 /**
- * Simple Bearer Token Authentication for MCP
- * No OAuth2 complexity - just static token verification
+ * Bearer Token Authentication for MCP using Caiz API Token system
+ * Integrates with nodebb-plugin-caiz API token management
  */
 class SimpleAuth {
     /**
-     * Get configured MCP API token
-     * @returns {string|null} Configured API token
+     * Get Caiz API token module
+     * @returns {Object|null} API tokens module or null if unavailable
      */
-    static getMCPToken() {
-        // Get from NodeBB settings
-        return meta.config['mcp-server-token'] || null;
+    static getCaizApiTokensModule() {
+        try {
+            return require('../../nodebb-plugin-caiz/libs/api-tokens');
+        } catch (err) {
+            winston.warn('[mcp-server] Caiz API tokens module not found:', err.message);
+            return null;
+        }
     }
 
     /**
@@ -28,84 +32,215 @@ class SimpleAuth {
             return null;
         }
 
-        const match = authHeader.match(/^Bearer\s+(.+)$/);
-        return match ? match[1] : null;
-    }
-
-    /**
-     * Validate Bearer token
-     * @param {string} token - Token to validate
-     * @returns {boolean} True if valid
-     */
-    static validateToken(token) {
+        const parts = authHeader.trim().split(' ');
+        if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
+            return null;
+        }
+        
+        const token = parts[1].trim();
         if (!token) {
-            return false;
+            return null;
         }
-
-        const configuredToken = this.getMCPToken();
-        if (!configuredToken) {
-            winston.warn('[mcp-server] No MCP token configured');
-            return false;
-        }
-
-        return token === configuredToken;
+        
+        return token;
     }
 
     /**
-     * Create authentication middleware
+     * Validate Bearer token using Caiz API token system
+     * @param {string} token - Token to validate
+     * @returns {Promise<Object|null>} User info if valid, null if invalid
+     */
+    static async validateApiToken(token) {
+        if (!token || typeof token !== 'string') {
+            return null;
+        }
+        
+        // Token format validation: uuid.base64url
+        const parts = token.split('.');
+        if (parts.length !== 2) {
+            return null;
+        }
+        
+        const [tokenId, secret] = parts;
+        
+        // Basic UUID format check (simplified)
+        if (!tokenId || tokenId.length < 32) {
+            return null;
+        }
+        
+        // Base64URL format check (simplified)
+        if (!secret || !/^[A-Za-z0-9_-]+$/.test(secret)) {
+            return null;
+        }
+        
+        try {
+            const caizTokens = this.getCaizApiTokensModule();
+            if (!caizTokens) {
+                winston.warn('[mcp-server] Caiz API tokens module not available');
+                return null;
+            }
+            
+            const db = require.main.require('./src/database');
+            
+            // Get token data from database
+            const tokenData = await db.getObject(`api-token:${tokenId}`);
+            
+            if (!tokenData || tokenData.revoked_at) {
+                winston.info(`[mcp-server] Token validation failed: token not found or revoked - ${tokenId}`);
+                return null;
+            }
+            
+            // Verify token hash
+            const isValid = caizTokens.verifyToken(token, tokenData.token_hash);
+            if (!isValid) {
+                winston.warn(`[mcp-server] Token validation failed: hash mismatch - ${tokenId}`);
+                return null;
+            }
+            
+            // Check if token is active
+            if (tokenData.is_active === 'false') {
+                winston.info(`[mcp-server] Token validation failed: token inactive - ${tokenId}`);
+                return null;
+            }
+            
+            // Check expiration
+            if (tokenData.expires_at && parseInt(tokenData.expires_at, 10) < Date.now()) {
+                winston.info(`[mcp-server] Token validation failed: token expired - ${tokenId}`);
+                return null;
+            }
+            
+            // Get user information
+            const User = require.main.require('./src/user');
+            const uid = parseInt(tokenData.uid, 10);
+            const userData = await User.getUserData(uid);
+            
+            if (!userData) {
+                winston.warn(`[mcp-server] Token validation failed: user not found - uid: ${uid}`);
+                return null;
+            }
+            
+            // Update last used timestamp
+            await this.updateTokenLastUsed(tokenId);
+            
+            return {
+                uid: uid,
+                username: userData.username,
+                email: userData.email,
+                displayname: userData.displayname || userData.username,
+                token: {
+                    id: tokenId,
+                    name: tokenData.name,
+                    permissions: JSON.parse(tokenData.permissions || '[]'),
+                    created_at: parseInt(tokenData.created_at, 10),
+                    last_used_at: Date.now()
+                }
+            };
+        } catch (err) {
+            winston.error(`[mcp-server] Token validation error: ${err.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update token's last used timestamp
+     * @param {string} tokenId - Token ID
+     * @returns {Promise<void>}
+     */
+    static async updateTokenLastUsed(tokenId) {
+        try {
+            const db = require.main.require('./src/database');
+            await db.setObjectField(`api-token:${tokenId}`, 'last_used_at', Date.now());
+        } catch (err) {
+            winston.warn(`[mcp-server] Failed to update token last_used_at: ${err.message}`);
+        }
+    }
+
+    /**
+     * Legacy method for backward compatibility - now uses Caiz API tokens
+     * @param {string} token - Token to validate
+     * @returns {Promise<boolean>} True if valid
+     */
+    static async validateToken(token) {
+        const userInfo = await this.validateApiToken(token);
+        return userInfo !== null;
+    }
+
+    /**
+     * Create authentication middleware using Caiz API tokens
      * @returns {Function} Express middleware
      */
     static requireAuth() {
-        return (req, res, next) => {
-            winston.verbose('[mcp-server] Simple auth middleware executing');
+        return async (req, res, next) => {
+            winston.verbose('[mcp-server] API token auth middleware executing');
+            winston.verbose('[mcp-server] Auth headers:', JSON.stringify(req.headers.authorization));
 
             const token = this.extractBearerToken(req);
             
             if (!token) {
                 winston.verbose('[mcp-server] No Bearer token provided');
+                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API"');
                 return res.status(401).json({
-                    error: 'invalid_token',
-                    error_description: 'Bearer token required for MCP access'
+                    error: 'invalid_request',
+                    error_description: 'Missing or invalid Authorization header'
                 });
             }
 
-            if (!this.validateToken(token)) {
+            const userInfo = await this.validateApiToken(token);
+            
+            if (!userInfo) {
                 winston.verbose('[mcp-server] Invalid Bearer token');
+                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API"');
                 return res.status(401).json({
                     error: 'invalid_token',
-                    error_description: 'Invalid Bearer token'
+                    error_description: 'The access token provided is invalid'
                 });
             }
 
-            // Set simple auth context
+            // Set authentication context with user information
             req.auth = {
                 authenticated: true,
                 type: 'bearer',
-                scopes: ['mcp:read', 'mcp:write']
+                userId: userInfo.uid,
+                username: userInfo.username,
+                email: userInfo.email,
+                displayname: userInfo.displayname,
+                token: userInfo.token,
+                scopes: ['mcp:read', 'mcp:write'] // Default scopes for API tokens
             };
 
-            winston.verbose('[mcp-server] Authentication successful');
+            winston.verbose('[mcp-server] Authentication successful for user:', userInfo.uid);
             next();
         };
     }
 
     /**
-     * Optional authentication middleware
+     * Optional authentication middleware using Caiz API tokens
      * @returns {Function} Express middleware
      */
     static optionalAuth() {
-        return (req, res, next) => {
+        return async (req, res, next) => {
             const token = this.extractBearerToken(req);
             
-            if (token && this.validateToken(token)) {
-                req.auth = {
-                    authenticated: true,
-                    type: 'bearer',
-                    scopes: ['mcp:read', 'mcp:write']
-                };
-                winston.verbose('[mcp-server] Optional authentication successful');
+            if (token) {
+                const userInfo = await this.validateApiToken(token);
+                
+                if (userInfo) {
+                    req.auth = {
+                        authenticated: true,
+                        type: 'bearer',
+                        userId: userInfo.uid,
+                        username: userInfo.username,
+                        email: userInfo.email,
+                        displayname: userInfo.displayname,
+                        token: userInfo.token,
+                        scopes: ['mcp:read', 'mcp:write']
+                    };
+                    winston.verbose('[mcp-server] Optional authentication successful for user:', userInfo.uid);
+                } else {
+                    winston.verbose('[mcp-server] Optional authentication failed - invalid token');
+                }
             } else {
-                winston.verbose('[mcp-server] Optional authentication skipped');
+                winston.verbose('[mcp-server] Optional authentication skipped - no token');
             }
 
             next();
