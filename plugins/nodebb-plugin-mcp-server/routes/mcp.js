@@ -11,22 +11,92 @@ try {
     winston.warn('[mcp-server] Could not load package.json, using default version');
 }
 
-// Get MCP server instance
-function getMCPServer() {
-    const plugin = require('../library');
-    const instance = plugin.getInstance();
-    return instance.server;
+// JSON-RPC Error Codes
+const JSON_RPC_ERRORS = {
+    PARSE_ERROR: -32700,      // JSON解析エラー
+    INVALID_REQUEST: -32600,  // 無効なリクエスト
+    METHOD_NOT_FOUND: -32601, // メソッド不明
+    INVALID_PARAMS: -32602,   // 無効なパラメータ
+    INTERNAL_ERROR: -32603    // サーバー内部エラー
+};
+
+/**
+ * Build JSON-RPC 2.0 error response
+ */
+function buildErrorResponse(code, message, data, id) {
+    return {
+        jsonrpc: '2.0',
+        error: {
+            code: code,
+            message: message,
+            data: data // オプショナル
+        },
+        // JSONパース不可時は null、それ以外は要求と同一の id（0 や "" も許容）
+        id: (typeof id === 'undefined') ? null : id
+    };
 }
 
 /**
- * Handle JSON-RPC 2.0 message processing
+ * Validate JSON-RPC 2.0 message structure
+ */
+function validateJsonRpcMessage(message) {
+    // Basic object check
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
+        return {
+            isValid: false,
+            error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - message must be object', null, message?.id)
+        };
+    }
+
+    // jsonrpc: "2.0" 必須チェック
+    if (message.jsonrpc !== '2.0') {
+        return {
+            isValid: false,
+            error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - jsonrpc must be 2.0', null, message.id)
+        };
+    }
+
+    // method: string 必須チェック（空文字不可）
+    if (!message.method || typeof message.method !== 'string' || message.method.trim() === '') {
+        return {
+            isValid: false,
+            error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - method required and must be non-empty string', null, message.id)
+        };
+    }
+
+    // id: requestは string|number|null を許容、notificationは "id" メンバー自体を持たないこと
+    if ('id' in message) {
+        const idType = typeof message.id;
+        if (idType !== 'string' && idType !== 'number' && message.id !== null) {
+            return {
+                isValid: false,
+                error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - id must be string, number, or null', null, message.id)
+            };
+        }
+    }
+
+    // params: オプショナル、存在時は object または array
+    if ('params' in message) {
+        if (message.params !== null && typeof message.params !== 'object') {
+            return {
+                isValid: false,
+                error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - params must be object or array', null, message.id)
+            };
+        }
+    }
+
+    return { isValid: true };
+}
+
+/**
+ * Handle individual JSON-RPC 2.0 message processing
  */
 function processJsonRpcMessage(message, req) {
     winston.verbose('[mcp-server] Processing JSON-RPC method:', message.method);
 
     // Handle MCP initialize request
     if (message.method === 'initialize') {
-        const response = {
+        return {
             jsonrpc: '2.0',
             result: {
                 protocolVersion: '2024-11-05',
@@ -43,14 +113,11 @@ function processJsonRpcMessage(message, req) {
             },
             id: message.id
         };
-        
-        winston.verbose('[mcp-server] Sending initialize response');
-        return response;
     }
 
     // Handle tools/list request
     if (message.method === 'tools/list') {
-        const response = {
+        return {
             jsonrpc: '2.0',
             result: {
                 tools: [
@@ -72,53 +139,150 @@ function processJsonRpcMessage(message, req) {
             },
             id: message.id
         };
-        
-        winston.verbose('[mcp-server] Sending tools list');
-        return response;
     }
 
     // Handle tools/call request
     if (message.method === 'tools/call') {
         if (message.params?.name === 'search') {
-            const response = {
+            const query = message.params.arguments?.query;
+            return {
                 jsonrpc: '2.0',
                 result: {
                     content: [
                         {
                             type: 'text',
-                            text: `Search results for: ${message.params.arguments?.query || 'N/A'}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
+                            text: `Search results for: ${query || 'N/A'}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
                         }
                     ]
                 },
                 id: message.id
             };
-            
-            winston.verbose('[mcp-server] Sending search results');
-            return response;
         }
         
         // Tool not found
-        return {
-            jsonrpc: '2.0',
-            error: {
-                code: -32601,
-                message: 'Method not found',
-                data: `Tool '${message.params?.name}' not found`
-            },
-            id: message.id
-        };
+        return buildErrorResponse(JSON_RPC_ERRORS.METHOD_NOT_FOUND, 'Method not found', `Tool '${message.params?.name}' not found`, message.id);
     }
 
     // Method not found
-    return {
-        jsonrpc: '2.0',
-        error: {
-            code: -32601,
-            message: 'Method not found',
-            data: `Method '${message.method}' not supported`
-        },
-        id: message.id
-    };
+    return buildErrorResponse(JSON_RPC_ERRORS.METHOD_NOT_FOUND, 'Method not found', `Method '${message.method}' not supported`, message.id);
+}
+
+/**
+ * Process notification message (id absent)
+ */
+function processNotification(message, req) {
+    winston.verbose('[mcp-server] Processing notification:', message.method);
+    // 副作用処理の実行（現在は何もしない）
+    // レスポンスは返却しない
+}
+
+/**
+ * Process request message (id present)
+ * This function is currently not used in the main flow but kept for future use
+ */
+function processRequest(message, req) {
+    try {
+        const result = processJsonRpcMessage(message, req);
+        return result; // processJsonRpcMessage already returns the full JSON-RPC response
+    } catch (err) {
+        winston.error('[mcp-server] Error processing request:', err);
+        return buildErrorResponse(JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error', err.message, message.id);
+    }
+}
+
+/**
+ * Process batch request
+ */
+function processBatchRequest(messages, req) {
+    // 空配列は単一の error(-32600) を返す
+    if (messages.length === 0) {
+        return buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - empty batch array');
+    }
+
+    const responses = [];
+    let hasResponses = false;
+
+    // 各メッセージの個別バリデーション
+    for (const message of messages) {
+        const validation = validateJsonRpcMessage(message);
+        
+        if (!validation.isValid) {
+            if ('id' in message) {
+                responses.push(validation.error);
+                hasResponses = true;
+            }
+            continue;
+        }
+
+        // id を持つもののみレスポンス配列に含める（requests）
+        if ('id' in message) {
+            const response = processJsonRpcMessage(message, req);
+            responses.push(response);
+            hasResponses = true;
+        } else {
+            // 通知の処理
+            processNotification(message, req);
+        }
+    }
+
+    // 全通知（レスポンス配列が空）の場合は null を返して 204 No Content にする
+    if (!hasResponses) {
+        return null; // Indicates 204 No Content
+    }
+
+    return responses;
+}
+
+/**
+ * Validate HTTP headers for POST JSON-RPC requests
+ */
+function validateHeaders(req) {
+    // POST JSON-RPC: Accept ヘッダーが必須で "application/json" を含むこと（大文字小文字区別なし）
+    const acceptHeader = req.get('Accept');
+    if (!acceptHeader) {
+        return {
+            valid: false,
+            statusCode: 406,
+            error: { error: 'Not Acceptable', message: 'Accept header is required' }
+        };
+    }
+    
+    if (!acceptHeader.toLowerCase().includes('application/json')) {
+        return {
+            valid: false,
+            statusCode: 406,
+            error: { error: 'Not Acceptable', message: 'Accept header must include application/json' }
+        };
+    }
+
+    // Content-Type: POST時は "application/json" で開始すること（charset等パラメータは許容）
+    const contentType = req.get('Content-Type');
+    if (!contentType) {
+        return {
+            valid: false,
+            statusCode: 415,
+            error: { error: 'Unsupported Media Type', message: 'Content-Type header is required' }
+        };
+    }
+
+    // ';' より前のメディアタイプ部分のみをチェック（大文字小文字区別なし）
+    const mediaType = contentType.split(';')[0].trim().toLowerCase();
+    if (mediaType !== 'application/json') {
+        return {
+            valid: false,
+            statusCode: 415,
+            error: { error: 'Unsupported Media Type', message: 'Content-Type must be application/json' }
+        };
+    }
+
+    return { valid: true };
+}
+
+// Get MCP server instance
+function getMCPServer() {
+    const plugin = require('../library');
+    const instance = plugin.getInstance();
+    return instance.server;
 }
 
 module.exports = function(router) {
@@ -137,6 +301,7 @@ module.exports = function(router) {
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
+                
                 // Sanitize headers before logging to avoid leaking tokens
                 const sanitizedHeaders = { ...req.headers };
                 Object.keys(sanitizedHeaders).forEach(key => {
@@ -146,98 +311,85 @@ module.exports = function(router) {
                 });
                 winston.verbose('[mcp-server] Request headers:', JSON.stringify(sanitizedHeaders));
 
-                // Validate Accept header
-                const acceptHeader = req.get('Accept');
-                if (!acceptHeader || (!acceptHeader.includes('application/json') && !acceptHeader.includes('text/event-stream'))) {
-                    winston.warn('[mcp-server] Missing or invalid Accept header');
-                    return res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: {
-                            code: -32600,
-                            message: 'Invalid Request - Accept header must include application/json or text/event-stream'
-                        }
-                    });
+                // Validate HTTP headers first
+                const headerValidation = validateHeaders(req);
+                if (!headerValidation.valid) {
+                    winston.warn('[mcp-server] Header validation failed:', headerValidation.error);
+                    return res.status(headerValidation.statusCode).json(headerValidation.error);
                 }
 
-                // Basic JSON-RPC validation
-                if (!req.body || typeof req.body !== 'object') {
-                    winston.warn('[mcp-server] Invalid request body');
-                    return res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: {
-                            code: -32600,
-                            message: 'Invalid Request - Body must be valid JSON'
-                        }
-                    });
+                // Basic JSON body validation - Express should have parsed this already
+                if (!req.body) {
+                    winston.warn('[mcp-server] Missing request body');
+                    return res.status(400).json(
+                        buildErrorResponse(JSON_RPC_ERRORS.PARSE_ERROR, 'Parse error', 'Request body is empty')
+                    );
                 }
 
-                let messages = Array.isArray(req.body) ? req.body : [req.body];
-                let responses = [];
-                let hasResponses = false;
+                // Determine if this is a batch request or single request
+                const isBatch = Array.isArray(req.body);
+                let result;
 
-                // Process each message
-                for (const message of messages) {
-                    // Validate JSON-RPC 2.0 format
-                    if (!message.jsonrpc || message.jsonrpc !== '2.0') {
-                        responses.push({
-                            jsonrpc: '2.0',
-                            error: {
-                                code: -32600,
-                                message: 'Invalid Request - jsonrpc must be 2.0'
-                            },
-                            id: message.id || null
-                        });
-                        hasResponses = true;
-                        continue;
-                    }
-
-                    if (!message.method || typeof message.method !== 'string') {
-                        responses.push({
-                            jsonrpc: '2.0',
-                            error: {
-                                code: -32600,
-                                message: 'Invalid Request - method required and must be string'
-                            },
-                            id: message.id || null
-                        });
-                        hasResponses = true;
-                        continue;
-                    }
-
-                    // Process message and get response
-                    const response = processJsonRpcMessage(message, req);
+                if (isBatch) {
+                    // Process batch request
+                    result = processBatchRequest(req.body, req);
                     
-                    // Only add response if message has ID (requests, not notifications)
-                    if (message.id !== undefined) {
-                        responses.push(response);
-                        hasResponses = true;
+                    // Handle 204 No Content case (all notifications)
+                    if (result === null) {
+                        res.status(204).send();
+                        winston.verbose('[mcp-server] Processed batch notifications, sent 204 No Content');
+                        return;
+                    }
+                } else {
+                    // Process single request
+                    const validation = validateJsonRpcMessage(req.body);
+                    if (!validation.isValid) {
+                        winston.warn('[mcp-server] Single message validation failed');
+                        return res.status(422).json(validation.error);
+                    }
+
+                    // Check if it's a notification (no id) or request (has id)
+                    if (!('id' in req.body)) {
+                        // Notification - process but don't respond
+                        processNotification(req.body, req);
+                        res.status(204).send();
+                        winston.verbose('[mcp-server] Processed notification, sent 204 No Content');
+                        return;
+                    } else {
+                        // Request - process and return response
+                        result = processJsonRpcMessage(req.body, req);
                     }
                 }
 
-                // Send appropriate response based on MCP specification
-                if (!hasResponses) {
-                    // Pure notifications - return 202 Accepted with no body
-                    res.status(202).send();
-                    winston.verbose('[mcp-server] Processed notifications, sent 202 Accepted');
-                } else {
-                    // Has responses - return 200 with JSON
-                    res.set('Content-Type', 'application/json');
-                    const responseBody = Array.isArray(req.body) ? responses : responses[0];
-                    res.status(200).json(responseBody);
-                    winston.verbose('[mcp-server] Processed requests, sent responses');
-                }
+                // Set security headers for JSON responses
+                res.set({
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache',
+                    'X-Content-Type-Options': 'nosniff'
+                });
+
+                // Send response
+                res.status(200).json(result);
+                winston.verbose('[mcp-server] Processed JSON-RPC request(s), sent response');
 
             } catch (err) {
                 winston.error('[mcp-server] JSON-RPC processing error:', err);
-                res.status(500).json({
-                    jsonrpc: '2.0',
-                    error: {
-                        code: -32603,
-                        message: 'Internal error',
-                        data: err.message
-                    },
-                    id: req.body?.id || null
-                });
+                
+                // Handle different types of errors
+                let statusCode = 500;
+                let errorResponse;
+                
+                if (err instanceof SyntaxError && err.message.includes('JSON')) {
+                    // JSON parse error
+                    statusCode = 400;
+                    errorResponse = buildErrorResponse(JSON_RPC_ERRORS.PARSE_ERROR, 'Parse error', err.message);
+                } else {
+                    // Internal server error
+                    errorResponse = buildErrorResponse(JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error', err.message, req.body?.id);
+                }
+
+                res.status(statusCode).json(errorResponse);
             }
         }
     );
