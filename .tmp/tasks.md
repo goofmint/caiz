@@ -98,10 +98,10 @@
     - [x] 40: APIトークンの作成、更新、削除
   - [x] SSE 最小実装
     - `GET /api/mcp` で `text/event-stream` を開始、ハートビート送出
-  - [ ] JSON-RPC 受信の枠
-    - `POST /mcp/messages` を受けて JSON-RPC フォーマットを検査
+  - [x] JSON-RPC 受信の枠
+    - `POST /api/mcp` を受けて JSON-RPC フォーマットを検査
   - [ ] ツール定義の雛形
-    - `tools()` で利用可能メソッド一覧を返す（例: search）
+    - `tools/list` で利用可能ツール一覧を返す（例: search）
   - [ ] 検索ツールの中身
     - `search` が固定データまたは簡易検索を返す
   - [ ] レート制限
