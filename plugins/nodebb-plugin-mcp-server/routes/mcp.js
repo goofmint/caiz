@@ -242,8 +242,12 @@ module.exports = function(router) {
         }
     );
 
+    // Connection management for SSE
+    const sseConnections = new Map();
+    let connectionId = 0;
+
     /**
-     * GET /api/mcp - Server-Sent Events (Optional)
+     * GET /api/mcp - Server-Sent Events
      */
     router.get('/api/mcp', 
         require('../lib/simple-auth').requireAuth(),
@@ -251,43 +255,109 @@ module.exports = function(router) {
             try {
                 winston.verbose('[mcp-server] MCP GET request received');
 
-                // Check Accept header for SSE
-                const acceptHeader = req.get('Accept');
-                if (!acceptHeader || !acceptHeader.includes('text/event-stream')) {
-                    winston.verbose('[mcp-server] GET request without SSE accept header, returning 405');
-                    res.set('Allow', 'POST');
-                    return res.status(405).json({
-                        error: 'Method Not Allowed',
-                        message: 'GET method only supports Server-Sent Events. Include Accept: text/event-stream header.'
+                // Accept header validation - 406 for explicit rejection
+                const acceptHeader = req.get('Accept') || '';
+                if (acceptHeader && !acceptHeader.includes('text/event-stream') && !acceptHeader.includes('*/*')) {
+                    winston.verbose('[mcp-server] Accept header explicitly excludes text/event-stream');
+                    return res.status(406).json({ 
+                        error: 'Not Acceptable',
+                        message: 'This endpoint only supports text/event-stream'
                     });
                 }
 
                 winston.verbose('[mcp-server] Starting SSE connection');
 
-                // Set SSE headers
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
+                const connId = ++connectionId;
+                const userId = req.auth.userId;
+
+                // Set SSE headers per specification
+                const sseHeaders = {
+                    'Content-Type': 'text/event-stream; charset=utf-8',
+                    'Cache-Control': 'no-cache, no-transform',
                     'Connection': 'keep-alive',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Authorization, Content-Type'
-                });
+                    'X-Accel-Buffering': 'no'  // nginx buffering disabled
+                };
+
+                res.set(sseHeaders);
+                
+                // Express: immediately flush headers
+                if (res.flushHeaders) {
+                    res.flushHeaders();
+                }
+                
+                // Preamble to keep some proxies happy
+                res.write(':ok\n\n');
+
+                // Get plugin version
+                let pluginVersion = '1.0.0';
+                try {
+                    const packageInfo = require('../package.json');
+                    pluginVersion = packageInfo.version;
+                } catch (err) {
+                    winston.warn('[mcp-server] Could not load package.json version');
+                }
 
                 // Send initial connection notification
-                res.write('data: {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}\n\n');
+                const initNotification = {
+                    jsonrpc: '2.0',
+                    method: 'notifications/initialized',
+                    params: {
+                        protocolVersion: '2024-11-05',
+                        serverInfo: {
+                            name: 'NodeBB MCP Server',
+                            version: pluginVersion
+                        },
+                        capabilities: {
+                            tools: {},
+                            prompts: {},
+                            resources: {},
+                            logging: {}
+                        }
+                    }
+                };
 
-                // Send periodic heartbeat
+                res.write(`event: initialized\n`);
+                res.write(`data: ${JSON.stringify(initNotification)}\n\n`);
+
+                // Start heartbeat with improved timing
                 const heartbeatInterval = setInterval(() => {
-                    res.write('data: {"jsonrpc": "2.0", "method": "notifications/ping", "params": {"timestamp": "' + new Date().toISOString() + '"}}\n\n');
-                }, 30000);
+                    try {
+                        const payload = {
+                            jsonrpc: '2.0',
+                            method: 'notifications/ping',
+                            params: { 
+                                timestamp: new Date().toISOString(), 
+                                server: 'NodeBB MCP Server' 
+                            }
+                        };
+                        res.write(`event: ping\n`);
+                        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+                    } catch (err) {
+                        winston.error('[mcp-server] Error sending heartbeat:', err);
+                        clearInterval(heartbeatInterval);
+                        sseConnections.delete(connId);
+                    }
+                }, 15000); // 15 seconds for proxy compatibility
 
-                // Handle client disconnect
-                req.on('close', () => {
-                    winston.verbose('[mcp-server] SSE connection closed');
-                    clearInterval(heartbeatInterval);
+                // Store connection info
+                sseConnections.set(connId, {
+                    userId: userId,
+                    connId: connId,
+                    startTime: Date.now(),
+                    heartbeatInterval: heartbeatInterval
                 });
 
-                winston.verbose('[mcp-server] SSE connection established');
+                // Enhanced disconnect handling
+                const teardown = () => {
+                    clearInterval(heartbeatInterval);
+                    sseConnections.delete(connId);
+                    winston.verbose(`[mcp-server] SSE connection closed: ${connId} (user: ${userId})`);
+                };
+
+                req.on('close', teardown);
+                req.on('aborted', teardown);
+
+                winston.verbose(`[mcp-server] SSE connection established: ${connId} (user: ${userId}, total: ${sseConnections.size})`);
 
             } catch (err) {
                 winston.error('[mcp-server] SSE connection error:', err);
