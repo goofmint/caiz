@@ -152,12 +152,17 @@ function handleToolsList(params, req) {
 #### Accept ヘッダー検証
 ```javascript
 function validateHeaders(req) {
-    // POST JSON-RPC: Accept に application/json を要求、text/event-stream は 406 で拒否
+    // POST JSON-RPC: Accept ヘッダーが必須で "application/json" を含むこと（大文字小文字区別なし）
+    //                含まない場合は HTTP 406 Not Acceptable で拒否
     // GET SSE: Accept に text/event-stream を要求、standard SSE headers を設定
-    // Content-Type: application/json の確認（POST時）、415 で無効なメディアタイプを拒否
+    // Content-Type: POST時は "application/json" で開始すること（charset等パラメータは許容）
+    //              ';' より前のメディアタイプ部分のみをチェック（大文字小文字区別なし）
+    //              一致しない場合は HTTP 415 Unsupported Media Type
+    // ヘッダー未設定の場合も適切にハンドリング
     // HTTPステータス: 200 OK (responses), 204 No Content (all notifications), 
-    //                400 (transport-level bad JSON), 401 (auth), 415 (unsupported media type), 
-    //                422 (valid JSON but invalid JSON-RPC), 500 (unexpected)
+    //                400 (transport-level bad JSON), 401 (auth), 406 (Accept invalid),
+    //                415 (unsupported media type), 422 (valid JSON but invalid JSON-RPC), 
+    //                500 (unexpected)
 }
 ```
 
