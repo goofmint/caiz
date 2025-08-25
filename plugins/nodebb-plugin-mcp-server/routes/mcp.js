@@ -75,9 +75,9 @@ function validateJsonRpcMessage(message) {
         }
     }
 
-    // params: オプショナル、存在時は object または array
+    // params: オプショナル、存在時は object または array（null は無効）
     if ('params' in message) {
-        if (message.params !== null && typeof message.params !== 'object') {
+        if (message.params === null || typeof message.params !== 'object') {
             return {
                 isValid: false,
                 error: buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - params must be object or array', null, message.id)
@@ -194,9 +194,9 @@ function processRequest(message, req) {
  * Process batch request
  */
 function processBatchRequest(messages, req) {
-    // 空配列は単一の error(-32600) を返す
+    // 空配列は配列に包まれた単一の error(-32600) を返す
     if (messages.length === 0) {
-        return buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - empty batch array');
+        return [buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - empty batch array')];
     }
 
     const responses = [];
@@ -207,21 +207,38 @@ function processBatchRequest(messages, req) {
         const validation = validateJsonRpcMessage(message);
         
         if (!validation.isValid) {
-            if ('id' in message) {
-                responses.push(validation.error);
-                hasResponses = true;
+            // バリデーションエラーのあるアイテムは、idがない場合はnullをidに設定
+            const errorResponse = validation.error;
+            if (!('id' in message)) {
+                errorResponse.id = null;
             }
+            responses.push(errorResponse);
+            hasResponses = true;
             continue;
         }
 
         // id を持つもののみレスポンス配列に含める（requests）
         if ('id' in message) {
-            const response = processJsonRpcMessage(message, req);
-            responses.push(response);
-            hasResponses = true;
+            try {
+                // 各メッセージの処理をtry/catchで包む
+                const response = processJsonRpcMessage(message, req);
+                responses.push(response);
+                hasResponses = true;
+            } catch (err) {
+                // 処理エラーが発生した場合、そのメッセージのエラーレスポンスを作成
+                winston.error('[mcp-server] Error processing batch message:', err);
+                const errorResponse = buildErrorResponse(JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error', err.message, message.id);
+                responses.push(errorResponse);
+                hasResponses = true;
+            }
         } else {
-            // 通知の処理
-            processNotification(message, req);
+            // 通知の処理（エラーが発生してもバッチ処理は継続）
+            try {
+                processNotification(message, req);
+            } catch (err) {
+                winston.error('[mcp-server] Error processing notification in batch:', err);
+                // 通知のエラーはレスポンスに含めない
+            }
         }
     }
 
