@@ -96,8 +96,8 @@
     - [x] 38: ユーザー情報（sidebar/right）にAPIトークンメニューアイコンの追加
     - [x] 39: APIトークン一覧の表示
     - [x] 40: APIトークンの作成、更新、削除
-  - [ ] SSE 最小実装
-    - `GET /mcp/messages` で `text/event-stream` を開始、ハートビート送出
+  - [x] SSE 最小実装
+    - `GET /api/mcp` で `text/event-stream` を開始、ハートビート送出
   - [ ] JSON-RPC 受信の枠
     - `POST /mcp/messages` を受けて JSON-RPC フォーマットを検査
   - [ ] ツール定義の雛形
