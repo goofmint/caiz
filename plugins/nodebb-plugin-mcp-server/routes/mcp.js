@@ -244,7 +244,13 @@ module.exports = function(router) {
 
     // Connection management for SSE
     const sseConnections = new Map();
+    const connectionsByUser = new Map();
     let connectionId = 0;
+    let activeConnections = 0;
+    
+    // Connection limits
+    const MAX_TOTAL_CONNECTIONS = 100;
+    const MAX_CONNECTIONS_PER_USER = 5;
 
     /**
      * GET /api/mcp - Server-Sent Events
@@ -265,10 +271,33 @@ module.exports = function(router) {
                     });
                 }
 
-                winston.verbose('[mcp-server] Starting SSE connection');
-
                 const connId = ++connectionId;
                 const userId = req.auth.userId;
+
+                // Check connection limits before opening stream
+                if (activeConnections >= MAX_TOTAL_CONNECTIONS) {
+                    winston.warn(`[mcp-server] Global connection limit exceeded: ${activeConnections}/${MAX_TOTAL_CONNECTIONS}`);
+                    return res.status(503).json({
+                        error: 'Service Unavailable',
+                        message: 'Server at maximum capacity'
+                    });
+                }
+
+                const userConnections = connectionsByUser.get(userId) || new Set();
+                if (userConnections.size >= MAX_CONNECTIONS_PER_USER) {
+                    winston.warn(`[mcp-server] Per-user connection limit exceeded for user ${userId}: ${userConnections.size}/${MAX_CONNECTIONS_PER_USER}`);
+                    return res.status(429).json({
+                        error: 'Too Many Requests',
+                        message: 'Maximum connections per user exceeded'
+                    });
+                }
+
+                winston.verbose('[mcp-server] Starting SSE connection');
+
+                // Increment counters after checks pass
+                activeConnections++;
+                userConnections.add(connId);
+                connectionsByUser.set(userId, userConnections);
 
                 // Set SSE headers per specification
                 const sseHeaders = {
@@ -319,8 +348,38 @@ module.exports = function(router) {
                 res.write(`event: initialized\n`);
                 res.write(`data: ${JSON.stringify(initNotification)}\n\n`);
 
+                // Idempotent teardown function with proper cleanup
+                let teardownDone = false;
+                let heartbeatInterval;
+                const teardown = () => {
+                    if (teardownDone) return;
+                    teardownDone = true;
+                    
+                    clearInterval(heartbeatInterval);
+                    sseConnections.delete(connId);
+                    
+                    // Update connection counters
+                    activeConnections--;
+                    const userConns = connectionsByUser.get(userId);
+                    if (userConns) {
+                        userConns.delete(connId);
+                        if (userConns.size === 0) {
+                            connectionsByUser.delete(userId);
+                        }
+                    }
+                    
+                    // End the response stream
+                    try {
+                        res.end();
+                    } catch (err) {
+                        // Response already ended/closed
+                    }
+                    
+                    winston.verbose(`[mcp-server] SSE connection closed: ${connId} (user: ${userId}, active: ${activeConnections})`);
+                };
+
                 // Start heartbeat with improved timing
-                const heartbeatInterval = setInterval(() => {
+                heartbeatInterval = setInterval(() => {
                     try {
                         const payload = {
                             jsonrpc: '2.0',
@@ -334,8 +393,7 @@ module.exports = function(router) {
                         res.write(`data: ${JSON.stringify(payload)}\n\n`);
                     } catch (err) {
                         winston.error('[mcp-server] Error sending heartbeat:', err);
-                        clearInterval(heartbeatInterval);
-                        sseConnections.delete(connId);
+                        teardown(); // Use teardown function for cleanup
                     }
                 }, 15000); // 15 seconds for proxy compatibility
 
@@ -346,13 +404,6 @@ module.exports = function(router) {
                     startTime: Date.now(),
                     heartbeatInterval: heartbeatInterval
                 });
-
-                // Enhanced disconnect handling
-                const teardown = () => {
-                    clearInterval(heartbeatInterval);
-                    sseConnections.delete(connId);
-                    winston.verbose(`[mcp-server] SSE connection closed: ${connId} (user: ${userId})`);
-                };
 
                 req.on('close', teardown);
                 req.on('aborted', teardown);
