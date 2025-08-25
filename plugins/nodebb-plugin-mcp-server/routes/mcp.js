@@ -146,10 +146,16 @@ function processJsonRpcMessage(message, req) {
     // Handle tools/call request
     if (message.method === 'tools/call') {
         const toolName = message.params?.name;
-        const toolArguments = message.params?.arguments;
+        const toolArguments = message.params?.arguments || {};
 
-        if (!toolName) {
-            return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', 'Missing tool name', message.id);
+        // Ensure toolName is a non-empty string
+        if (!toolName || typeof toolName !== 'string' || toolName.trim() === '') {
+            return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', 'Tool name must be a non-empty string', message.id);
+        }
+
+        // Ensure toolArguments is an object
+        if (typeof toolArguments !== 'object' || toolArguments === null || Array.isArray(toolArguments)) {
+            return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', 'Tool arguments must be an object', message.id);
         }
 
         const toolRegistry = getToolRegistry();

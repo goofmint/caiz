@@ -3,8 +3,13 @@
 const Ajv = require('ajv');
 const winston = require.main.require('winston');
 
-// JSON Schema validator instance with strict mode
-const ajv = new Ajv({ strict: true, allErrors: true });
+// JSON Schema validator instance with strict mode, defaults, and type coercion
+const ajv = new Ajv({ 
+    strict: true, 
+    allErrors: true,
+    useDefaults: true,
+    coerceTypes: true
+});
 
 /**
  * Tool definition validation
@@ -14,9 +19,9 @@ function validateToolDefinition(def) {
         throw new Error('Tool definition must be an object');
     }
 
-    // name: 非空文字列、英数字とハイフンのみ
+    // name: 非空文字列、英数字・ハイフン・ピリオド・アンダースコアのみ
     if (!/^[a-z][a-z0-9._-]{2,63}$/.test(def.name)) {
-        throw new Error('invalid name: must be 3-64 lowercase chars, start with letter, contain only a-z0-9._-');
+        throw new Error('invalid name: must be 3-64 lowercase chars, start with letter, contain only alphanumeric characters, hyphen, period and underscore');
     }
 
     // description: 非空文字列
@@ -52,7 +57,7 @@ function validateToolDefinition(def) {
 }
 
 /**
- * Tool input validation
+ * Tool input validation using precompiled validators
  */
 function validateToolInput(toolName, input, registry) {
     const tool = registry.getTool(toolName);
@@ -60,11 +65,11 @@ function validateToolInput(toolName, input, registry) {
         throw new Error(`Tool '${toolName}' not found`);
     }
 
-    const validate = ajv.compile(tool.inputSchema);
-    const valid = validate(input);
+    // Use precompiled validator for performance
+    const valid = tool.validator(input);
     
     if (!valid) {
-        throw new Error(ajv.errorsText(validate.errors));
+        throw new Error(ajv.errorsText(tool.validator.errors));
     }
     
     return valid;
@@ -99,7 +104,15 @@ class ToolRegistry {
             throw new Error(`Tool '${definition.name}' is already registered`);
         }
 
-        // Enhanced tool definition with metadata
+        // Precompile the input validator for performance
+        let compiledValidator;
+        try {
+            compiledValidator = ajv.compile(definition.inputSchema);
+        } catch (err) {
+            throw new Error(`Failed to compile input schema validator: ${err.message}`);
+        }
+
+        // Enhanced tool definition with metadata and precompiled validator
         const enhancedTool = {
             id: definition.name,
             name: definition.name,
@@ -107,6 +120,7 @@ class ToolRegistry {
             purpose: definition.description, // MCP spec uses 'purpose'
             inputSchema: definition.inputSchema,
             schema: definition.inputSchema, // Alias for MCP compatibility
+            validator: compiledValidator, // Precompiled validator for input validation
             location: { type: 'local' },
             hidden: false,
             version: '1.0.0',

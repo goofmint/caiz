@@ -32,10 +32,22 @@ plugin.init = async function(params) {
         
         // Register all built-in tools
         for (const tool of BUILTIN_TOOLS) {
+            // Check if tool already exists (hot-reload idempotency)
+            const existingTool = toolRegistry.getTool(tool.name);
+            if (existingTool) {
+                winston.verbose(`[mcp-server] Tool '${tool.name}' already registered, skipping`);
+                continue;
+            }
+
             try {
                 toolRegistry.registerTool(tool);
             } catch (err) {
                 winston.error(`[mcp-server] Failed to register tool '${tool.name}':`, err);
+                // Don't throw on duplicate registration errors for hot-reload compatibility
+                if (err.message.includes('already registered')) {
+                    winston.warn(`[mcp-server] Tool '${tool.name}' registration skipped: ${err.message}`);
+                    continue;
+                }
                 throw err;
             }
         }
