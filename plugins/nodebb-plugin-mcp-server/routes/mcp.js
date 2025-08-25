@@ -137,7 +137,14 @@ module.exports = function(router) {
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
-                winston.verbose('[mcp-server] Request headers:', JSON.stringify(req.headers));
+                // Sanitize headers before logging to avoid leaking tokens
+                const sanitizedHeaders = { ...req.headers };
+                Object.keys(sanitizedHeaders).forEach(key => {
+                    if (key.toLowerCase() === 'authorization') {
+                        sanitizedHeaders[key] = '[REDACTED]';
+                    }
+                });
+                winston.verbose('[mcp-server] Request headers:', JSON.stringify(sanitizedHeaders));
 
                 // Validate Accept header
                 const acceptHeader = req.get('Accept');
@@ -414,14 +421,21 @@ module.exports = function(router) {
                 winston.verbose('[mcp-server] MCP session requested');
                 
                 // Build session response using authenticated user info
+                const user = {
+                    uid: req.auth.userId,
+                    username: req.auth.username,
+                    displayname: req.auth.displayname
+                };
+                
+                // Only include email if token has appropriate permission
+                const tokenPermissions = req.auth.token.permissions || [];
+                if (tokenPermissions.includes('user:email:read') || tokenPermissions.includes('read')) {
+                    user.email = req.auth.email;
+                }
+                
                 const sessionResponse = {
                     status: 'authenticated',
-                    user: {
-                        uid: req.auth.userId,
-                        username: req.auth.username,
-                        email: req.auth.email,
-                        displayname: req.auth.displayname
-                    },
+                    user: user,
                     token: {
                         id: req.auth.token.id,
                         name: req.auth.token.name,
@@ -430,14 +444,14 @@ module.exports = function(router) {
                         last_used_at: req.auth.token.last_used_at
                     },
                     capabilities: {
-                        mcp_version: '1.0',
+                        protocolVersion: '2024-11-05',
                         supported_tools: ['search', 'read'],
                         max_message_size: 1048576
                     },
                     session: {
                         authenticated: true,
                         type: 'bearer',
-                        scopes: req.auth.scopes,
+                        scopes: tokenPermissions,  // Use actual token permissions
                         timestamp: new Date().toISOString()
                     }
                 };

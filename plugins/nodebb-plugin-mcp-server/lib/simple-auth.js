@@ -103,10 +103,17 @@ class SimpleAuth {
                 return null;
             }
             
-            // Check expiration
-            if (tokenData.expires_at && parseInt(tokenData.expires_at, 10) < Date.now()) {
-                winston.info(`[mcp-server] Token validation failed: token expired - ${tokenId}`);
-                return null;
+            // Check expiration - normalize to milliseconds
+            if (tokenData.expires_at) {
+                let expiresAt = parseInt(tokenData.expires_at, 10);
+                // If timestamp looks like seconds (< 1e12), convert to milliseconds
+                if (expiresAt < 1e12) {
+                    expiresAt *= 1000;
+                }
+                if (expiresAt < Date.now()) {
+                    winston.info(`[mcp-server] Token validation failed: token expired - ${tokenId.substring(0, 6)}...`);
+                    return null;
+                }
             }
             
             // Get user information
@@ -172,13 +179,13 @@ class SimpleAuth {
     static requireAuth() {
         return async (req, res, next) => {
             winston.verbose('[mcp-server] API token auth middleware executing');
-            winston.verbose('[mcp-server] Auth headers:', JSON.stringify(req.headers.authorization));
+            winston.verbose('[mcp-server] Authorization header present:', !!req.headers.authorization);
 
             const token = this.extractBearerToken(req);
             
             if (!token) {
                 winston.verbose('[mcp-server] No Bearer token provided');
-                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API"');
+                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API", error="invalid_request", error_description="Missing or invalid Authorization header"');
                 return res.status(401).json({
                     error: 'invalid_request',
                     error_description: 'Missing or invalid Authorization header'
@@ -189,7 +196,7 @@ class SimpleAuth {
             
             if (!userInfo) {
                 winston.verbose('[mcp-server] Invalid Bearer token');
-                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API"');
+                res.setHeader('WWW-Authenticate', 'Bearer realm="NodeBB API", error="invalid_token", error_description="The access token provided is invalid"');
                 return res.status(401).json({
                     error: 'invalid_token',
                     error_description: 'The access token provided is invalid'
@@ -197,6 +204,12 @@ class SimpleAuth {
             }
 
             // Set authentication context with user information
+            const tokenPermissions = userInfo.token.permissions || [];
+            // Validate and ensure permissions is array of strings
+            const validScopes = Array.isArray(tokenPermissions) 
+                ? tokenPermissions.filter(p => typeof p === 'string')
+                : [];
+            
             req.auth = {
                 authenticated: true,
                 type: 'bearer',
@@ -205,7 +218,7 @@ class SimpleAuth {
                 email: userInfo.email,
                 displayname: userInfo.displayname,
                 token: userInfo.token,
-                scopes: ['mcp:read', 'mcp:write'] // Default scopes for API tokens
+                scopes: validScopes // Use actual token permissions, not hardcoded
             };
 
             winston.verbose('[mcp-server] Authentication successful for user:', userInfo.uid);
@@ -225,6 +238,11 @@ class SimpleAuth {
                 const userInfo = await this.validateApiToken(token);
                 
                 if (userInfo) {
+                    const tokenPermissions = userInfo.token.permissions || [];
+                    const validScopes = Array.isArray(tokenPermissions) 
+                        ? tokenPermissions.filter(p => typeof p === 'string')
+                        : [];
+                    
                     req.auth = {
                         authenticated: true,
                         type: 'bearer',
@@ -233,7 +251,7 @@ class SimpleAuth {
                         email: userInfo.email,
                         displayname: userInfo.displayname,
                         token: userInfo.token,
-                        scopes: ['mcp:read', 'mcp:write']
+                        scopes: validScopes
                     };
                     winston.verbose('[mcp-server] Optional authentication successful for user:', userInfo.uid);
                 } else {

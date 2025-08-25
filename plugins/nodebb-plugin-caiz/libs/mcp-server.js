@@ -61,27 +61,34 @@ async function validateApiToken(token) {
         const tokenData = await db.getObject(`api-token:${tokenId}`);
         
         if (!tokenData || tokenData.revoked_at) {
-            winston.info(`[caiz] Token validation failed: token not found or revoked - ${tokenId}`);
+            winston.info(`[caiz] Token validation failed: token not found or revoked - ${tokenId.substring(0, 6)}...`);
             return null;
         }
         
         // Verify token hash
         const isValid = apiTokens.verifyToken(token, tokenData.token_hash);
         if (!isValid) {
-            winston.warn(`[caiz] Token validation failed: hash mismatch - ${tokenId}`);
+            winston.warn(`[caiz] Token validation failed: hash mismatch - ${tokenId.substring(0, 6)}...`);
             return null;
         }
         
         // Check if token is active
         if (tokenData.is_active === 'false') {
-            winston.info(`[caiz] Token validation failed: token inactive - ${tokenId}`);
+            winston.info(`[caiz] Token validation failed: token inactive - ${tokenId.substring(0, 6)}...`);
             return null;
         }
         
-        // Check expiration
-        if (tokenData.expires_at && parseInt(tokenData.expires_at, 10) < Date.now()) {
-            winston.info(`[caiz] Token validation failed: token expired - ${tokenId}`);
-            return null;
+        // Check expiration - normalize to milliseconds  
+        if (tokenData.expires_at) {
+            let expiresAt = parseInt(tokenData.expires_at, 10);
+            // If timestamp looks like seconds (< 1e12), convert to milliseconds
+            if (expiresAt < 1e12) {
+                expiresAt *= 1000;
+            }
+            if (expiresAt < Date.now()) {
+                winston.info(`[caiz] Token validation failed: token expired - ${tokenId.substring(0, 6)}...`);
+                return null;
+            }
         }
         
         // Get user information
