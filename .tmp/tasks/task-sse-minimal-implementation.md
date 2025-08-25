@@ -24,33 +24,43 @@ router.get('/api/mcp',
 #### SSEヘッダーの設定
 ```javascript
 const sseHeaders = {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    // For same-origin cookie auth, omit ACAO entirely.
+    // If cross-origin is required, echo the Origin and add:
+    // 'Access-Control-Allow-Origin': req.headers.origin,
+    // 'Vary': 'Origin',
+    // 'Access-Control-Allow-Credentials': 'true',
+    // 'Access-Control-Allow-Headers': 'Content-Type',
     'X-Accel-Buffering': 'no'  // nginx でのバッファリング無効化
 };
 ```
+
+**認証モデル**: 標準的なEventSourceはAuthorizationヘッダーを送信できないため、same-originでのcookie認証または専用のクエリパラメータ経由のセッショントークンを使用します。
 
 ### 2. ハートビート機能
 
 #### 定期ハートビート送信
 ```javascript
-function sendHeartbeat(res) {
-    // 30秒間隔でハートビートを送信
-    // JSON-RPC 2.0 通知形式でping送信
-    // タイムスタンプ付きのpingメッセージ
+function startHeartbeat(res) {
+    const intervalMs = 15000; // プロキシ考慮で短め
+    return setInterval(() => {
+        // 方式A: SSEコメント（最小オーバーヘッド）
+        // res.write(`: keep-alive ${Date.now()}\n\n`);
+        // 方式B: JSON-RPC通知を data として送る
+        const payload = {
+            jsonrpc: '2.0',
+            method: 'notifications/ping',
+            params: { 
+                timestamp: new Date().toISOString(), 
+                server: 'NodeBB MCP Server' 
+            }
+        };
+        res.write(`event: ping\n`);
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    }, intervalMs);
 }
-
-const heartbeatData = {
-    jsonrpc: '2.0',
-    method: 'notifications/ping',
-    params: {
-        timestamp: new Date().toISOString(),
-        server: 'NodeBB MCP Server'
-    }
-};
 ```
 
 ### 3. 接続管理
@@ -78,11 +88,15 @@ const initNotification = {
 
 #### クライアント切断処理
 ```javascript
-req.on('close', () => {
-    // ハートビートタイマーをクリア
-    // リソースのクリーンアップ
-    // 接続終了ログ
-});
+const teardown = () => {
+    clearInterval(heartbeatTimer);
+    connections.delete(connId);
+    // 追加のリソース解放やログ
+    winston.verbose(`[mcp-server] SSE connection closed: ${connId}`);
+};
+
+req.on('close', teardown);
+req.on('aborted', teardown);
 ```
 
 ### 4. エラーハンドリング
