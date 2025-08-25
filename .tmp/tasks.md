@@ -90,12 +90,12 @@
     - Bearer 抽出・401送出の共通化
   - [x] 36: JWT/JWKS 検証
     - `aud/iss/exp` 検証と JWKs 取得
-  - [x] 37: 認証済セッション応答
+  - [ ] 37: 認証済セッション応答
     - 正しいトークンで `/api/mcp/session` が200で基本情報を返す
   - API用トークンの管理
     - [x] 38: ユーザー情報（sidebar/right）にAPIトークンメニューアイコンの追加
     - [x] 39: APIトークン一覧の表示
-    - [ ] 40: APIトークンの作成、更新、削除
+    - [x] 40: APIトークンの作成、更新、削除
   - [ ] SSE 最小実装
     - `GET /mcp/messages` で `text/event-stream` を開始、ハートビート送出
   - [ ] JSON-RPC 受信の枠
