@@ -12,10 +12,12 @@ MCPサーバーでJSON-RPC 2.0メッセージを受信・検証・処理する�
 router.post('/api/mcp', 
     require('../lib/simple-auth').requireAuth(),
     (req, res) => {
+        // Accept ヘッダー検証（application/json を要求、SSE の text/event-stream は 406）
+        // Content-Type 検証（application/json; charset=utf-8 を許容）
         // JSON-RPC 2.0フォーマット検証
         // メッセージタイプ判定（request/notification/batch）
         // メソッド別ルーティング
-        // レスポンス構築
+        // レスポンス構築（200/204/4xx/5xx の使い分け）
     }
 );
 ```
@@ -26,10 +28,11 @@ router.post('/api/mcp',
 ```javascript
 function validateJsonRpcMessage(message) {
     // jsonrpc: "2.0" 必須チェック
-    // method: string 必須チェック  
-    // id: 存在確認（request時は必須、notification時はundefined）
+    // method: string 必須チェック（空文字不可）
+    // id: requestは string|number|null を許容、notificationは "id" メンバー自体を持たないこと
     // params: オプショナル、存在時は object または array
-    return { isValid: boolean, error?: object };
+    // 空配列のバッチは INVALID_REQUEST
+    return { isValid: /* boolean */, error?: /* object */ };
 }
 ```
 
@@ -37,9 +40,10 @@ function validateJsonRpcMessage(message) {
 ```javascript
 function processBatchRequest(messages) {
     // 配列形式の複数メッセージ処理
+    // 空配列は単一の error(-32600) を返す
     // 各メッセージの個別バリデーション
-    // レスポンス配列の構築
-    // 全通知の場合は202 Accepted返却
+    // id を持つもののみレスポンス配列に含める
+    // 全通知（レスポンス配列が空）の場合は 204 No Content（本文なし）
 }
 ```
 
@@ -54,7 +58,7 @@ function processRequest(message, req) {
     // JSON-RPC Success/Error レスポンス構築
     return {
         jsonrpc: "2.0",
-        result: result || null,
+        result: result,
         id: message.id
     };
 }
@@ -92,7 +96,8 @@ function buildErrorResponse(code, message, data, id) {
             message: message,
             data: data // オプショナル
         },
-        id: id || null
+        // JSONパース不可時は null、それ以外は要求と同一の id（0 や "" も許容）
+        id: (typeof id === 'undefined') ? null : id
     };
 }
 ```
@@ -147,9 +152,12 @@ function handleToolsList(params, req) {
 #### Accept ヘッダー検証
 ```javascript
 function validateHeaders(req) {
-    // Accept: application/json または text/event-stream の確認
-    // Content-Type: application/json の確認（POST時）
-    // 無効な場合は400 Bad Request
+    // POST JSON-RPC: Accept に application/json を要求、text/event-stream は 406 で拒否
+    // GET SSE: Accept に text/event-stream を要求、standard SSE headers を設定
+    // Content-Type: application/json の確認（POST時）、415 で無効なメディアタイプを拒否
+    // HTTPステータス: 200 OK (responses), 204 No Content (all notifications), 
+    //                400 (transport-level bad JSON), 401 (auth), 415 (unsupported media type), 
+    //                422 (valid JSON but invalid JSON-RPC), 500 (unexpected)
 }
 ```
 
