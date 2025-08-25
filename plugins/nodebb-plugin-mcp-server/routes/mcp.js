@@ -1,6 +1,7 @@
 'use strict';
 
 const winston = require.main.require('winston');
+const { getToolRegistry } = require('../lib/tool-registry');
 
 // Get plugin version from package.json
 let pluginVersion = '1.0.0';
@@ -117,50 +118,90 @@ function processJsonRpcMessage(message, req) {
 
     // Handle tools/list request
     if (message.method === 'tools/list') {
+        const params = message.params || {};
+        const toolRegistry = getToolRegistry();
+        const tools = toolRegistry.getToolsList(params);
+
+        // Build JSON-RPC result payload
+        const result = {
+            tools: tools.map(t => ({
+                name: t.name,
+                description: t.description,
+                inputSchema: t.inputSchema
+            })),
+            _meta: {
+                total: tools.length,
+                include_remote: params.include_remote || false,
+                include_hidden: params.include_hidden || false
+            }
+        };
+
         return {
             jsonrpc: '2.0',
-            result: {
-                tools: [
-                    {
-                        name: 'search',
-                        description: 'Search NodeBB content',
-                        inputSchema: {
-                            type: 'object',
-                            properties: {
-                                query: {
-                                    type: 'string',
-                                    description: 'Search query'
-                                }
-                            },
-                            required: ['query']
-                        }
-                    }
-                ]
-            },
+            result: result,
             id: message.id
         };
     }
 
     // Handle tools/call request
     if (message.method === 'tools/call') {
-        if (message.params?.name === 'search') {
-            const query = message.params.arguments?.query;
-            return {
-                jsonrpc: '2.0',
-                result: {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Search results for: ${query || 'N/A'}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
-                        }
-                    ]
-                },
-                id: message.id
-            };
+        const toolName = message.params?.name;
+        const toolArguments = message.params?.arguments;
+
+        if (!toolName) {
+            return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', 'Missing tool name', message.id);
         }
-        
-        // Tool not found
-        return buildErrorResponse(JSON_RPC_ERRORS.METHOD_NOT_FOUND, 'Method not found', `Tool '${message.params?.name}' not found`, message.id);
+
+        const toolRegistry = getToolRegistry();
+        const tool = toolRegistry.getTool(toolName);
+
+        if (!tool) {
+            return buildErrorResponse(JSON_RPC_ERRORS.METHOD_NOT_FOUND, 'Method not found', `Tool '${toolName}' not found`, message.id);
+        }
+
+        // Validate tool input
+        try {
+            toolRegistry.validateToolInput(toolName, toolArguments);
+        } catch (err) {
+            return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', err.message, message.id);
+        }
+
+        // Execute tool (placeholder implementation)
+        let result;
+        if (toolName === 'search') {
+            const query = toolArguments?.query;
+            const category = toolArguments?.category;
+            const limit = toolArguments?.limit || 20;
+            
+            result = {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Search results for: "${query}"\nCategory: ${category || 'all'}\nLimit: ${limit}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
+                    }
+                ]
+            };
+        } else if (toolName === 'read') {
+            const contentType = toolArguments?.type;
+            const contentId = toolArguments?.id;
+            
+            result = {
+                content: [
+                    {
+                        type: 'text',
+                        text: `Reading ${contentType} with ID: ${contentId}\n\nThis is a minimal implementation. Full read functionality will be implemented in future versions.`
+                    }
+                ]
+            };
+        } else {
+            return buildErrorResponse(JSON_RPC_ERRORS.INTERNAL_ERROR, 'Internal error', `Tool '${toolName}' implementation not found`, message.id);
+        }
+
+        return {
+            jsonrpc: '2.0',
+            result: result,
+            id: message.id
+        };
     }
 
     // Method not found

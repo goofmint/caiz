@@ -25,6 +25,23 @@ plugin.init = async function(params) {
         plugin.server = new MCPServer();
         await plugin.server.initialize();
         
+        // Initialize tool registry and register built-in tools
+        const { getToolRegistry } = require('./lib/tool-registry');
+        const { BUILTIN_TOOLS } = require('./lib/tools');
+        const toolRegistry = getToolRegistry();
+        
+        // Register all built-in tools
+        for (const tool of BUILTIN_TOOLS) {
+            try {
+                toolRegistry.registerTool(tool);
+            } catch (err) {
+                winston.error(`[mcp-server] Failed to register tool '${tool.name}':`, err);
+                throw err;
+            }
+        }
+        
+        winston.info(`[mcp-server] Registered ${BUILTIN_TOOLS.length} built-in tools`);
+        
         // Setup MCP routes under /api/mcp
         const mcpRoutes = require('./routes/mcp');
         mcpRoutes(router);
