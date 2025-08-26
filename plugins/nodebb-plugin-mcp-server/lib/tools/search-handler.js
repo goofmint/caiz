@@ -3,8 +3,7 @@
 const winston = require.main.require('winston');
 const db = require.main.require('./src/database');
 const user = require.main.require('./src/user');
-const topics = require.main.require('./src/topics');
-const posts = require.main.require('./src/posts');
+const search = require.main.require('./src/search');
 const categories = require.main.require('./src/categories');
 const privileges = require.main.require('./src/privileges');
 const nconf = require.main.require('nconf');
@@ -133,28 +132,35 @@ async function searchTopics(query, userId, limit) {
             itemsPerPage: limit
         };
         
-        const result = await topics.search(searchData);
+        const result = await search.search(searchData);
         
-        if (!result || !result.topics) {
+        if (!result || !result.posts) {
             return [];
         }
         
-        // Filter by permissions
+        // Filter by permissions and deduplicate topics
         const filtered = [];
-        for (const topic of result.topics) {
-            const hasAccess = await checkContentAccess(userId, topic, 'topic');
-            if (hasAccess && !topic.deleted) {
+        const topicIds = new Set();
+        
+        for (const post of result.posts) {
+            if (!post.topic || topicIds.has(post.topic.tid)) {
+                continue;
+            }
+            
+            const hasAccess = await checkContentAccess(userId, post.topic, 'topic');
+            if (hasAccess && !post.topic.deleted && !post.deleted) {
+                topicIds.add(post.topic.tid);
                 filtered.push({
                     type: 'topic',
-                    id: String(topic.tid),
-                    title: topic.title || '',
-                    content: topic.teaser?.content || '',
-                    score: topic.score || 0,
+                    id: String(post.topic.tid),
+                    title: post.topic.title || '',
+                    content: post.content || '',
+                    score: post.score || 0,
                     metadata: {
-                        author: topic.user?.username || 'Unknown',
-                        category: topic.category?.name || '',
-                        timestamp: new Date(topic.timestamp).toISOString(),
-                        url: nconf.get('url') + '/topic/' + topic.slug
+                        author: post.user?.username || 'Unknown',
+                        category: post.topic.category?.name || '',
+                        timestamp: new Date(post.topic.timestamp).toISOString(),
+                        url: nconf.get('url') + '/topic/' + post.topic.slug
                     }
                 });
             }
@@ -185,7 +191,7 @@ async function searchPosts(query, userId, limit) {
             showAs: 'posts'
         };
         
-        const result = await posts.search(searchData);
+        const result = await search.search(searchData);
         
         if (!result || !result.posts) {
             return [];
@@ -204,7 +210,7 @@ async function searchPosts(query, userId, limit) {
                     score: post.score || 0,
                     metadata: {
                         author: post.user?.username || 'Unknown',
-                        category: post.category?.name || '',
+                        category: post.topic?.category?.name || '',
                         timestamp: new Date(post.timestamp).toISOString(),
                         url: nconf.get('url') + '/post/' + post.pid
                     }
