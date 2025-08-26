@@ -100,16 +100,14 @@
     - `GET /api/mcp` で `text/event-stream` を開始、ハートビート送出
   - [x] JSON-RPC 受信の枠
     - `POST /api/mcp` を受けて JSON-RPC フォーマットを検査
-  - [ ] ツール定義の雛形
+  - [x] ツール定義の雛形
     - `tools/list` で利用可能ツール一覧を返す（例: search）
-  - [ ] 検索ツールの中身
+  - [x] 検索ツールの中身
     - `search` が固定データまたは簡易検索を返す
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
   - [ ] 逆プロキシ前提のヘッダ/タイムアウト
     - SSE の `Cache-Control` 等ヘッダ固定、タイムアウト注意書き
-  - [ ]  タスク21 デバイスコード案内（任意）
-    - `/.well-known` に device_authorization_endpoint を追加/整備
 - 追加レンダリング
   - [ ] Mermaid
   - [ ] MathJax

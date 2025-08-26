@@ -1,0 +1,566 @@
+'use strict';
+
+const winston = require.main.require('winston');
+const db = require.main.require('./src/database');
+const user = require.main.require('./src/user');
+const search = require.main.require('./src/search');
+const categories = require.main.require('./src/categories');
+const privileges = require.main.require('./src/privileges');
+const groups = require.main.require('./src/groups');
+const utils = require.main.require('./src/utils');
+const nconf = require.main.require('nconf');
+
+// Cache implementation using in-memory storage
+class SearchCache {
+    constructor() {
+        this.cache = new Map();
+        this.TTL = 5 * 60 * 1000; // 5 minutes
+    }
+
+    getCacheKey(query, category, userId) {
+        return `search:${userId}:${category || 'all'}:${query}`;
+    }
+
+    async get(query, category, userId) {
+        const key = this.getCacheKey(query, category, userId);
+        const cached = this.cache.get(key);
+        
+        if (!cached) {
+            return null;
+        }
+        
+        // Check if expired
+        if (Date.now() - cached.timestamp > this.TTL) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return cached.data;
+    }
+
+    async set(query, category, userId, results) {
+        const key = this.getCacheKey(query, category, userId);
+        this.cache.set(key, {
+            data: results,
+            timestamp: Date.now()
+        });
+        
+        // Clean up old entries periodically
+        if (this.cache.size > 1000) {
+            const now = Date.now();
+            for (const [k, v] of this.cache.entries()) {
+                if (now - v.timestamp > this.TTL) {
+                    this.cache.delete(k);
+                }
+            }
+        }
+    }
+}
+
+const searchCache = new SearchCache();
+
+/**
+ * Normalize limit to safe integer within bounds
+ */
+function normalizeLimit(limit, maxLimit) {
+    if (!Number.isFinite(limit)) {
+        const parsed = parseInt(limit, 10);
+        limit = Number.isFinite(parsed) ? parsed : 20;
+    }
+    return Math.max(0, Math.min(limit, maxLimit));
+}
+
+/**
+ * Sanitize search query to prevent injection attacks
+ */
+function sanitizeSearchQuery(query) {
+    if (!query || typeof query !== 'string') {
+        throw new Error('Invalid query');
+    }
+    
+    // Enforce max length
+    if (query.length > 500) {
+        query = query.substring(0, 500);
+    }
+    
+    // Normalize using NFKC
+    query = query.normalize('NFKC');
+    
+    // Remove or escape dangerous query operators
+    const dangerousChars = /[*?~:(){}[\]&|!^"\\]/g;
+    query = query.replace(dangerousChars, ' ');
+    
+    // Limit complexity - max 20 terms
+    const terms = query.split(/\s+/).filter(t => t.length > 0);
+    if (terms.length > 20) {
+        query = terms.slice(0, 20).join(' ');
+    }
+    
+    // Trim whitespace
+    query = query.trim();
+    
+    if (!query) {
+        throw new Error('Query is empty after sanitization');
+    }
+    
+    return query;
+}
+
+/**
+ * Get user's accessible categories
+ */
+async function getUserAccessibleCategories(userId) {
+    try {
+        // Get all categories that the user can read
+        const allCategories = await categories.buildForSelect(userId, 'read');
+        
+        if (!allCategories || allCategories.length === 0) {
+            return [];
+        }
+        
+        // Extract category IDs
+        const categoryIds = allCategories.map(cat => parseInt(cat.cid)).filter(cid => !isNaN(cid));
+        
+        winston.verbose(`[mcp-server] User ${userId} can access categories:`, categoryIds);
+        return categoryIds;
+    } catch (err) {
+        winston.error('[mcp-server] Error getting user accessible categories:', err);
+        return [];
+    }
+}
+
+/**
+ * Check content access permissions
+ */
+async function checkContentAccess(userId, content, contentType) {
+    try {
+        if (contentType === 'topic') {
+            const canRead = await privileges.topics.can('topics:read', content.tid, userId);
+            return canRead;
+        } else if (contentType === 'post') {
+            const canRead = await privileges.posts.can('posts:view_deleted', content.pid, userId);
+            return canRead;
+        } else if (contentType === 'category') {
+            const canRead = await privileges.categories.can('categories:read', content.cid, userId);
+            return canRead;
+        }
+        return true;
+    } catch (err) {
+        winston.error('[mcp-server] Error checking content access:', err);
+        return false;
+    }
+}
+
+/**
+ * Search topics in NodeBB
+ */
+async function searchTopics(query, userId, limit) {
+    try {
+        // Get user's accessible categories
+        const accessibleCategories = await getUserAccessibleCategories(userId);
+        
+        const searchData = {
+            query: query,
+            searchIn: 'titles',
+            matchWords: 'any',
+            categories: accessibleCategories,
+            uid: userId,
+            sortBy: 'relevance',
+            sortDirection: 'desc',
+            page: 1,
+            itemsPerPage: limit
+        };
+        
+        const result = await search.search(searchData);
+        
+        if (!result || !result.posts) {
+            return [];
+        }
+        
+        // Filter by permissions and deduplicate topics
+        const filtered = [];
+        const topicIds = new Set();
+        
+        for (const post of result.posts) {
+            if (!post.topic || topicIds.has(post.topic.tid)) {
+                continue;
+            }
+            
+            const hasAccess = await checkContentAccess(userId, post.topic, 'topic');
+            if (hasAccess && !post.topic.deleted && !post.deleted) {
+                topicIds.add(post.topic.tid);
+                const sanitizedContent = utils.stripHTML(post.content || '');
+                filtered.push({
+                    type: 'topic',
+                    id: String(post.topic.tid),
+                    title: utils.stripHTML(post.topic.title || ''),
+                    content: sanitizedContent,
+                    score: post.score || 0,
+                    metadata: {
+                        author: post.user?.username || 'Unknown',
+                        category: post.topic.category?.name || '',
+                        timestamp: new Date(post.topic.timestamp).toISOString(),
+                        url: nconf.get('url') + '/topic/' + post.topic.slug
+                    }
+                });
+            }
+        }
+        
+        return filtered;
+    } catch (err) {
+        winston.error('[mcp-server] Error searching topics:', err);
+        throw err;
+    }
+}
+
+/**
+ * Search posts in NodeBB
+ */
+async function searchPosts(query, userId, limit) {
+    try {
+        // Get user's accessible categories
+        const accessibleCategories = await getUserAccessibleCategories(userId);
+        
+        const searchData = {
+            query: query,
+            searchIn: 'posts', 
+            matchWords: 'any',
+            categories: accessibleCategories,
+            uid: userId,
+            sortBy: 'relevance',
+            sortDirection: 'desc',
+            page: 1,
+            itemsPerPage: limit,
+            showAs: 'posts'
+        };
+        
+        const result = await search.search(searchData);
+        
+        if (!result || !result.posts) {
+            return [];
+        }
+        
+        // Filter by permissions and deleted status
+        const filtered = [];
+        for (const post of result.posts) {
+            const hasAccess = await checkContentAccess(userId, post, 'post');
+            if (hasAccess && !post.deleted) {
+                const sanitizedContent = utils.stripHTML(post.content || '');
+                filtered.push({
+                    type: 'post',
+                    id: String(post.pid),
+                    title: utils.stripHTML(post.topic?.title || 'Reply'),
+                    content: sanitizedContent,
+                    score: post.score || 0,
+                    metadata: {
+                        author: post.user?.username || 'Unknown',
+                        category: post.topic?.category?.name || '',
+                        timestamp: new Date(post.timestamp).toISOString(),
+                        url: nconf.get('url') + '/post/' + post.pid
+                    }
+                });
+            }
+        }
+        
+        return filtered;
+    } catch (err) {
+        winston.error('[mcp-server] Error searching posts:', err);
+        throw err;
+    }
+}
+
+/**
+ * Search users in NodeBB with PII protection
+ */
+async function searchUsers(query, userId, limit) {
+    try {
+        // Use timing-safe comparison to prevent enumeration attacks
+        const startTime = Date.now();
+        
+        const result = await user.search({
+            query: query,
+            uid: userId,
+            paginate: false
+        });
+        
+        // Add artificial delay to prevent timing attacks
+        const elapsed = Date.now() - startTime;
+        if (elapsed < 50) {
+            await new Promise(resolve => setTimeout(resolve, 50 - elapsed));
+        }
+        
+        if (!result || !result.users) {
+            return [];
+        }
+        
+        // Filter and sanitize user data
+        const filtered = [];
+        const maxResults = Math.min(limit, result.users.length);
+        
+        for (let i = 0; i < maxResults; i++) {
+            const userData = result.users[i];
+            
+            // Skip banned/inactive users
+            if (userData.banned || !userData.userslug) {
+                continue;
+            }
+            
+            // Round lastOnline to nearest hour for privacy
+            let lastOnline = '';
+            if (userData.lastonline) {
+                const date = new Date(userData.lastonline);
+                date.setMinutes(0, 0, 0);
+                lastOnline = date.toISOString();
+            }
+            
+            const sanitizedAboutMe = utils.stripHTML(userData.aboutme || '');
+            filtered.push({
+                type: 'user',
+                id: String(userData.uid),
+                title: utils.stripHTML(userData.displayname || userData.username || ''),
+                content: sanitizedAboutMe,
+                score: userData.score || 0,
+                metadata: {
+                    author: userData.username || '',
+                    category: 'users',
+                    timestamp: lastOnline,
+                    url: nconf.get('url') + '/user/' + userData.userslug
+                }
+            });
+        }
+        
+        return filtered;
+    } catch (err) {
+        winston.error('[mcp-server] Error searching users:', err);
+        throw err;
+    }
+}
+
+/**
+ * Format search results for MCP
+ */
+function formatSearchResults(results, query, category, searchTime) {
+    const content = [];
+    
+    // Add summary
+    const summary = generateSearchSummary(results, query, category, searchTime);
+    content.push({
+        type: 'text',
+        text: summary
+    });
+    
+    // Add results as text (simplified format for compatibility)
+    for (const result of results) {
+        const resultText = formatResultText(result);
+        content.push({
+            type: 'text',
+            text: resultText + '\n\nURL: ' + result.metadata.url
+        });
+    }
+    
+    return {
+        content: content
+    };
+}
+
+/**
+ * Generate search summary
+ */
+function generateSearchSummary(results, query, category, searchTime) {
+    const lines = [];
+    
+    lines.push(`Search results for: "${query}"`);
+    lines.push(`Category: ${category || 'all'}`);
+    lines.push(`Found: ${results.length} result(s)`);
+    lines.push(`Search time: ${searchTime}ms`);
+    
+    // Category breakdown
+    const breakdown = {};
+    for (const result of results) {
+        breakdown[result.type] = (breakdown[result.type] || 0) + 1;
+    }
+    
+    if (Object.keys(breakdown).length > 0) {
+        lines.push('');
+        lines.push('Results by type:');
+        for (const [type, count] of Object.entries(breakdown)) {
+            lines.push(`  - ${type}: ${count}`);
+        }
+    }
+    
+    return lines.join('\n');
+}
+
+/**
+ * Format individual result text
+ */
+function formatResultText(result) {
+    const lines = [];
+    lines.push(`[${result.type.toUpperCase()}] ${result.title}`);
+    
+    if (result.metadata.author) {
+        lines.push(`By: ${result.metadata.author}`);
+    }
+    
+    if (result.content) {
+        const preview = result.content.substring(0, 150);
+        lines.push(preview + (result.content.length > 150 ? '...' : ''));
+    }
+    
+    return lines.join('\n');
+}
+
+/**
+ * Handle search errors with proper classification
+ */
+function handleSearchError(error, query, category) {
+    winston.error('[mcp-server] Search error:', {
+        error: error.message,
+        stack: error.stack,
+        query: query,
+        category: category
+    });
+    
+    let errorCode = 'unknown';
+    let status = 500;
+    let userMessage = 'An error occurred during search. Please try again later.';
+    
+    // Classify error
+    if (error.message && error.message.includes('Invalid query')) {
+        errorCode = 'validation';
+        status = 400;
+        userMessage = 'Invalid search query. Please check your input and try again.';
+    } else if (error.message && error.message.includes('unauthorized')) {
+        errorCode = 'auth';
+        status = 403;
+        userMessage = 'You are not authorized to perform this search.';
+    } else if (error.message && error.message.includes('rate limit')) {
+        errorCode = 'rate-limit';
+        status = 429;
+        userMessage = 'Too many search requests. Please wait and try again.';
+    } else if (error.message && error.message.includes('timeout')) {
+        errorCode = 'timeout';
+        status = 504;
+        userMessage = 'Search request timed out. Please try again with a simpler query.';
+    } else if (error.message && error.message.includes('provider')) {
+        errorCode = 'provider-error';
+        status = 502;
+        userMessage = 'Search service is temporarily unavailable. Please try again later.';
+    }
+    
+    return {
+        content: [
+            {
+                type: 'text',
+                text: `Error: ${userMessage}\nCode: ${errorCode}\nStatus: ${status}`
+            }
+        ]
+    };
+}
+
+/**
+ * Log search activity
+ */
+function logSearchActivity(userId, query, category, resultCount, duration) {
+    winston.verbose('[mcp-server] Search activity:', {
+        userId: userId,
+        query: query.substring(0, 100), // Truncate for logs
+        category: category,
+        resultCount: resultCount,
+        duration: duration,
+        timestamp: new Date().toISOString()
+    });
+}
+
+/**
+ * Main search execution function
+ */
+async function executeSearch(query, category, options = {}) {
+    const startTime = Date.now();
+    const {
+        userId = 0,
+        roles = [],
+        locale = 'en',
+        cursor = null,
+        limit = 20,
+        maxLimit = 50,
+        signal = null,
+        traceId = null
+    } = options;
+    
+    try {
+        // Normalize and enforce limit
+        const normalizedLimit = normalizeLimit(limit, maxLimit);
+        const effectiveLimit = Math.min(normalizedLimit, maxLimit);
+        
+        // Sanitize query
+        const sanitizedQuery = sanitizeSearchQuery(query);
+        
+        // Check cache
+        const cached = await searchCache.get(sanitizedQuery, category, userId);
+        if (cached) {
+            const duration = Date.now() - startTime;
+            logSearchActivity(userId, sanitizedQuery, category, cached.length, duration);
+            return formatSearchResults(cached, sanitizedQuery, category, duration);
+        }
+        
+        // Perform concurrent searches based on category
+        const searchPromises = [];
+        
+        if (!category || category === 'topics') {
+            searchPromises.push(searchTopics(sanitizedQuery, userId, effectiveLimit));
+        }
+        
+        if (!category || category === 'posts') {
+            searchPromises.push(searchPosts(sanitizedQuery, userId, effectiveLimit));
+        }
+        
+        if (!category || category === 'users') {
+            searchPromises.push(searchUsers(sanitizedQuery, userId, effectiveLimit));
+        }
+        
+        // Wait for all searches to complete
+        const searchResults = await Promise.all(searchPromises);
+        
+        // Combine results
+        let results = [];
+        for (const searchResult of searchResults) {
+            if (Array.isArray(searchResult)) {
+                results = results.concat(searchResult);
+            }
+        }
+        
+        // Sort by score
+        results.sort((a, b) => (b.score || 0) - (a.score || 0));
+        
+        // Apply final limit
+        if (results.length > effectiveLimit) {
+            results = results.slice(0, effectiveLimit);
+        }
+        
+        // Cache results
+        await searchCache.set(sanitizedQuery, category, userId, results);
+        
+        // Log activity
+        const duration = Date.now() - startTime;
+        logSearchActivity(userId, sanitizedQuery, category, results.length, duration);
+        
+        // Format and return
+        const formattedResult = formatSearchResults(results, sanitizedQuery, category, duration);
+        winston.verbose('[mcp-server] Search result format:', JSON.stringify(formattedResult, null, 2));
+        return formattedResult;
+        
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        logSearchActivity(userId, query, category, -1, duration);
+        const errorResult = handleSearchError(err, query, category);
+        winston.verbose('[mcp-server] Search error result format:', JSON.stringify(errorResult, null, 2));
+        return errorResult;
+    }
+}
+
+module.exports = {
+    executeSearch,
+    sanitizeSearchQuery,
+    handleSearchError
+};
