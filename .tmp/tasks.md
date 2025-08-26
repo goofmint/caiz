@@ -108,8 +108,6 @@
     - `POST /mcp/messages` に rps 制限
   - [ ] 逆プロキシ前提のヘッダ/タイムアウト
     - SSE の `Cache-Control` 等ヘッダ固定、タイムアウト注意書き
-  - [ ]  タスク21 デバイスコード案内（任意）
-    - `/.well-known` に device_authorization_endpoint を追加/整備
 - 追加レンダリング
   - [ ] Mermaid
   - [ ] MathJax

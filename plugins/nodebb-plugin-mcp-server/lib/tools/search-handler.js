@@ -7,6 +7,7 @@ const search = require.main.require('./src/search');
 const categories = require.main.require('./src/categories');
 const privileges = require.main.require('./src/privileges');
 const groups = require.main.require('./src/groups');
+const utils = require.main.require('./src/utils');
 const nconf = require.main.require('nconf');
 
 // Cache implementation using in-memory storage
@@ -57,6 +58,17 @@ class SearchCache {
 }
 
 const searchCache = new SearchCache();
+
+/**
+ * Normalize limit to safe integer within bounds
+ */
+function normalizeLimit(limit, maxLimit) {
+    if (!Number.isFinite(limit)) {
+        const parsed = parseInt(limit, 10);
+        limit = Number.isFinite(parsed) ? parsed : 20;
+    }
+    return Math.max(0, Math.min(limit, maxLimit));
+}
 
 /**
  * Sanitize search query to prevent injection attacks
@@ -177,11 +189,12 @@ async function searchTopics(query, userId, limit) {
             const hasAccess = await checkContentAccess(userId, post.topic, 'topic');
             if (hasAccess && !post.topic.deleted && !post.deleted) {
                 topicIds.add(post.topic.tid);
+                const sanitizedContent = utils.stripHTML(post.content || '');
                 filtered.push({
                     type: 'topic',
                     id: String(post.topic.tid),
-                    title: post.topic.title || '',
-                    content: post.content || '',
+                    title: utils.stripHTML(post.topic.title || ''),
+                    content: sanitizedContent,
                     score: post.score || 0,
                     metadata: {
                         author: post.user?.username || 'Unknown',
@@ -232,11 +245,12 @@ async function searchPosts(query, userId, limit) {
         for (const post of result.posts) {
             const hasAccess = await checkContentAccess(userId, post, 'post');
             if (hasAccess && !post.deleted) {
+                const sanitizedContent = utils.stripHTML(post.content || '');
                 filtered.push({
                     type: 'post',
                     id: String(post.pid),
-                    title: post.topic?.title || 'Reply',
-                    content: post.content || '',
+                    title: utils.stripHTML(post.topic?.title || 'Reply'),
+                    content: sanitizedContent,
                     score: post.score || 0,
                     metadata: {
                         author: post.user?.username || 'Unknown',
@@ -299,11 +313,12 @@ async function searchUsers(query, userId, limit) {
                 lastOnline = date.toISOString();
             }
             
+            const sanitizedAboutMe = utils.stripHTML(userData.aboutme || '');
             filtered.push({
                 type: 'user',
                 id: String(userData.uid),
-                title: userData.displayname || userData.username || '',
-                content: userData.aboutme || '',
+                title: utils.stripHTML(userData.displayname || userData.username || ''),
+                content: sanitizedAboutMe,
                 score: userData.score || 0,
                 metadata: {
                     author: userData.username || '',
@@ -474,8 +489,9 @@ async function executeSearch(query, category, options = {}) {
     } = options;
     
     try {
-        // Enforce limit
-        const effectiveLimit = Math.min(limit, maxLimit);
+        // Normalize and enforce limit
+        const normalizedLimit = normalizeLimit(limit, maxLimit);
+        const effectiveLimit = Math.min(normalizedLimit, maxLimit);
         
         // Sanitize query
         const sanitizedQuery = sanitizeSearchQuery(query);
@@ -488,22 +504,30 @@ async function executeSearch(query, category, options = {}) {
             return formatSearchResults(cached, sanitizedQuery, category, duration);
         }
         
-        // Perform search based on category
-        let results = [];
+        // Perform concurrent searches based on category
+        const searchPromises = [];
         
         if (!category || category === 'topics') {
-            const topicResults = await searchTopics(sanitizedQuery, userId, effectiveLimit);
-            results = results.concat(topicResults);
+            searchPromises.push(searchTopics(sanitizedQuery, userId, effectiveLimit));
         }
         
         if (!category || category === 'posts') {
-            const postResults = await searchPosts(sanitizedQuery, userId, effectiveLimit);
-            results = results.concat(postResults);
+            searchPromises.push(searchPosts(sanitizedQuery, userId, effectiveLimit));
         }
         
         if (!category || category === 'users') {
-            const userResults = await searchUsers(sanitizedQuery, userId, effectiveLimit);
-            results = results.concat(userResults);
+            searchPromises.push(searchUsers(sanitizedQuery, userId, effectiveLimit));
+        }
+        
+        // Wait for all searches to complete
+        const searchResults = await Promise.all(searchPromises);
+        
+        // Combine results
+        let results = [];
+        for (const searchResult of searchResults) {
+            if (Array.isArray(searchResult)) {
+                results = results.concat(searchResult);
+            }
         }
         
         // Sort by score
