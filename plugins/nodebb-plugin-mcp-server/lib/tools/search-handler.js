@@ -6,6 +6,7 @@ const user = require.main.require('./src/user');
 const search = require.main.require('./src/search');
 const categories = require.main.require('./src/categories');
 const privileges = require.main.require('./src/privileges');
+const groups = require.main.require('./src/groups');
 const nconf = require.main.require('nconf');
 
 // Cache implementation using in-memory storage
@@ -94,6 +95,29 @@ function sanitizeSearchQuery(query) {
 }
 
 /**
+ * Get user's accessible categories
+ */
+async function getUserAccessibleCategories(userId) {
+    try {
+        // Get all categories that the user can read
+        const allCategories = await categories.buildForSelect(userId, 'read');
+        
+        if (!allCategories || allCategories.length === 0) {
+            return [];
+        }
+        
+        // Extract category IDs
+        const categoryIds = allCategories.map(cat => parseInt(cat.cid)).filter(cid => !isNaN(cid));
+        
+        winston.verbose(`[mcp-server] User ${userId} can access categories:`, categoryIds);
+        return categoryIds;
+    } catch (err) {
+        winston.error('[mcp-server] Error getting user accessible categories:', err);
+        return [];
+    }
+}
+
+/**
  * Check content access permissions
  */
 async function checkContentAccess(userId, content, contentType) {
@@ -120,11 +144,14 @@ async function checkContentAccess(userId, content, contentType) {
  */
 async function searchTopics(query, userId, limit) {
     try {
+        // Get user's accessible categories
+        const accessibleCategories = await getUserAccessibleCategories(userId);
+        
         const searchData = {
             query: query,
             searchIn: 'titles',
             matchWords: 'any',
-            categories: [],
+            categories: accessibleCategories,
             uid: userId,
             sortBy: 'relevance',
             sortDirection: 'desc',
@@ -178,11 +205,14 @@ async function searchTopics(query, userId, limit) {
  */
 async function searchPosts(query, userId, limit) {
     try {
+        // Get user's accessible categories
+        const accessibleCategories = await getUserAccessibleCategories(userId);
+        
         const searchData = {
             query: query,
             searchIn: 'posts', 
             matchWords: 'any',
-            categories: [],
+            categories: accessibleCategories,
             uid: userId,
             sortBy: 'relevance',
             sortDirection: 'desc',
@@ -304,23 +334,17 @@ function formatSearchResults(results, query, category, searchTime) {
         text: summary
     });
     
-    // Add results as resources
+    // Add results as text (simplified format for compatibility)
     for (const result of results) {
+        const resultText = formatResultText(result);
         content.push({
-            type: 'resource',
-            resource: {
-                uri: result.metadata.url,
-                name: result.title,
-                description: result.content.substring(0, 200) + (result.content.length > 200 ? '...' : ''),
-                mimeType: 'text/html'
-            },
-            text: formatResultText(result)
+            type: 'text',
+            text: resultText + '\n\nURL: ' + result.metadata.url
         });
     }
     
     return {
-        content: content,
-        isError: false
+        content: content
     };
 }
 
@@ -410,10 +434,12 @@ function handleSearchError(error, query, category) {
     }
     
     return {
-        isError: true,
-        code: errorCode,
-        status: status,
-        message: userMessage
+        content: [
+            {
+                type: 'text',
+                text: `Error: ${userMessage}\nCode: ${errorCode}\nStatus: ${status}`
+            }
+        ]
     };
 }
 
@@ -496,12 +522,16 @@ async function executeSearch(query, category, options = {}) {
         logSearchActivity(userId, sanitizedQuery, category, results.length, duration);
         
         // Format and return
-        return formatSearchResults(results, sanitizedQuery, category, duration);
+        const formattedResult = formatSearchResults(results, sanitizedQuery, category, duration);
+        winston.verbose('[mcp-server] Search result format:', JSON.stringify(formattedResult, null, 2));
+        return formattedResult;
         
     } catch (err) {
         const duration = Date.now() - startTime;
         logSearchActivity(userId, query, category, -1, duration);
-        return handleSearchError(err, query, category);
+        const errorResult = handleSearchError(err, query, category);
+        winston.verbose('[mcp-server] Search error result format:', JSON.stringify(errorResult, null, 2));
+        return errorResult;
     }
 }
 
