@@ -9,7 +9,16 @@ MCPサーバーのsearchツールに実際の検索機能を実装する。NodeB
 
 #### 検索実行関数
 ```javascript
-async function executeSearch(query, category, limit) {
+async function executeSearch(query, category, {
+  userId,
+  roles,           // 例: ['registered','admin'] 等
+  locale,          // i18n ハイライト/サマリー用
+  cursor,          // ページング用（offset か opaque cursor）
+  limit = 20,      // 既定値
+  maxLimit = 50,   // 上限（サーバ側で強制）
+  signal,          // AbortSignal/タイムアウト
+  traceId,         // 監視/相関ID
+} = {}) {
     // NodeBBの内部検索APIを使用
     // カテゴリ別フィルタリング（topics、posts、users）
     // 結果の正規化とフォーマット
@@ -60,9 +69,11 @@ async function searchPosts(query, limit) {
 ```javascript
 async function searchUsers(query, limit) {
     // NodeBB User.search() API使用
-    // ユーザー名・表示名での検索
-    // アクティブユーザーのみ対象
-    // プライバシー設定考慮
+    // ユーザー名・表示名での検索のみ（email/IP/lastSeenIP は非表示）
+    // lastOnlineは丸め/遅延処理で正確な時刻を隠蔽
+    // アクティブユーザーのみ対象（凍結・削除・プライベート設定を尊重）
+    // Enumeration攻撃対策（存在しないユーザー名でもタイミング差を抑制）
+    // PII保護：個人識別情報の漏洩防止
 }
 ```
 
@@ -81,10 +92,11 @@ async function checkContentAccess(userId, content) {
 #### 検索クエリサニタイゼーション
 ```javascript
 function sanitizeSearchQuery(query) {
-    // SQLインジェクション対策
-    // 不正文字のエスケープ
-    // クエリ長の制限（最大500文字）
-    // 特殊文字の適切な処理
+    // クエリインジェクション対策（Lucene/Elasticsearch/NoSQL）
+    // 危険文字やクエリ演算子（*, ?, ~, :, (), {}, [], &&, ||, !, ^, "\" など）の適切なエスケープ/禁止
+    // ReDoS/複雑度制限（ネスト/ワイルドカード個数/用語数/トークン長に上限）
+    // クエリ長の制限（最大500文字）と正規化（NFKC）
+    // 言語別のトークナイズ/大文字小文字/ダイアクリティカル除去（必要に応じて）
 }
 ```
 
@@ -130,10 +142,18 @@ function generateSearchSummary(results, query) {
 #### 検索エラー処理
 ```javascript
 function handleSearchError(error, query, category) {
-    // データベースエラーの適切な処理
-    // 権限エラーの詳細情報
-    // クエリ構文エラーの案内
-    // ユーザーフレンドリーなエラーメッセージ
+    // エラー分類とHTTPステータスコード対応
+    // validation(400): 入力値検証エラー
+    // auth(401/403): 認証・認可エラー  
+    // rate-limit(429): レート制限エラー
+    // timeout(504): タイムアウトエラー
+    // provider-error(502): 検索プロバイダーエラー
+    // unknown(500): 予期しないエラー
+    
+    // 機械可読な形式で返却
+    // { isError: true, code: "<分類>", status: <HTTPコード>, message: "<安全なメッセージ>" }
+    // 内部エラー詳細はサーバーログのみに記録、クライアントには公開しない
+    // ユーザー向けガイダンス（入力修正、再認証、待機/再試行、サポート連絡）
 }
 ```
 
