@@ -92,7 +92,7 @@ function validateJsonRpcMessage(message) {
 /**
  * Handle individual JSON-RPC 2.0 message processing
  */
-function processJsonRpcMessage(message, req) {
+async function processJsonRpcMessage(message, req) {
     winston.verbose('[mcp-server] Processing JSON-RPC method:', message.method);
 
     // Handle MCP initialize request
@@ -172,21 +172,31 @@ function processJsonRpcMessage(message, req) {
             return buildErrorResponse(JSON_RPC_ERRORS.INVALID_PARAMS, 'Invalid params', err.message, message.id);
         }
 
-        // Execute tool (placeholder implementation)
+        // Execute tool
         let result;
         if (toolName === 'search') {
+            const searchHandler = require('../lib/tools/search-handler');
             const query = toolArguments?.query;
             const category = toolArguments?.category;
             const limit = toolArguments?.limit || 20;
             
-            result = {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Search results for: "${query}"\nCategory: ${category || 'all'}\nLimit: ${limit}\n\nThis is a minimal implementation. Full search functionality will be implemented in future versions.`
-                    }
-                ]
-            };
+            // Get user context from request
+            const userId = req.auth?.userId || 0;
+            const roles = req.auth?.roles || [];
+            
+            try {
+                result = await searchHandler.executeSearch(query, category, {
+                    userId: userId,
+                    roles: roles,
+                    locale: req.headers['accept-language'] || 'en',
+                    limit: limit,
+                    maxLimit: 50,
+                    traceId: req.headers['x-trace-id'] || null
+                });
+            } catch (err) {
+                winston.error('[mcp-server] Search execution error:', err);
+                result = searchHandler.handleSearchError(err, query, category);
+            }
         } else if (toolName === 'read') {
             const contentType = toolArguments?.type;
             const contentId = toolArguments?.id;
@@ -227,9 +237,9 @@ function processNotification(message, req) {
  * Process request message (id present)
  * This function is currently not used in the main flow but kept for future use
  */
-function processRequest(message, req) {
+async function processRequest(message, req) {
     try {
-        const result = processJsonRpcMessage(message, req);
+        const result = await processJsonRpcMessage(message, req);
         return result; // processJsonRpcMessage already returns the full JSON-RPC response
     } catch (err) {
         winston.error('[mcp-server] Error processing request:', err);
@@ -240,7 +250,7 @@ function processRequest(message, req) {
 /**
  * Process batch request
  */
-function processBatchRequest(messages, req) {
+async function processBatchRequest(messages, req) {
     // 空配列は配列に包まれた単一の error(-32600) を返す
     if (messages.length === 0) {
         return [buildErrorResponse(JSON_RPC_ERRORS.INVALID_REQUEST, 'Invalid Request - empty batch array')];
@@ -268,7 +278,7 @@ function processBatchRequest(messages, req) {
         if ('id' in message) {
             try {
                 // 各メッセージの処理をtry/catchで包む
-                const response = processJsonRpcMessage(message, req);
+                const response = await processJsonRpcMessage(message, req);
                 responses.push(response);
                 hasResponses = true;
             } catch (err) {
@@ -362,7 +372,7 @@ module.exports = function(router) {
      */
     router.post('/api/mcp', 
         require('../lib/simple-auth').requireAuth(),
-        (req, res) => {
+        async (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
                 
@@ -396,7 +406,7 @@ module.exports = function(router) {
 
                 if (isBatch) {
                     // Process batch request
-                    result = processBatchRequest(req.body, req);
+                    result = await processBatchRequest(req.body, req);
                     
                     // Handle 204 No Content case (all notifications)
                     if (result === null) {
@@ -421,7 +431,7 @@ module.exports = function(router) {
                         return;
                     } else {
                         // Request - process and return response
-                        result = processJsonRpcMessage(req.body, req);
+                        result = await processJsonRpcMessage(req.body, req);
                     }
                 }
 
