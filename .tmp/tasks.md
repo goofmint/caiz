@@ -123,8 +123,10 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/templates/oauth-device.tpl` (新規)
         - `plugins/nodebb-plugin-mcp-server/public/oauth-device.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
+        - `plugins/nodebb-plugin-mcp-server/languages/*/mcp-server.json` (更新)
   - フェーズ2: トークン管理
-    - [ ] タスク4: トークンエンドポイント
+    - [x] タスク4: トークンエンドポイント（ドキュメント作成完了）
       - `/oauth/token` エンドポイント実装
       - grant_type: `urn:ietf:params:oauth:grant-type:device_code` サポート
       - アクセストークン・リフレッシュトークン発行
