@@ -104,6 +104,60 @@
     - `tools/list` で利用可能ツール一覧を返す（例: search）
   - [x] 検索ツールの中身
     - `search` が固定データまたは簡易検索を返す
+  - OAuth2基盤実装
+    - [x] タスク1: OAuth2メタデータエンドポイント
+      - `/.well-known/oauth-authorization-server` の実装
+      - 必要なOAuth2エンドポイントのメタデータ公開
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/routes/wellknown.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/library.js` (ルート追加)
+    - [ ] タスク2: Device Authorization Grant実装
+      - `/oauth/device_authorization` エンドポイント
+      - デバイスコード生成とユーザーコード生成
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-device.js` (新規)
+    - [ ] タスク3: ユーザー認証フロー
+      - `/oauth/device` ユーザー認証画面
+      - デバイスコード検証と承認処理
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/templates/oauth-device.tpl` (新規)
+        - `plugins/nodebb-plugin-mcp-server/public/oauth-device.js` (新規)
+  - フェーズ2: トークン管理
+    - [ ] タスク4: トークンエンドポイント
+      - `/oauth/token` エンドポイント実装
+      - grant_type: `urn:ietf:params:oauth:grant-type:device_code` サポート
+      - アクセストークン・リフレッシュトークン発行
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-tokens.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
+    - [ ] タスク5: トークン検証とリフレッシュ
+      - リフレッシュトークン処理
+      - トークン有効期限管理
+      - トークンストレージ（Redis/DB）
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/lib/token-storage.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-tokens.js` (更新)
+  - フェーズ3: 認証切り替え（修正ファイル: 2〜3個）
+    - [ ] タスク6: 認証ミドルウェア更新
+      - Bearer Token認証とOAuth2認証の共存
+      - OAuth2トークンでの認証処理追加
+      - 既存のAPIトークンとの互換性維持
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` (更新)
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-auth.js` (新規)
+    - [ ] タスク7: MCP初回接続フロー
+      - 未認証時の401応答とOAuth2フロー開始
+      - デバイス認証後の自動接続
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/routes/mcp.js` (更新)
+  - フェーズ4: 統合テスト（修正ファイル: 1〜2個）
+    - [ ] タスク8: Claude Desktop統合
+      - `mcp-remote`経由での接続確認
+      - OAuth2フロー全体のE2Eテスト
+      - エラーハンドリングとリトライ
+      - 修正ファイル:
+        - `plugins/nodebb-plugin-mcp-server/tests/oauth-flow.js` (新規)
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
   - [ ] 逆プロキシ前提のヘッダ/タイムアウト
