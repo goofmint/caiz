@@ -139,19 +139,27 @@ module.exports = function(router, middleware) {
 
             // 4) render template with { user_code?, client_name?, scopes?, expires_at? }
             const templateData = {
-                title: '[[caiz:oauth.device.title]]',
+                title: '[[mcp-server:oauth.device.title]]',
                 user_code: userCode,
                 error: errorMessage,
+                success: req.query.success ? true : false,
                 csrf_token: req.csrfToken ? req.csrfToken() : 'csrf-token-placeholder'
             };
 
             if (authRequest) {
                 templateData.client_name = 'Caiz MCP Server';
-                templateData.scopes = [
-                    { description: '[[caiz:oauth.scope.mcp-read]]' },
-                    { description: '[[caiz:oauth.scope.mcp-search]]' }
-                ];
-                templateData.expires_at = new Date(authRequest.expires_at).toLocaleString();
+                
+                // Build scopes from actual authRequest.scope values
+                if (authRequest.scope) {
+                    const scopeStrings = authRequest.scope.split(/[\s+]/);
+                    templateData.scopes = scopeStrings.map(scope => ({
+                        description: `[[mcp-server:oauth.scope.${scope.replace(':', '-')}]]`
+                    }));
+                }
+                
+                const expiresAtDate = new Date(authRequest.expires_at);
+                templateData.expires_at = expiresAtDate.toLocaleString();
+                templateData.expires_ts = authRequest.expires_at; // millisecond timestamp for countdown
                 templateData.tx_id = authRequest.device_code; // Using device_code as transaction ID
             }
 

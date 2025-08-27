@@ -4,53 +4,53 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">[[caiz:oauth.device.title]]</h3>
+                    <h3 class="card-title">[[mcp-server:oauth.device.title]]</h3>
                 </div>
                 
                 <div class="card-body">
                     <!-- IF error -->
                     <div class="alert alert-danger">
-                        <!-- IF error == "error-invalid-code" -->[[caiz:oauth.device.error-invalid-code]]<!-- ENDIF -->
-                        <!-- IF error == "error-not-found" -->[[caiz:oauth.device.error-not-found]]<!-- ENDIF -->
-                        <!-- IF error == "error-expired-code" -->[[caiz:oauth.device.error-expired-code]]<!-- ENDIF -->
-                        <!-- IF error == "error-already-processed" -->[[caiz:oauth.device.error-already-processed]]<!-- ENDIF -->
-                        <!-- IF error == "error-server" -->[[caiz:oauth.device.error-server]]<!-- ENDIF -->
-                        <!-- IF error == "missing-code" -->[[caiz:oauth.device.error-missing-code]]<!-- ENDIF -->
-                        <!-- IF error == "invalid-code" -->[[caiz:oauth.device.error-invalid-code]]<!-- ENDIF -->
-                        <!-- IF error == "not-found" -->[[caiz:oauth.device.error-not-found]]<!-- ENDIF -->
-                        <!-- IF error == "expired" -->[[caiz:oauth.device.error-expired-code]]<!-- ENDIF -->
-                        <!-- IF error == "already-processed" -->[[caiz:oauth.device.error-already-processed]]<!-- ENDIF -->
-                        <!-- IF error == "invalid-action" -->[[caiz:oauth.device.error-invalid-action]]<!-- ENDIF -->
-                        <!-- IF error == "server" -->[[caiz:oauth.device.error-server]]<!-- ENDIF -->
+                        <!-- IF error == "error-invalid-code" -->[[mcp-server:oauth.device.error-invalid-code]]<!-- ENDIF -->
+                        <!-- IF error == "error-not-found" -->[[mcp-server:oauth.device.error-not-found]]<!-- ENDIF -->
+                        <!-- IF error == "error-expired-code" -->[[mcp-server:oauth.device.error-expired-code]]<!-- ENDIF -->
+                        <!-- IF error == "error-already-processed" -->[[mcp-server:oauth.device.error-already-processed]]<!-- ENDIF -->
+                        <!-- IF error == "error-server" -->[[mcp-server:oauth.device.error-server]]<!-- ENDIF -->
+                        <!-- IF error == "missing-code" -->[[mcp-server:oauth.device.error-missing-code]]<!-- ENDIF -->
+                        <!-- IF error == "invalid-code" -->[[mcp-server:oauth.device.error-invalid-code]]<!-- ENDIF -->
+                        <!-- IF error == "not-found" -->[[mcp-server:oauth.device.error-not-found]]<!-- ENDIF -->
+                        <!-- IF error == "expired" -->[[mcp-server:oauth.device.error-expired-code]]<!-- ENDIF -->
+                        <!-- IF error == "already-processed" -->[[mcp-server:oauth.device.error-already-processed]]<!-- ENDIF -->
+                        <!-- IF error == "invalid-action" -->[[mcp-server:oauth.device.error-invalid-action]]<!-- ENDIF -->
+                        <!-- IF error == "server" -->[[mcp-server:oauth.device.error-server]]<!-- ENDIF -->
                     </div>
                     <!-- ENDIF -->
 
                     <!-- Success messages -->
                     <!-- IF {queryByName.success} -->
                     <div class="alert alert-success">
-                        <!-- IF {queryByName.success} == "approved" -->[[caiz:oauth.device.success-approved]]<!-- ENDIF -->
-                        <!-- IF {queryByName.success} == "denied" -->[[caiz:oauth.device.success-denied]]<!-- ENDIF -->
+                        <!-- IF {queryByName.success} == "approved" -->[[mcp-server:oauth.device.success-approved]]<!-- ENDIF -->
+                        <!-- IF {queryByName.success} == "denied" -->[[mcp-server:oauth.device.success-denied]]<!-- ENDIF -->
                     </div>
                     <!-- ENDIF -->
                     
                     <!-- IF !user_code -->
                     <!-- User code input form -->
                     <div class="user-code-input">
-                        <p class="text-muted">[[caiz:oauth.device.description]]</p>
+                        <p class="text-muted">[[mcp-server:oauth.device.description]]</p>
                         
                         <form method="post" action="/oauth/device">
                             <input type="hidden" name="_csrf" value="{csrf_token}">
                             <div class="form-group">
-                                <label for="user_code">[[caiz:oauth.device.user-code-label]]</label>
+                                <label for="user_code">[[mcp-server:oauth.device.user-code-label]]</label>
                                 <input type="text" class="form-control" id="user_code" name="user_code"
                                        placeholder="XXXX-XXXX"
                                        pattern="[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}"
                                        maxlength="9" inputmode="latin" autocomplete="one-time-code" required
                                        aria-describedby="user_code_help">
-                                <small id="user_code_help" class="form-text text-muted">[[caiz:oauth.device.user-code-help]]</small>
+                                <small id="user_code_help" class="form-text text-muted">[[mcp-server:oauth.device.user-code-help]]</small>
                             </div>
                             
-                            <button type="submit" class="btn btn-primary btn-block">[[caiz:oauth.device.continue]]</button>
+                            <button type="submit" class="btn btn-primary w-100">[[mcp-server:oauth.device.continue]]</button>
                         </form>
                     </div>
                     <!-- ENDIF -->
@@ -58,16 +58,16 @@
                     <!-- IF user_code -->
                     <!-- Authorization confirmation -->
                     <div class="auth-request-details">
-                        <h4>[[caiz:oauth.device.confirm-title]]</h4>
+                        <h4>[[mcp-server:oauth.device.confirm-title]]</h4>
                         
                         <div class="device-info">
                             <div class="alert alert-info">
-                                <h5>[[caiz:oauth.device.auth-details]]</h5>
-                                <p><strong>[[caiz:oauth.device.user-code]]:</strong> <code>{user_code}</code></p>
-                                <p><strong>[[caiz:oauth.device.client]]:</strong> {client_name}</p>
+                                <h5>[[mcp-server:oauth.device.auth-details]]</h5>
+                                <p><strong>[[mcp-server:oauth.device.user-code]]:</strong> <code>{user_code}</code></p>
+                                <p><strong>[[mcp-server:oauth.device.client]]:</strong> {client_name}</p>
                                 
                                 <!-- IF scopes -->
-                                <p><strong>[[caiz:oauth.device.scopes]]:</strong></p>
+                                <p><strong>[[mcp-server:oauth.device.scopes]]:</strong></p>
                                 <ul class="scope-list">
                                     <!-- BEGIN scopes -->
                                     <li>{scopes.description}</li>
@@ -76,7 +76,7 @@
                                 <!-- ENDIF -->
                                 
                                 <!-- IF expires_at -->
-                                <p><strong>[[caiz:oauth.device.expires]]:</strong> {expires_at}</p>
+                                <p><strong>[[mcp-server:oauth.device.expires]]:</strong> <span data-expires="{expires_ts}">{expires_at}</span></p>
                                 <!-- ENDIF -->
                             </div>
                         </div>
@@ -84,7 +84,7 @@
                         <div class="auth-warning">
                             <p class="text-warning">
                                 <i class="fa fa-exclamation-triangle"></i>
-                                [[caiz:oauth.device.warning]]
+                                [[mcp-server:oauth.device.warning]]
                             </p>
                         </div>
                         
@@ -97,12 +97,12 @@
                                 <button type="submit" name="action" value="approve" 
                                         class="btn btn-success btn-lg mr-2">
                                     <i class="fa fa-check"></i>
-                                    [[caiz:oauth.device.approve]]
+                                    [[mcp-server:oauth.device.approve]]
                                 </button>
                                 <button type="submit" name="action" value="deny" 
                                         class="btn btn-danger btn-lg">
                                     <i class="fa fa-times"></i>
-                                    [[caiz:oauth.device.deny]]
+                                    [[mcp-server:oauth.device.deny]]
                                 </button>
                             </div>
                         </form>
@@ -111,7 +111,7 @@
                 </div>
                 
                 <div class="card-footer text-muted text-center">
-                    <small>[[caiz:oauth.device.footer]]</small>
+                    <small>[[mcp-server:oauth.device.footer]]</small>
                 </div>
             </div>
         </div>

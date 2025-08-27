@@ -69,8 +69,13 @@
     },
     "scope": {
         "mcp:read": "Read Access - View content and information",
+        "mcp-read": "Read Access - View content and information",
         "mcp:search": "Search Access - Search content",
+        "mcp-search": "Search Access - Search content",
         "mcp:write": "Write Access - Modify and create data",
-        "mcp:admin": "Admin Access - Change system settings"
+        "mcp-write": "Write Access - Modify and create data",
+        "mcp:admin": "Admin Access - Change system settings",
+        "mcp-admin": "Admin Access - Change system settings",
+        "openid": "OpenID Connect Authentication"
     }
 }
