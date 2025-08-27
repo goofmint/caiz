@@ -132,41 +132,42 @@ const refreshTokenData = {
 };
 ```
 
-#### NodeBBデータベース操作（原子操作）
+#### NodeBBデータベース操作
 ```javascript
-// 原子的トークン発行（競合制御付き）
-const lockKey = `oauth:device:lock:${deviceCode}`;
-const lockAcquired = await db.setNX(lockKey, Date.now(), 10); // 10秒ロック
+// トークンハッシュ保存（平文トークンは保存しない）
+const tokenHash = require('crypto').createHash('sha256')
+    .update(Buffer.from(accessToken, 'base64url')).digest('hex');
+const refreshTokenHash = require('crypto').createHash('sha256')
+    .update(Buffer.from(refreshToken, 'base64url')).digest('hex');
 
-if (!lockAcquired) {
-    throw new Error('slow_down'); // 他のプロセスが処理中
-}
+// アクセストークン情報保存
+await db.set(`oauth:access_token:${tokenHash}`, JSON.stringify(tokenData));
+await db.expire(`oauth:access_token:${tokenHash}`, 3600); // 1時間TTL
 
-try {
-    // device_code状態確認と原子的更新
-    const deviceData = JSON.parse(await db.get(`oauth:device:${deviceCode}`));
-    if (deviceData.status !== 'approved') {
-        throw new Error('authorization_pending');
-    }
-    
-    // 原子的にトークン保存とdevice状態更新
-    await db.setObject(`oauth:access_token:${tokenHash}`, tokenData);
-    await db.expire(`oauth:access_token:${tokenHash}`, 3600);
-    
-    await db.setObject(`oauth:refresh_token:${refreshTokenHash}`, refreshData);
-    await db.expire(`oauth:refresh_token:${refreshTokenHash}`, 7 * 24 * 3600);
-    
-    // device_code状態を原子的に更新（approved -> token_issued）
-    await db.setObject(`oauth:device:${deviceCode}`, {
-        ...deviceData,
+// リフレッシュトークン情報保存  
+await db.set(`oauth:refresh_token:${refreshTokenHash}`, JSON.stringify(refreshData));
+await db.expire(`oauth:refresh_token:${refreshTokenHash}`, 7 * 24 * 3600); // 7日TTL
+
+// device_code状態更新（approved -> token_issued）
+// 注意: NodeBBでは真の原子操作が制限されるため、状態確認と更新を慎重に行う
+const deviceKey = `oauth:device:${deviceCode}`;
+const existingData = JSON.parse(await db.get(deviceKey) || '{}');
+
+if (existingData.status === 'approved') {
+    await db.set(deviceKey, JSON.stringify({
+        ...existingData,
         status: 'token_issued',
         access_token_hash: tokenHash,
         token_issued_at: Date.now()
-    });
-    
-} finally {
-    // ロック解除
-    await db.del(lockKey);
+    }));
+    await db.expire(deviceKey, existingData.expires_in || 600);
+} else {
+    // 状態が既に変更されている場合は適切なエラーを投げる
+    if (existingData.status === 'token_issued') {
+        throw new Error('access_denied'); // 既にトークン発行済み
+    } else {
+        throw new Error('authorization_pending'); // まだ承認されていない
+    }
 }
 ```
 
