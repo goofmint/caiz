@@ -10,18 +10,33 @@ const oauth2Config = {
     deviceCodeExpiry: 600, // 10分
     accessTokenExpiry: 3600, // 1時間
     refreshTokenExpiry: 7776000, // 90日
-    supportedScopes: ['mcp:read', 'mcp:search', 'mcp:write']
+    supportedScopes: ['openid', 'mcp:read', 'mcp:search', 'mcp:write']
 };
 
 /**
  * OAuth2認可サーバーメタデータを返却
  * RFC 8414準拠のメタデータレスポンス
  */
+/**
+ * Normalize base URL by constructing from request if needed and removing trailing slash
+ */
+function getBaseUrl(req) {
+    let baseUrl = oauth2Config.issuer;
+    
+    // Fallback to constructing from request if issuer is missing
+    if (!baseUrl) {
+        baseUrl = req.protocol + '://' + req.get('host');
+    }
+    
+    // Remove trailing slash to prevent double slashes in path concatenation
+    return baseUrl.replace(/\/$/, '');
+}
+
 async function getAuthorizationServerMetadata(req, res) {
     try {
         winston.verbose('[mcp-server] OAuth2 authorization server metadata requested');
         
-        const baseUrl = oauth2Config.issuer;
+        const baseUrl = getBaseUrl(req);
         
         const metadata = {
             issuer: baseUrl,
@@ -70,7 +85,7 @@ async function getOpenidConfiguration(req, res) {
     try {
         winston.verbose('[mcp-server] OpenID Connect configuration requested');
         
-        const baseUrl = oauth2Config.issuer;
+        const baseUrl = getBaseUrl(req);
         
         const config = {
             issuer: baseUrl,

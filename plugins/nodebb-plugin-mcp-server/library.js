@@ -157,7 +157,7 @@ function setupWellKnownRoutes(routerOrApp) {
     // OAuth Authorization Server Discovery endpoint
     const wellKnownRoutes = require('./routes/wellknown');
     routerOrApp.get('/.well-known/oauth-authorization-server', wellKnownRoutes.getAuthorizationServerMetadata);
-    routerOrApp.get('/.well-known/openid_configuration', wellKnownRoutes.getOpenidConfiguration);
+    routerOrApp.get('/.well-known/openid-configuration', wellKnownRoutes.getOpenidConfiguration);
 }
 
 /**
