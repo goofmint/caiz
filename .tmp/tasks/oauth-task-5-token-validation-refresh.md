@@ -47,26 +47,45 @@ grant_type=refresh_token
 ```http
 POST /oauth/introspect
 Content-Type: application/x-www-form-urlencoded
-Authorization: Bearer {access_token}
+Authorization: Basic base64(client_id:client_secret)   # 機密クライアント
+# または mTLS / DPoP による公開クライアント認証
 
 token={token_to_introspect}
 &token_type_hint=access_token
 ```
 
+**認証要件**
+- 機密クライアント: `client_secret_basic` または `client_secret_post` 必須
+- 公開クライアント: mTLS または DPoP による送信者拘束認証を推奨
+- 認証失敗または対象トークンへの権限なし: HTTP 401 + WWW-Authenticate ヘッダー
+
 #### レスポンス仕様
+
+**アクティブなトークン**
 ```json
 {
   "active": true,
   "scope": "mcp:read mcp:search",
   "client_id": "mcp-client",
-  "username": "user123",
+  "sub": "123",
+  "aud": ["mcp-client"],
   "token_type": "Bearer",
   "exp": 1419356238,
-  "iat": 1419350238,
-  "sub": "123",
-  "aud": "mcp-client"
+  "iat": 1419350238
 }
 ```
+
+**非アクティブなトークン**
+```json
+{
+  "active": false
+}
+```
+
+**注意事項**
+- PII漏洩防止のため`username`は含まない
+- 非アクティブ時は`{"active": false}`のみ返却
+- `aud`は配列形式でマルチオーディエンス対応
 
 ### 3. Token Storage改善（lib/token-storage.js）
 
