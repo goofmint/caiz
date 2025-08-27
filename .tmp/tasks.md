@@ -111,7 +111,7 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/routes/wellknown.js` (新規)
         - `plugins/nodebb-plugin-mcp-server/library.js` (ルート追加)
-    - [ ] タスク2: Device Authorization Grant実装
+    - [x] タスク2: Device Authorization Grant実装
       - `/oauth/device_authorization` エンドポイント
       - デバイスコード生成とユーザーコード生成
       - 修正ファイル:
