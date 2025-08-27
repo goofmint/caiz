@@ -402,7 +402,7 @@ class OAuthToken {
         if (deviceData.status === 'token_issued') {
             winston.warn('[mcp-server] Device code already used', { device_code: device_code.substring(0, 8) + '...' });
             const error = new Error('Device code has already been used');
-            error.code = 'access_denied';
+            error.code = 'invalid_grant';
             throw error;
         }
 

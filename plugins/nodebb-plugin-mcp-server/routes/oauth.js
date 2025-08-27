@@ -523,6 +523,13 @@ module.exports = function(router, middleware) {
                 retryAfter = err.retryAfter;
             }
 
+            // Handle specific HTTP status codes for different error types
+            if (err.code === 'server_error') {
+                httpStatus = 500;
+            } else if (err.code === 'invalid_client') {
+                httpStatus = 401;
+            }
+
             // Legacy error handling for authorization_code grant
             if (!err.code) {
                 if (err.message.includes('Missing required parameter') || 
@@ -546,6 +553,11 @@ module.exports = function(router, middleware) {
             // Add Retry-After header for slow_down errors (RFC 8628 Section 3.5)
             if (retryAfter) {
                 headers['Retry-After'] = retryAfter.toString();
+            }
+
+            // Add WWW-Authenticate header for invalid_client errors
+            if (err.code === 'invalid_client') {
+                headers['WWW-Authenticate'] = 'Basic realm="OAuth2", charset="UTF-8"';
             }
 
             res.set(headers);
