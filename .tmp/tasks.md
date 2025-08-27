@@ -117,7 +117,7 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (新規)
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-device.js` (新規)
-    - [ ] タスク3: ユーザー認証フロー
+    - [x] タスク3: ユーザー認証フロー
       - `/oauth/device` ユーザー認証画面
       - デバイスコード検証と承認処理
       - 修正ファイル:

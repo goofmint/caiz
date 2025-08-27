@@ -39,11 +39,43 @@
         "deny": "Deny",
         "security_notice": "By approving, this application will be able to perform the specified actions on your behalf.",
         "logged_in_as": "Logged in as:",
-        "logout": "Logout"
+        "logout": "Logout",
+        "device": {
+            "title": "Device Authorisation",
+            "description": "Enter the user code displayed on your device.",
+            "user-code-label": "User Code",
+            "user-code-help": "Enter the 8-character code displayed on your device (e.g., BCFG-HJKM)",
+            "continue": "Continue",
+            "confirm-title": "Confirm Authorisation",
+            "auth-details": "Authorisation Request Details",
+            "user-code": "User Code",
+            "client": "Application",
+            "scopes": "Requested Permissions",
+            "expires": "Expires",
+            "warning": "Only approve if you trust this application.",
+            "approve": "Approve",
+            "deny": "Deny",
+            "success-approved": "Device authorisation completed successfully. You can continue with your application on the device.",
+            "success-denied": "Device authorisation was denied.",
+            "error-invalid-code": "Invalid user code. Please enter in the correct format (XXXX-XXXX).",
+            "error-not-found": "User code not found. Please check your code.",
+            "error-expired-code": "User code has expired. Please request a new code.",
+            "error-already-processed": "This user code has already been processed.",
+            "error-server": "Server error occurred. Please try again later.",
+            "error-missing-code": "User code is required.",
+            "error-invalid-action": "Invalid action.",
+            "footer": "MCP Server Device Authorisation"
+        }
     },
     "scope": {
         "mcp:read": "Read Access - View content and information",
+        "mcp-read": "Read Access - View content and information",
+        "mcp:search": "Search Access - Search content",
+        "mcp-search": "Search Access - Search content",
         "mcp:write": "Write Access - Modify and create data",
-        "mcp:admin": "Admin Access - Change system settings"
+        "mcp-write": "Write Access - Modify and create data",
+        "mcp:admin": "Admin Access - Change system settings",
+        "mcp-admin": "Admin Access - Change system settings",
+        "openid": "OpenID Connect Authentication"
     }
 }

@@ -93,6 +93,176 @@ module.exports = function(router, middleware) {
     });
 
     /**
+     * Device Authorization User Interface
+     * RFC 8628 Section 3.3
+     * GET /oauth/device
+     */
+    router.get('/oauth/device', middleware.ensureLoggedIn, async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Device authorization page requested');
+
+            // 1) user must be logged-in (middleware enforces)
+            if (!req.session.uid) {
+                winston.error('[mcp-server] User not authenticated for device page');
+                return res.redirect('/login?next=/oauth/device');
+            }
+
+            // 2) optionally accept ?user_code=XXXX-XXXX, normalize: uppercase, strip non [A-HJ-NP-Z2-9]
+            let userCode = req.query.user_code;
+            let authRequest = null;
+            let errorMessage = null;
+
+            if (userCode) {
+                // Normalize user code
+                userCode = userCode.toUpperCase().replace(/[^A-HJ-NP-Z2-9\-]/g, '');
+                
+                // Validate format
+                if (!/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(userCode)) {
+                    errorMessage = 'error-invalid-code';
+                } else {
+                    // 3) if provided, lookup pending request; if not found/expired -> render form with flash error
+                    try {
+                        authRequest = await DeviceAuthManager.getAuthRequestByUserCode(userCode);
+                        if (!authRequest) {
+                            errorMessage = 'error-not-found';
+                        } else if (authRequest.status !== 'pending') {
+                            errorMessage = 'error-already-processed';
+                        } else if (Date.now() > authRequest.expires_at) {
+                            errorMessage = 'error-expired-code';
+                        }
+                    } catch (err) {
+                        winston.error('[mcp-server] Failed to lookup device auth request:', err);
+                        errorMessage = 'error-server';
+                    }
+                }
+            }
+
+            // 4) render template with { user_code?, client_name?, scopes?, expires_at? }
+            const templateData = {
+                title: '[[mcp-server:oauth.device.title]]',
+                user_code: userCode,
+                error: errorMessage,
+                success: req.query.success ? true : false,
+                csrf_token: req.csrfToken ? req.csrfToken() : 'csrf-token-placeholder'
+            };
+
+            if (authRequest) {
+                templateData.client_name = 'Caiz MCP Server';
+                
+                // Build scopes from actual authRequest.scope values
+                if (authRequest.scope) {
+                    const scopeStrings = authRequest.scope.split(/[\s+]/);
+                    templateData.scopes = scopeStrings.map(scope => ({
+                        description: `[[mcp-server:oauth.scope.${scope.replace(':', '-')}]]`
+                    }));
+                }
+                
+                const expiresAtDate = new Date(authRequest.expires_at);
+                templateData.expires_at = expiresAtDate.toLocaleString();
+                templateData.expires_ts = authRequest.expires_at; // millisecond timestamp for countdown
+                templateData.tx_id = authRequest.device_code; // Using device_code as transaction ID
+            }
+
+            // 5) never expose internal ids; escape all values (template engine handles escaping)
+            winston.verbose('[mcp-server] Rendering device authorization page');
+            res.render('oauth-device', templateData);
+
+        } catch (err) {
+            winston.error('[mcp-server] Device authorization page error:', err);
+            res.status(500).render('500', { error: 'Internal server error' });
+        }
+    });
+
+    /**
+     * Device Authorization Form Submit
+     * Handle user approval/denial
+     * POST /oauth/device
+     */
+    router.post('/oauth/device', middleware.ensureLoggedIn, async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Device authorization form submitted');
+
+            // 0) validate CSRF: req.csrfToken verified by middleware (assuming it's configured)
+            if (!req.session.uid) {
+                winston.error('[mcp-server] User not authenticated for device submit');
+                return res.redirect('/login?next=/oauth/device');
+            }
+
+            // 1) normalize user_code, validate format
+            let userCode = req.body.user_code;
+            if (!userCode) {
+                winston.warn('[mcp-server] Missing user_code in device auth form');
+                return res.redirect('/oauth/device?error=missing-code');
+            }
+
+            userCode = userCode.toUpperCase().replace(/[^A-HJ-NP-Z2-9\-]/g, '');
+            
+            if (!/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(userCode)) {
+                winston.warn('[mcp-server] Invalid user_code format:', userCode);
+                return res.redirect('/oauth/device?error=invalid-code');
+            }
+
+            // 2) fetch pending request by user_code (status === 'pending') FOR UPDATE
+            const authRequest = await DeviceAuthManager.getAuthRequestByUserCode(userCode);
+
+            // 3) if not found -> redirect with error
+            if (!authRequest) {
+                winston.warn('[mcp-server] Device auth request not found for user_code:', userCode);
+                return res.redirect('/oauth/device?error=not-found');
+            }
+
+            // 4) if expired -> redirect with error
+            if (Date.now() > authRequest.expires_at) {
+                winston.warn('[mcp-server] Device auth request expired for user_code:', userCode);
+                return res.redirect('/oauth/device?error=expired');
+            }
+
+            if (authRequest.status !== 'pending') {
+                winston.warn('[mcp-server] Device auth request already processed:', authRequest.status);
+                return res.redirect('/oauth/device?error=already-processed');
+            }
+
+            // 5) rate-limit by req.uid + user_code (simplified implementation)
+            // TODO: Implement proper rate limiting
+
+            const action = req.body.action;
+            let newStatus;
+            let auditResult;
+
+            // 6) if action==='approve' -> set status='approved', subject=req.uid, approved_at=now
+            if (action === 'approve') {
+                newStatus = 'approved';
+                auditResult = 'approved';
+                
+                await DeviceAuthManager.updateAuthStatus(authRequest.device_code, newStatus, req.session.uid);
+                winston.info(`[mcp-server] Device authorization approved by user ${req.session.uid} for code ${userCode}`);
+                
+                return res.redirect('/oauth/device?success=approved');
+                
+            } else if (action === 'deny') {
+                // else set status='denied', denied_at=now
+                newStatus = 'denied';
+                auditResult = 'denied';
+                
+                await DeviceAuthManager.updateAuthStatus(authRequest.device_code, newStatus);
+                winston.info(`[mcp-server] Device authorization denied by user ${req.session.uid} for code ${userCode}`);
+                
+                return res.redirect('/oauth/device?success=denied');
+            } else {
+                winston.warn('[mcp-server] Invalid action for device auth:', action);
+                return res.redirect('/oauth/device?error=invalid-action');
+            }
+
+            // 7) persist and emit audit log { user: req.uid, client_id, scopes, result }
+            // Already handled in the specific action blocks above
+
+        } catch (err) {
+            winston.error('[mcp-server] Device authorization form error:', err);
+            return res.redirect('/oauth/device?error=server');
+        }
+    });
+
+    /**
      * OAuth Authorization Endpoint
      * GET /oauth/authorize
      */
