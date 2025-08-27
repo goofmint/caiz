@@ -39,10 +39,37 @@
         "deny": "拒否",
         "security_notice": "承認すると、このアプリケーションはあなたのアカウントに代わって指定された操作を実行できるようになります。",
         "logged_in_as": "ログイン中:",
-        "logout": "ログアウト"
+        "logout": "ログアウト",
+        "device": {
+            "title": "デバイス認証",
+            "description": "デバイスに表示されているユーザーコードを入力してください。",
+            "user-code-label": "ユーザーコード",
+            "user-code-help": "デバイスに表示された8文字のコードを入力してください（例: BCFG-HJKM）",
+            "continue": "続行",
+            "confirm-title": "認証の確認",
+            "auth-details": "認証リクエストの詳細",
+            "user-code": "ユーザーコード",
+            "client": "アプリケーション",
+            "scopes": "要求された権限",
+            "expires": "有効期限",
+            "warning": "このアプリケーションを信頼できる場合のみ承認してください。",
+            "approve": "承認する",
+            "deny": "拒否する",
+            "success-approved": "デバイスの認証が完了しました。デバイスでアプリケーションを続行できます。",
+            "success-denied": "デバイスの認証を拒否しました。",
+            "error-invalid-code": "無効なユーザーコードです。正しい形式（XXXX-XXXX）で入力してください。",
+            "error-not-found": "ユーザーコードが見つかりません。コードを確認してください。",
+            "error-expired-code": "ユーザーコードの有効期限が切れています。新しいコードを取得してください。",
+            "error-already-processed": "このユーザーコードは既に処理されています。",
+            "error-server": "サーバーエラーが発生しました。しばらく時間をおいてから再試行してください。",
+            "error-missing-code": "ユーザーコードが入力されていません。",
+            "error-invalid-action": "無効な操作です。",
+            "footer": "MCP Server Device Authorization"
+        }
     },
     "scope": {
         "mcp:read": "読み取りアクセス - コンテンツと情報の表示",
+        "mcp:search": "検索アクセス - コンテンツの検索",
         "mcp:write": "書き込みアクセス - データの変更と作成", 
         "mcp:admin": "管理者アクセス - システム設定の変更"
     }
