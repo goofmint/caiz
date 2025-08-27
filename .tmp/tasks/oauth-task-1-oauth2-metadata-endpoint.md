@@ -3,6 +3,12 @@
 ## 概要
 OAuth2 Device Authorization Grantフローに対応するため、RFC 8414に準拠したOAuth2認可サーバーメタデータエンドポイントを実装する。Claude Desktop等のMCPクライアントが自動的にOAuth2フローを開始できるようにする。
 
+既存のトークンベースでの認証は廃止とする。
+
+## 重要
+
+NodeBBではなくCaiz。
+
 ## 実装対象
 
 ### 1. OAuth2メタデータエンドポイント実装
@@ -81,7 +87,7 @@ function initializeOAuth2Config() {
 ```javascript
 const oauth2Config = {
     issuer: nconf.get('url'),
-    clientId: 'nodebb-mcp-server',
+    clientId: 'caiz-mcp-server',
     deviceCodeExpiry: 600, // 10分
     accessTokenExpiry: 3600, // 1時間
     refreshTokenExpiry: 7776000, // 90日
