@@ -38,10 +38,7 @@ class DeviceAuthManager {
     static generateUserCode() {
         // Exclude ambiguous chars: I, L, O, 0, 1
         const charset = 'BCDFGHJKMNPQRSTVWXYZ23456789';
-        const pick = n =>
-            crypto
-                .randomBytes(n)
-                .map(b => charset[b % charset.length]);
+        const pick = n => Array.from(crypto.randomBytes(n), b => charset[b % charset.length]);
 
         const a = pick(4).join('');
         const b = pick(4).join('');
@@ -49,7 +46,7 @@ class DeviceAuthManager {
     }
 
     /**
-     * Generate unique codes with collision retry
+     * Generate unique codes with collision retry using atomic claims
      * @returns {Object} {deviceCode, userCode}
      */
     static async generateUniqueCodes() {
@@ -57,15 +54,34 @@ class DeviceAuthManager {
             const deviceCode = this.generateDeviceCode();
             const userCode = this.generateUserCode();
 
-            // Check for collisions
-            const existingDeviceAuth = await this.getAuthRequestByDeviceCode(deviceCode);
-            const existingUserAuth = await this.getAuthRequestByUserCode(userCode);
+            const deviceKey = `oauth:device:${deviceCode}`;
+            const userCodeKey = `oauth:user_code:${userCode}`;
+            const ttl = deviceAuthConfig.codeExpiry;
 
-            if (!existingDeviceAuth && !existingUserAuth) {
-                return { deviceCode, userCode };
+            try {
+                // Atomic claim using SET NX EX for both keys
+                const deviceClaimResult = await db.client.set(deviceKey, 'claimed', 'NX', 'EX', ttl);
+                const userCodeClaimResult = await db.client.set(userCodeKey, 'claimed', 'NX', 'EX', ttl);
+
+                // Check if both claims succeeded
+                if (deviceClaimResult === 'OK' && userCodeClaimResult === 'OK') {
+                    // Success - clean up the claim markers
+                    await db.client.del(deviceKey, userCodeKey);
+                    return { deviceCode, userCode };
+                }
+
+                // Clean up any successful claims on collision
+                if (deviceClaimResult === 'OK') {
+                    await db.client.del(deviceKey);
+                }
+                if (userCodeClaimResult === 'OK') {
+                    await db.client.del(userCodeKey);
+                }
+
+                winston.warn(`[mcp-server] Code collision detected, retry ${attempt + 1}/${deviceAuthConfig.maxRetries}`);
+            } catch (err) {
+                winston.error(`[mcp-server] Error during code claim: ${err.message}`);
             }
-
-            winston.warn(`[mcp-server] Code collision detected, retry ${attempt + 1}/${deviceAuthConfig.maxRetries}`);
         }
 
         throw new Error('Failed to generate unique codes after maximum retries');
