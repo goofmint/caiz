@@ -20,12 +20,12 @@ OAuth2 Device Authorization Grantにおけるユーザー認証フローの実�
  * @param {Object} res - Express response
  */
 async function showDeviceAuthPage(req, res) {
-    // Implementation:
-    // 1. Check if user is logged in (NodeBB authentication)
-    // 2. Extract user_code from query parameter (optional)
-    // 3. Validate user_code if provided
-    // 4. Render device authentication template
-    // 5. Handle error cases (invalid/expired codes)
+    // 1) user must be logged-in (middleware enforces)
+    // 2) optionally accept ?user_code=XXXX-XXXX, normalize: uppercase, strip non [A-HJ-NP-Z2-9]
+    // 3) if provided, lookup pending request; if not found/expired -> render form with flash error
+    // 4) render template with { user_code?, client_name?, scopes?, expires_at? }
+    // 5) never expose internal ids; escape all values
+    // 6) after POST, always 303 redirect here (PRG)
 }
 
 router.get('/oauth/device', middleware.ensureLoggedIn, showDeviceAuthPage);
@@ -44,13 +44,16 @@ router.get('/oauth/device', middleware.ensureLoggedIn, showDeviceAuthPage);
  * @param {Object} res - Express response
  */
 async function handleDeviceAuth(req, res) {
-    // Implementation:
-    // 1. Validate user_code from form
-    // 2. Retrieve device authorization request
-    // 3. Check user permissions and authentication
-    // 4. Update authorization status (approved/denied)
-    // 5. Store user_id for approved requests
-    // 6. Display success/error message
+    // 0) validate CSRF: req.csrfToken verified by middleware
+    // 1) normalize user_code, validate format
+    // 2) fetch pending request by user_code (status === 'pending') FOR UPDATE
+    // 3) if not found -> flash('error-not-found'); return res.sendStatus(303)
+    // 4) if expired -> flash('error-expired-code'); return res.sendStatus(303)
+    // 5) rate-limit by req.uid + user_code
+    // 6) if action==='approve' -> set status='approved', subject=req.uid, approved_at=now
+    //    else set status='denied', denied_at=now
+    // 7) persist and emit audit log { user: req.uid, client_id, scopes, result }
+    // 8) flash success-*; return res.sendStatus(303)
 }
 
 router.post('/oauth/device', middleware.ensureLoggedIn, handleDeviceAuth);
@@ -73,11 +76,15 @@ router.post('/oauth/device', middleware.ensureLoggedIn, handleDeviceAuth);
             <!-- IF !user_code -->
             <!-- User code input form -->
             <form method="post" action="/oauth/device">
+                <input type="hidden" name="_csrf" value="{csrf_token}">
                 <div class="form-group">
                     <label for="user_code">[[caiz:oauth.device.user-code-label]]</label>
-                    <input type="text" class="form-control" id="user_code" name="user_code" 
-                           placeholder="XXXX-XXXX" pattern="[A-Z0-9]{4}-[A-Z0-9]{4}" required>
-                    <small class="form-text">[[caiz:oauth.device.user-code-help]]</small>
+                    <input type="text" class="form-control" id="user_code" name="user_code"
+                           placeholder="XXXX-XXXX"
+                           pattern="[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}"
+                           maxlength="9" inputmode="latin" autocomplete="one-time-code" required
+                           aria-describedby="user_code_help">
+                    <small id="user_code_help" class="form-text">[[caiz:oauth.device.user-code-help]]</small>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">[[caiz:oauth.device.continue]]</button>
@@ -101,7 +108,9 @@ router.post('/oauth/device', middleware.ensureLoggedIn, handleDeviceAuth);
                 </div>
                 
                 <form method="post" action="/oauth/device">
+                    <input type="hidden" name="_csrf" value="{csrf_token}">
                     <input type="hidden" name="user_code" value="{user_code}">
+                    <input type="hidden" name="tx_id" value="{tx_id}">
                     <div class="button-group">
                         <button type="submit" name="action" value="approve" 
                                 class="btn btn-success">[[caiz:oauth.device.approve]]</button>
