@@ -19,6 +19,7 @@ Content-Type: application/x-www-form-urlencoded
 grant_type=urn:ietf:params:oauth:grant-type:device_code
 &device_code=GmRhmhcxhwAzkoEqiMEg_DnyEjNkLxIgn68x-cGYYXdIj6CjZbcTSDl6w5V5Xb_r
 &client_id=mcp-client
+; (confidential clients) Use HTTP Basic client authentication or include client_secret in body if enabled.
 ```
 
 #### パラメータ検証
@@ -27,13 +28,15 @@ grant_type=urn:ietf:params:oauth:grant-type:device_code
 - `client_id`: 必須、有効なclient_id
 
 #### エラーレスポンス（RFC 8628 Section 3.5）
+- HTTP 400, `Content-Type: application/json`, `Cache-Control: no-store`, `Pragma: no-cache`
 - `authorization_pending`: ユーザーがまだ承認していない
-- `slow_down`: ポーリング間隔が短すぎる（推奨間隔を含む）
+- `slow_down`: ポーリング間隔が短すぎる（クライアントは現在の間隔に+5秒以上で再試行）
 - `expired_token`: device_codeの有効期限切れ
 - `access_denied`: ユーザーが認証を拒否
 - `invalid_grant`: 無効なdevice_code
 - `invalid_request`: パラメータエラー
 - `unsupported_grant_type`: サポートされていないgrant_type
+- （必要に応じて `unauthorized_client` / `invalid_client` も検討）
 
 #### 成功レスポンス
 ```json
@@ -60,10 +63,21 @@ class OAuthTokenManager {
      * @param {string} params.grant_type - グラントタイプ
      * @param {string} params.device_code - デバイスコード
      * @param {string} params.client_id - クライアントID
+     * @param {Object} ctx - リクエストコンテキスト情報
+     * @param {string} ctx.ip - クライアントIPアドレス
+     * @param {string} ctx.userAgent - クライアントのユーザーエージェント
+     * @param {number} [ctx.now=Date.now()] - リクエスト受信時刻タイムスタンプ
      * @returns {Promise<Object>} Token response
      * @throws {Error} RFC 8628準拠のエラー
      */
-    static async exchangeDeviceCodeForToken(params);
+    static async exchangeDeviceCodeForToken(
+        params /* { grant_type, device_code, client_id } */,
+        ctx    /* { ip, userAgent, now=Date.now() } */
+    );
+    // 要件:
+    // - device_code.client_id と params.client_id の一致検証
+    // - last_request_at と interval を用いたポーリング制御（違反時は slow_down）
+    // - 競合防止: 発行処理は原子的に一度だけ（詳細は Token Storage を参照）
     
     /**
      * アクセストークン生成
@@ -98,7 +112,7 @@ NodeBBのデータベース抽象化レイヤーを使用してトークン情�
 ```javascript
 // アクセストークン情報
 const accessTokenData = {
-    access_token: 'generated_access_token',
+    access_token_hash: 'sha256(base64url(access_token))',
     user_id: 123,
     client_id: 'mcp-client',
     scopes: ['mcp:read', 'mcp:search'],
@@ -108,32 +122,52 @@ const accessTokenData = {
 
 // リフレッシュトークン情報
 const refreshTokenData = {
-    refresh_token: 'generated_refresh_token',
-    access_token: 'linked_access_token',
+    refresh_token_hash: 'sha256(base64url(refresh_token))',
+    access_token_hash: 'sha256(base64url(access_token))',
     user_id: 123,
     client_id: 'mcp-client',
+    rotation_family_id: 'uuid', // 再発行チェーン
     expires_at: Date.now() + (7 * 24 * 3600 * 1000), // 7日後
     created_at: Date.now()
 };
 ```
 
-#### NodeBBデータベース操作
+#### NodeBBデータベース操作（原子操作）
 ```javascript
-// トークン保存
-await db.set(`oauth:access_token:${accessToken}`, JSON.stringify(tokenData));
-await db.expire(`oauth:access_token:${accessToken}`, 3600); // 1時間TTL
+// 原子的トークン発行（競合制御付き）
+const lockKey = `oauth:device:lock:${deviceCode}`;
+const lockAcquired = await db.setNX(lockKey, Date.now(), 10); // 10秒ロック
 
-// リフレッシュトークン保存
-await db.set(`oauth:refresh_token:${refreshToken}`, JSON.stringify(refreshData));
-await db.expire(`oauth:refresh_token:${refreshToken}`, 7 * 24 * 3600); // 7日TTL
+if (!lockAcquired) {
+    throw new Error('slow_down'); // 他のプロセスが処理中
+}
 
-// device_code状態更新（approved -> token_issued）
-await db.set(`oauth:device:${deviceCode}`, JSON.stringify({
-    ...existingData,
-    status: 'token_issued',
-    access_token: accessToken,
-    token_issued_at: Date.now()
-}));
+try {
+    // device_code状態確認と原子的更新
+    const deviceData = JSON.parse(await db.get(`oauth:device:${deviceCode}`));
+    if (deviceData.status !== 'approved') {
+        throw new Error('authorization_pending');
+    }
+    
+    // 原子的にトークン保存とdevice状態更新
+    await db.setObject(`oauth:access_token:${tokenHash}`, tokenData);
+    await db.expire(`oauth:access_token:${tokenHash}`, 3600);
+    
+    await db.setObject(`oauth:refresh_token:${refreshTokenHash}`, refreshData);
+    await db.expire(`oauth:refresh_token:${refreshTokenHash}`, 7 * 24 * 3600);
+    
+    // device_code状態を原子的に更新（approved -> token_issued）
+    await db.setObject(`oauth:device:${deviceCode}`, {
+        ...deviceData,
+        status: 'token_issued',
+        access_token_hash: tokenHash,
+        token_issued_at: Date.now()
+    });
+    
+} finally {
+    // ロック解除
+    await db.del(lockKey);
+}
 ```
 
 ### 4. Security Considerations
