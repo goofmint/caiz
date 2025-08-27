@@ -74,8 +74,13 @@ class DeviceAuthManager {
      * @returns {string} device_code - URL-safe random string
      */
     static generateDeviceCode() {
-        // Generate cryptographically secure random device code
-        // Format: Base64URL encoded random bytes (43 characters)
+        // 32 bytes -> base64url (no padding) => 43 characters
+        const bytes = crypto.randomBytes(32);
+        return bytes
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
     }
 
     /**
@@ -83,8 +88,16 @@ class DeviceAuthManager {
      * @returns {string} user_code - Human-readable code
      */
     static generateUserCode() {
-        // Generate human-friendly code
-        // Format: XXXX-XXXX (8 characters, excluding ambiguous characters)
+        // Exclude ambiguous chars: I, L, O, 0, 1
+        const charset = 'BCDFGHJKMNPQRSTVWXYZ23456789';
+        const pick = n =>
+            crypto
+                .randomBytes(n)
+                .map(b => charset.charCodeAt(b % charset.length));
+
+        const a = Buffer.from(pick(4)).toString('utf8');
+        const b = Buffer.from(pick(4)).toString('utf8');
+        return `${a}-${b}`;
     }
 
     /**
@@ -92,9 +105,14 @@ class DeviceAuthManager {
      * @param {Object} authRequest - Authorization request data
      */
     static async storeAuthRequest(authRequest) {
-        // Store in Redis with expiration
-        // Key: oauth:device:{device_code}
-        // Data: client_id, user_code, scope, status, user_id (when approved)
+        // TTL in seconds as provided by authRequest.expires_in
+        const ttl = authRequest.expires_in;
+
+        // Use atomic SET NX with EX to avoid collisions; fall back to retry loop if unsupported
+        // Primary key:   oauth:device:{device_code}  -> JSON.stringify(authRequest)
+        // Reverse key:   oauth:user_code:{user_code} -> device_code
+        // Both keys must share the same TTL for consistency
+        // (Implementation detail depends on your Redis client's support for multi/exec or Lua scripting)
     }
 
     /**
@@ -152,7 +170,7 @@ module.exports = DeviceAuthManager;
 ### 4. データストレージ
 
 #### Redis キー構造
-```
+```text
 oauth:device:{device_code}
   - client_id: string
   - user_code: string
@@ -169,6 +187,8 @@ oauth:user_code:{user_code} -> device_code
 ### 5. エラーハンドリング
 
 #### RFC 8628準拠のエラーレスポンス
+
+**デバイス認可エンドポイント（/oauth/device_authorization）:**
 ```javascript
 // 無効なクライアント
 {
@@ -181,11 +201,32 @@ oauth:user_code:{user_code} -> device_code
   "error": "invalid_scope", 
   "error_description": "The requested scope is invalid or unknown"
 }
+```
 
-// レート制限
+**トークンエンドポイント（/oauth/token でのポーリング）:**
+```javascript
+// 承認待ち
+{
+  "error": "authorization_pending",
+  "error_description": "The device authorization request is still pending"
+}
+
+// ユーザーが拒否
+{
+  "error": "access_denied",
+  "error_description": "The user denied the authorization request"
+}
+
+// デバイスコード期限切れ
+{
+  "error": "expired_token",
+  "error_description": "The device code has expired"
+}
+
+// ポーリング間隔違反（サーバー側指示）
 {
   "error": "slow_down",
-  "error_description": "Too many requests, please slow down"
+  "error_description": "Too many requests, please slow down the polling interval"
 }
 ```
 
