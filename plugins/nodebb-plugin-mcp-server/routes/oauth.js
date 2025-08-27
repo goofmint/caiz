@@ -492,9 +492,21 @@ module.exports = function(router, middleware) {
                 // Standard Authorization Code Grant flow
                 tokenResponse = await OAuthToken.exchangeCodeForToken(req.body, OAuthAuth);
                 
+            } else if (req.body.grant_type === 'refresh_token') {
+                // Refresh Token Grant flow (RFC 6749 Section 6)
+                if (!req.body.refresh_token) {
+                    const error = new Error('Missing required parameter: refresh_token');
+                    error.code = 'invalid_request';
+                    throw error;
+                }
+                
+                tokenResponse = await OAuthToken.refreshDeviceAccessToken(req.body.refresh_token);
+                
             } else {
                 winston.warn('[mcp-server] Unsupported grant_type', { grant_type: req.body.grant_type });
-                throw new Error('Unsupported grant_type');
+                const error = new Error('Unsupported grant_type');
+                error.code = 'unsupported_grant_type';
+                throw error;
             }
             
             // Set security headers (RFC 8628 Section 3.5)
@@ -569,6 +581,130 @@ module.exports = function(router, middleware) {
             };
 
             res.status(httpStatus).json(errorResponse);
+        }
+    });
+
+    /**
+     * OAuth Token Introspection Endpoint
+     * POST /oauth/introspect
+     * RFC 7662 compliant token introspection
+     */
+    router.post('/oauth/introspect', async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Token introspection request received');
+            
+            // RFC 7662 Section 2.1: Client Authentication Required
+            const authHeader = req.get('Authorization');
+            if (!authHeader || !authHeader.startsWith('Basic ')) {
+                winston.warn('[mcp-server] Missing or invalid client authentication for introspection');
+                return res.status(401).set({
+                    'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
+                }).json({
+                    error: 'invalid_client',
+                    error_description: 'Client authentication required for token introspection'
+                });
+            }
+            
+            // Decode Basic auth (simplified - in production should verify against registered clients)
+            try {
+                const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
+                const [clientId] = credentials.split(':');
+                
+                // Basic client validation (in production: verify against client registry)
+                if (!clientId || clientId !== 'mcp-client') {
+                    winston.warn('[mcp-server] Invalid client credentials for introspection', { client_id: clientId });
+                    return res.status(401).set({
+                        'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
+                        'Content-Type': 'application/json'
+                    }).json({
+                        error: 'invalid_client',
+                        error_description: 'Invalid client credentials'
+                    });
+                }
+            } catch (err) {
+                winston.warn('[mcp-server] Failed to decode client credentials:', err.message);
+                return res.status(401).set({
+                    'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
+                    'Content-Type': 'application/json'
+                }).json({
+                    error: 'invalid_client',
+                    error_description: 'Invalid client authentication format'
+                });
+            }
+            
+            // RFC 7662 Section 2.1: token parameter is required
+            const token = req.body.token;
+            if (!token) {
+                winston.warn('[mcp-server] Missing token parameter for introspection');
+                return res.status(400).set({
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
+                }).json({
+                    error: 'invalid_request',
+                    error_description: 'Missing required parameter: token'
+                });
+            }
+            
+            const OAuthToken = require('../lib/oauth-token');
+            let introspectionResponse;
+            
+            try {
+                // Try to validate as access token
+                const tokenData = await OAuthToken.validateDeviceAccessToken(token);
+                
+                // RFC 7662 Section 2.2: Successful response
+                introspectionResponse = {
+                    active: true,
+                    token_type: 'Bearer',
+                    scope: Array.isArray(tokenData.scopes) ? tokenData.scopes.join(' ') : (tokenData.scopes || ''),
+                    client_id: tokenData.clientId,
+                    exp: Math.floor(tokenData.expiresAt / 1000), // Unix timestamp
+                    iat: Math.floor(tokenData.createdAt / 1000)  // Unix timestamp
+                    // Note: Intentionally omitting 'sub' to avoid exposing user ID (PII protection)
+                };
+                
+                winston.verbose('[mcp-server] Token introspection successful', { 
+                    client_id: tokenData.clientId,
+                    scope: introspectionResponse.scope,
+                    expires_at: new Date(tokenData.expiresAt).toISOString()
+                });
+                
+            } catch (err) {
+                // Token is invalid, expired, or not found
+                winston.verbose('[mcp-server] Token introspection: token inactive', { 
+                    error: err.message 
+                });
+                
+                // RFC 7662 Section 2.2: Inactive token response
+                introspectionResponse = {
+                    active: false
+                };
+            }
+            
+            // RFC 7662 Section 2.2: Set appropriate headers
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            });
+            
+            res.status(200).json(introspectionResponse);
+            
+        } catch (err) {
+            winston.error('[mcp-server] Token introspection error:', err);
+            
+            res.status(500).set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            }).json({
+                error: 'server_error',
+                error_description: 'Internal server error during token introspection'
+            });
         }
     });
 
