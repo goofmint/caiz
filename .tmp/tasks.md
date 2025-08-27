@@ -126,12 +126,12 @@
         - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/languages/*/mcp-server.json` (更新)
   - フェーズ2: トークン管理
-    - [x] タスク4: トークンエンドポイント（ドキュメント作成完了）
+    - [x] タスク4: トークンエンドポイント
       - `/oauth/token` エンドポイント実装
       - grant_type: `urn:ietf:params:oauth:grant-type:device_code` サポート
       - アクセストークン・リフレッシュトークン発行
       - 修正ファイル:
-        - `plugins/nodebb-plugin-mcp-server/lib/oauth-tokens.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-token.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
     - [ ] タスク5: トークン検証とリフレッシュ
       - リフレッシュトークン処理
