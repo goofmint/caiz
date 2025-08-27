@@ -465,17 +465,39 @@ module.exports = function(router, middleware) {
     /**
      * OAuth Token Endpoint
      * POST /oauth/token
+     * Supports both authorization_code and device_code grant types
      */
     router.post('/oauth/token', async (req, res) => {
         try {
-            winston.verbose('[mcp-server] Token exchange requested');
+            winston.verbose('[mcp-server] Token exchange requested', { 
+                grant_type: req.body.grant_type,
+                client_id: req.body.client_id
+            });
             
             const OAuthToken = require('../lib/oauth-token');
+            let tokenResponse;
+
+            // RFC 8628 Device Authorization Grant support
+            if (req.body.grant_type === 'urn:ietf:params:oauth:grant-type:device_code') {
+                // Device Authorization Grant flow
+                const ctx = {
+                    ip: req.ip || req.connection.remoteAddress || 'unknown',
+                    userAgent: req.get('User-Agent') || 'unknown',
+                    now: Date.now()
+                };
+
+                tokenResponse = await OAuthToken.exchangeDeviceCodeForToken(req.body, ctx);
+                
+            } else if (req.body.grant_type === 'authorization_code') {
+                // Standard Authorization Code Grant flow
+                tokenResponse = await OAuthToken.exchangeCodeForToken(req.body, OAuthAuth);
+                
+            } else {
+                winston.warn('[mcp-server] Unsupported grant_type', { grant_type: req.body.grant_type });
+                throw new Error('Unsupported grant_type');
+            }
             
-            // Pass OAuthAuth instance to access authorization codes
-            const tokenResponse = await OAuthToken.exchangeCodeForToken(req.body, OAuthAuth);
-            
-            // Set security headers
+            // Set security headers (RFC 8628 Section 3.5)
             res.set({
                 'Content-Type': 'application/json',
                 'Cache-Control': 'no-store',
@@ -483,27 +505,58 @@ module.exports = function(router, middleware) {
             });
             
             res.json(tokenResponse);
-            winston.verbose('[mcp-server] Access token issued successfully');
+            winston.verbose('[mcp-server] Token issued successfully', { 
+                grant_type: req.body.grant_type,
+                scope: tokenResponse.scope
+            });
             
         } catch (err) {
             winston.error('[mcp-server] Token exchange error:', err);
             
-            // Determine appropriate error code
-            let errorCode = 'invalid_grant';
-            if (err.message.includes('Missing required parameter') || 
-                err.message.includes('Invalid') && err.message.includes('format')) {
-                errorCode = 'invalid_request';
-            } else if (err.message.includes('Unsupported grant_type')) {
-                errorCode = 'unsupported_grant_type';
-            } else if (err.message.includes('Failed to retrieve user information')) {
-                errorCode = 'server_error';
+            // Determine appropriate error code (RFC 8628 compliant)
+            let errorCode = err.code || 'invalid_grant';
+            let httpStatus = 400;
+            let retryAfter = null;
+            
+            // Handle RFC 8628 specific errors
+            if (err.code === 'slow_down' && err.retryAfter) {
+                retryAfter = err.retryAfter;
+            }
+
+            // Legacy error handling for authorization_code grant
+            if (!err.code) {
+                if (err.message.includes('Missing required parameter') || 
+                    err.message.includes('Invalid') && err.message.includes('format')) {
+                    errorCode = 'invalid_request';
+                } else if (err.message.includes('Unsupported grant_type')) {
+                    errorCode = 'unsupported_grant_type';
+                } else if (err.message.includes('Failed to retrieve user information')) {
+                    errorCode = 'server_error';
+                    httpStatus = 500;
+                }
             }
             
+            // Set security headers (RFC 8628 Section 3.5)
+            const headers = {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            };
+
+            // Add Retry-After header for slow_down errors (RFC 8628 Section 3.5)
+            if (retryAfter) {
+                headers['Retry-After'] = retryAfter.toString();
+            }
+
+            res.set(headers);
+            
             // OAuth 2.0 error response format
-            res.status(400).json({
+            const errorResponse = {
                 error: errorCode,
                 error_description: err.message
-            });
+            };
+
+            res.status(httpStatus).json(errorResponse);
         }
     });
 
