@@ -38,10 +38,7 @@ class DeviceAuthManager {
     static generateUserCode() {
         // Exclude ambiguous chars: I, L, O, 0, 1
         const charset = 'BCDFGHJKMNPQRSTVWXYZ23456789';
-        const pick = n =>
-            crypto
-                .randomBytes(n)
-                .map(b => charset[b % charset.length]);
+        const pick = n => Array.from(crypto.randomBytes(n), b => charset[b % charset.length]);
 
         const a = pick(4).join('');
         const b = pick(4).join('');
@@ -49,7 +46,7 @@ class DeviceAuthManager {
     }
 
     /**
-     * Generate unique codes with collision retry
+     * Generate unique codes with collision retry using atomic claims
      * @returns {Object} {deviceCode, userCode}
      */
     static async generateUniqueCodes() {
@@ -57,15 +54,39 @@ class DeviceAuthManager {
             const deviceCode = this.generateDeviceCode();
             const userCode = this.generateUserCode();
 
-            // Check for collisions
-            const existingDeviceAuth = await this.getAuthRequestByDeviceCode(deviceCode);
-            const existingUserAuth = await this.getAuthRequestByUserCode(userCode);
+            const deviceKey = `oauth:device:${deviceCode}`;
+            const userCodeKey = `oauth:user_code:${userCode}`;
+            const ttl = deviceAuthConfig.codeExpiry;
 
-            if (!existingDeviceAuth && !existingUserAuth) {
-                return { deviceCode, userCode };
+            try {
+                // Check for existing keys using NodeBB's db.exists
+                const [deviceExists, userCodeExists] = await Promise.all([
+                    db.exists(deviceKey),
+                    db.exists(userCodeKey)
+                ]);
+
+                if (!deviceExists && !userCodeExists) {
+                    // Both keys are available, claim them temporarily
+                    await Promise.all([
+                        db.set(deviceKey, 'claimed'),
+                        db.set(userCodeKey, 'claimed'),
+                        db.expire(deviceKey, ttl),
+                        db.expire(userCodeKey, ttl)
+                    ]);
+
+                    // Clean up the claim markers
+                    await Promise.all([
+                        db.delete(deviceKey),
+                        db.delete(userCodeKey)
+                    ]);
+
+                    return { deviceCode, userCode };
+                }
+
+                winston.warn(`[mcp-server] Code collision detected, retry ${attempt + 1}/${deviceAuthConfig.maxRetries}`);
+            } catch (err) {
+                winston.error(`[mcp-server] Error during code claim: ${err.message}`);
             }
-
-            winston.warn(`[mcp-server] Code collision detected, retry ${attempt + 1}/${deviceAuthConfig.maxRetries}`);
         }
 
         throw new Error('Failed to generate unique codes after maximum retries');
@@ -84,20 +105,13 @@ class DeviceAuthManager {
         try {
             winston.verbose(`[mcp-server] Storing auth request: ${deviceKey}`);
 
-            // Use Redis MULTI for atomic operation
-            const multi = db.client.multi();
-            
-            // Store primary data with TTL
-            multi.setex(deviceKey, ttl, JSON.stringify(authRequest));
-            // Store reverse lookup with same TTL
-            multi.setex(userCodeKey, ttl, authRequest.device_code);
-            
-            const results = await multi.exec();
-            
-            // Check if both operations succeeded
-            if (!results || results.length !== 2 || results.some(([err]) => err)) {
-                throw new Error('Failed to store device authorization request atomically');
-            }
+            // Store both keys with TTL using NodeBB's db methods
+            await Promise.all([
+                db.set(deviceKey, JSON.stringify(authRequest)),
+                db.set(userCodeKey, authRequest.device_code),
+                db.expire(deviceKey, ttl),
+                db.expire(userCodeKey, ttl)
+            ]);
 
             winston.verbose(`[mcp-server] Auth request stored successfully: ${deviceKey}`);
         } catch (err) {
@@ -114,7 +128,7 @@ class DeviceAuthManager {
     static async getAuthRequestByDeviceCode(deviceCode) {
         try {
             const deviceKey = `oauth:device:${deviceCode}`;
-            const data = await db.client.get(deviceKey);
+            const data = await db.get(deviceKey);
             
             if (!data) {
                 return null;
@@ -135,7 +149,7 @@ class DeviceAuthManager {
     static async getAuthRequestByUserCode(userCode) {
         try {
             const userCodeKey = `oauth:user_code:${userCode}`;
-            const deviceCode = await db.client.get(userCodeKey);
+            const deviceCode = await db.get(userCodeKey);
             
             if (!deviceCode) {
                 return null;
@@ -172,13 +186,14 @@ class DeviceAuthManager {
             }
 
             // Get remaining TTL to preserve expiration
-            const ttl = await db.client.ttl(deviceKey);
+            const ttl = await db.ttl(deviceKey);
             if (ttl <= 0) {
                 throw new Error('Device code has expired');
             }
 
-            // Update with preserved TTL
-            await db.client.setex(deviceKey, ttl, JSON.stringify(authRequest));
+            // Update with preserved TTL using NodeBB's db methods
+            await db.set(deviceKey, JSON.stringify(authRequest));
+            await db.expire(deviceKey, ttl);
             
             winston.verbose(`[mcp-server] Auth status updated: ${deviceCode} -> ${status}`);
         } catch (err) {
