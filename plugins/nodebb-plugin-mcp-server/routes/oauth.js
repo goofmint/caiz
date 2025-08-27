@@ -3,8 +3,95 @@
 const winston = require.main.require('winston');
 const user = require.main.require('./src/user');
 const OAuthAuth = require('../lib/oauth-auth');
+const DeviceAuthManager = require('../lib/oauth-device');
 
 module.exports = function(router, middleware) {
+    /**
+     * Device Authorization Request
+     * RFC 8628 Section 3.1
+     * POST /oauth/device_authorization
+     */
+    router.post('/oauth/device_authorization', async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Device authorization request received');
+
+            // Extract parameters from request body
+            const { client_id: clientId, scope } = req.body;
+
+            winston.verbose(`[mcp-server] Device auth params: client_id=${clientId}, scope=${scope}`);
+
+            // Validate client_id and scope
+            const validation = DeviceAuthManager.validateClientAndScope(clientId, scope);
+            if (!validation.valid) {
+                winston.warn(`[mcp-server] Device auth validation failed: ${validation.error}`);
+                return res.status(400).json({
+                    error: validation.error,
+                    error_description: validation.error_description
+                });
+            }
+
+            // Generate unique device and user codes
+            let deviceCode, userCode;
+            try {
+                const codes = await DeviceAuthManager.generateUniqueCodes();
+                deviceCode = codes.deviceCode;
+                userCode = codes.userCode;
+            } catch (err) {
+                winston.error(`[mcp-server] Failed to generate unique codes: ${err.message}`);
+                return res.status(500).json({
+                    error: 'server_error',
+                    error_description: 'Failed to generate authorization codes'
+                });
+            }
+
+            // Create authorization request
+            const authRequest = DeviceAuthManager.createAuthorizationRequest(
+                deviceCode,
+                userCode,
+                clientId,
+                scope
+            );
+
+            // Store authorization request
+            try {
+                await DeviceAuthManager.storeAuthRequest(authRequest);
+            } catch (err) {
+                winston.error(`[mcp-server] Failed to store auth request: ${err.message}`);
+                return res.status(500).json({
+                    error: 'server_error',
+                    error_description: 'Failed to store authorization request'
+                });
+            }
+
+            // Return device authorization response
+            const response = {
+                device_code: authRequest.device_code,
+                user_code: authRequest.user_code,
+                verification_uri: authRequest.verification_uri,
+                verification_uri_complete: authRequest.verification_uri_complete,
+                expires_in: authRequest.expires_in,
+                interval: authRequest.interval
+            };
+
+            // Set appropriate headers
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            });
+
+            winston.info(`[mcp-server] Device authorization successful: user_code=${userCode}`);
+            res.status(200).json(response);
+
+        } catch (err) {
+            winston.error('[mcp-server] Device authorization error:', err);
+            res.status(500).json({
+                error: 'server_error',
+                error_description: 'Internal server error during device authorization'
+            });
+        }
+    });
+
     /**
      * OAuth Authorization Endpoint
      * GET /oauth/authorize
