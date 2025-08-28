@@ -5,6 +5,21 @@
 統一認証ミドルウェア（unified-auth.js）を既存のMCP認証フローに統合し、legacy APIトークン認証を完全に廃止してOAuth2 Device Authorization Grant認証のみをサポートするシステムを構築します。
 simple-auth.jsとの統合により、既存エンドポイントでのOAuth2認証への完全移行を実現します。
 
+### サポートするOAuth2 Grant Types
+- **Device Authorization Grant** (RFC 8628) - プライマリ認証方式
+- **Refresh Token Grant** (RFC 6749 Section 6) - トークン更新用
+- **Client Credentials Grant** - サポート対象外（明示的に除外）
+
+### トークン形式と検証
+- **トークン形式**: Opaque tokens（不透明トークン）
+- **検証方式**: ローカル検証（データベース照合）
+- **イントロスペクション**: 内部実装（外部エンドポイント不要）
+- **検証ポリシー**: 
+  - 有効期限（exp）チェック
+  - クライアントID検証
+  - スコープ検証
+  - トークンファミリー検証（リフレッシュトークン）
+
 ## 実装対象
 
 ### 1. 既存認証システムの移行 (lib/simple-auth.js)
@@ -25,8 +40,16 @@ class SimpleAuth {
      * @deprecated OAuth2認証への移行により廃止
      */
     static async validateAPIToken(apiToken) {
-        // 実装を削除し、常にnullを返す
-        return null;
+        // Deprecated path – fail fast and surface telemetry
+        if (process.emitWarning) {
+            process.emitWarning('SimpleAuth.validateAPIToken is removed. Migrate to unified-auth.', {
+                code: 'MCP_DEPRECATED_AUTH',
+                detail: 'This call will throw from next release.',
+            });
+        }
+        const err = new Error('Legacy API token auth is removed');
+        err.code = 'E_AUTH_REMOVED';
+        throw err;
     }
 
     /**
@@ -37,7 +60,8 @@ class SimpleAuth {
      * @param {Function} next - Express next function
      */
     static async authenticate(req, res, next) {
-        // OAuthAuthenticator.authenticateに移行
+        const OAuthAuthenticator = require('./unified-auth');
+        return OAuthAuthenticator.authenticate(req, res, next);
     }
     
     /**
@@ -47,7 +71,8 @@ class SimpleAuth {
      * @param {Function} next - Express next function
      */
     static async optionalAuth(req, res, next) {
-        // OAuthAuthenticator.optionalAuthに移行
+        const OAuthAuthenticator = require('./unified-auth');
+        return OAuthAuthenticator.optionalAuth(req, res, next);
     }
 }
 ```
@@ -59,17 +84,22 @@ MCPエンドポイントで統一認証ミドルウェアを使用するよう�
 #### 更新内容
 
 ```javascript
-// 旧実装 - simple-auth使用
-const SimpleAuth = require('../lib/simple-auth');
-router.use('/api/mcp', SimpleAuth.authenticate);
-
-// 新実装 - unified-auth使用  
+// 統一実装のみ - 直接unified-authを使用
 const OAuthAuthenticator = require('../lib/unified-auth');
 router.use('/api/mcp', OAuthAuthenticator.authenticate);
 
-// オプション認証が必要なエンドポイント
-router.get('/api/mcp/public', OAuthAuthenticator.optionalAuth, handler);
+// オプション認証: 未認証でも200系で応答可能
+// optionalAuthは無効トークン時にreq.auth = nullを設定し、401を送信しない
+router.get('/api/mcp/public', OAuthAuthenticator.optionalAuth, (req, res) => {
+    // req.auth は null または認証済みオブジェクト
+    return handler(req, res);
+});
 ```
+
+#### optionalAuth動作仕様
+- **認証成功**: `req.auth` に認証情報を設定、`next()`を呼び出し
+- **認証失敗/未認証**: `req.auth = null`を設定、401を送信せずに`next()`を呼び出し
+- **最終ハンドラー**: `req.auth`の状態を確認して適切なレスポンスを決定
 
 ### 3. セキュアな認証コンテキスト管理
 
