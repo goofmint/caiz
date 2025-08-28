@@ -756,12 +756,15 @@ module.exports = function(router, middleware) {
             // but use our predefined client_id since we don't support full dynamic registration
             const registrationResponse = {
                 client_id: 'mcp-client',
+                client_secret: null, // No secret required for device flow
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
                 client_uri: clientMetadata.client_uri || '',
-                grant_types: ['urn:ietf:params:oauth:grant-type:device_code'],
+                redirect_uris: [], // Empty array for device authorization grant
+                grant_types: ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
                 response_types: ['device_code'],
                 token_endpoint_auth_method: 'none',
-                scope: 'mcp:read mcp:write'
+                scope: 'mcp:read mcp:write',
+                client_id_issued_at: Math.floor(Date.now() / 1000)
             };
             
             // Set appropriate headers (RFC 7591 Section 3.2)
