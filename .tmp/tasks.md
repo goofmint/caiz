@@ -133,18 +133,19 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-token.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
-    - [ ] タスク5: トークン検証とリフレッシュ
+    - [x] タスク5: トークン検証とリフレッシュ
       - リフレッシュトークン処理
       - トークン有効期限管理
       - トークンストレージ（Redis/DB）
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/token-storage.js` (新規)
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-token.js` (更新)
+        - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
+        - `plugins/nodebb-plugin-mcp-server/lib/oauth-clients.js` (新規)
   - フェーズ3: 認証切り替え（修正ファイル: 2〜3個）
     - [ ] タスク6: 認証ミドルウェア更新
       - Bearer Token認証とOAuth2認証の共存
       - OAuth2トークンでの認証処理追加
-      - 既存のAPIトークンとの互換性維持
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-auth.js` (新規)
