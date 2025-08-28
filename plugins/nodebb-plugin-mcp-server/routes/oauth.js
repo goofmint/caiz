@@ -756,7 +756,7 @@ module.exports = function(router, middleware) {
             // but use our predefined client_id since we don't support full dynamic registration
             const registrationResponse = {
                 client_id: 'mcp-client',
-                client_secret: null, // No secret required for device flow
+                client_secret: '', // Empty string for device flow (no secret required)
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
                 client_uri: clientMetadata.client_uri || '',
                 redirect_uris: [], // Empty array for device authorization grant
