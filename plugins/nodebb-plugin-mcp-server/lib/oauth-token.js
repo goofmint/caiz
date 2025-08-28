@@ -6,6 +6,7 @@ const user = require.main.require('./src/user');
 const nconf = require.main.require('nconf');
 const db = require.main.require('./src/database');
 const JWKSManager = require('./jwks');
+const TokenStorage = require('./token-storage');
 
 // Token configuration
 const tokenConfig = {
@@ -227,47 +228,69 @@ class OAuthToken {
     }
 
     /**
-     * Cleanup expired refresh tokens
+     * Cleanup expired tokens (Token Storage経由)
      */
-    cleanupExpiredRefreshTokens() {
-        const now = Date.now();
-        let cleaned = 0;
-        
-        for (const [token, data] of this.refreshTokens.entries()) {
-            if (now > data.expiresAt) {
-                this.refreshTokens.delete(token);
-                cleaned++;
+    async cleanupExpiredTokens() {
+        try {
+            const cleanedCount = await TokenStorage.cleanupExpiredTokens();
+            if (cleanedCount > 0) {
+                winston.verbose(`[mcp-server] Cleaned up ${cleanedCount} expired tokens via TokenStorage`);
             }
-        }
-        
-        if (cleaned > 0) {
-            winston.verbose(`[mcp-server] Cleaned up ${cleaned} expired refresh tokens`);
+            return cleanedCount;
+        } catch (err) {
+            winston.error('[mcp-server] Token cleanup failed:', err);
+            return 0;
         }
     }
 
     /**
-     * Get refresh token data
+     * Get refresh token data (Token Storage経由)
      * @param {string} refreshToken - Refresh token
-     * @returns {Object|null} Refresh token data
+     * @returns {Promise<Object|null>} Refresh token data
      */
-    getRefreshToken(refreshToken) {
-        return this.refreshTokens.get(refreshToken);
+    async getRefreshToken(refreshToken) {
+        if (!refreshToken) {
+            return null;
+        }
+        
+        const refreshTokenHash = this._hashToken(refreshToken);
+        return await TokenStorage.getToken(refreshTokenHash, 'refresh');
     }
 
     /**
-     * Revoke refresh token
+     * Revoke refresh token (Token Storage経由)
      * @param {string} refreshToken - Refresh token to revoke
-     * @returns {boolean} True if token was found and revoked
+     * @returns {Promise<boolean>} True if token was found and revoked
      */
-    revokeRefreshToken(refreshToken) {
-        const existed = this.refreshTokens.has(refreshToken);
-        this.refreshTokens.delete(refreshToken);
-        
-        if (existed) {
-            winston.verbose('[mcp-server] Refresh token revoked successfully');
+    async revokeRefreshToken(refreshToken) {
+        if (!refreshToken) {
+            return false;
         }
         
-        return existed;
+        try {
+            const refreshTokenHash = this._hashToken(refreshToken);
+            const tokenData = await TokenStorage.getToken(refreshTokenHash, 'refresh');
+            
+            if (!tokenData) {
+                return false;
+            }
+            
+            // Token Family全体を無効化
+            if (tokenData.rotation_family_id) {
+                await TokenStorage.revokeTokenFamily(tokenData.rotation_family_id);
+                winston.info('[mcp-server] Refresh token family revoked', { 
+                    family_id: tokenData.rotation_family_id,
+                    user_id: tokenData.user_id,
+                    client_id: tokenData.client_id
+                });
+            }
+            
+            return true;
+            
+        } catch (err) {
+            winston.error('[mcp-server] Failed to revoke refresh token:', err);
+            return false;
+        }
     }
 
     /**
@@ -495,15 +518,13 @@ class OAuthToken {
             created_at: now
         };
 
-        // データベース保存
+        // データベース保存 (Token Storage経由)
         await Promise.all([
             // アクセストークン保存
-            db.set(`oauth:access_token:${accessTokenHash}`, JSON.stringify(accessTokenData)),
-            db.expire(`oauth:access_token:${accessTokenHash}`, tokenConfig.accessTokenLifetime),
+            TokenStorage.storeAccessToken(accessTokenHash, accessTokenData, tokenConfig.accessTokenLifetime),
             
             // リフレッシュトークン保存
-            db.set(`oauth:refresh_token:${refreshTokenHash}`, JSON.stringify(refreshTokenData)),
-            db.expire(`oauth:refresh_token:${refreshTokenHash}`, tokenConfig.refreshTokenLifetime)
+            TokenStorage.storeRefreshToken(refreshTokenHash, refreshTokenData, rotationFamilyId, tokenConfig.refreshTokenLifetime)
         ]);
 
         winston.verbose('[mcp-server] Device tokens generated and stored', { 
@@ -533,46 +554,99 @@ class OAuthToken {
         }
 
         const refreshTokenHash = this._hashToken(refreshToken);
-        const refreshTokenKey = `oauth:refresh_token:${refreshTokenHash}`;
         
-        const tokenDataJson = await db.get(refreshTokenKey);
-        if (!tokenDataJson) {
-            throw new Error('Invalid refresh token');
+        // Token Storage経由でリフレッシュトークン取得
+        const tokenData = await TokenStorage.getToken(refreshTokenHash, 'refresh');
+        if (!tokenData) {
+            winston.warn('[mcp-server] Invalid or expired refresh token attempt');
+            const error = new Error('Invalid refresh token');
+            error.code = 'invalid_grant';
+            throw error;
         }
 
-        let tokenData;
+        // トークンが既に使用済み（revoked）かチェック
+        if (await TokenStorage.isTokenRevoked(refreshTokenHash)) {
+            // セキュリティ違反: 無効化されたトークンの使用検知
+            winston.warn('[mcp-server] Revoked refresh token reuse detected - revoking token family', {
+                user_id: tokenData.user_id,
+                client_id: tokenData.client_id,
+                family_id: tokenData.rotation_family_id
+            });
+            
+            // Token Family全体を無効化 (Security Breach Detection)
+            if (tokenData.rotation_family_id) {
+                await TokenStorage.revokeTokenFamily(tokenData.rotation_family_id);
+            }
+            
+            const error = new Error('Refresh token has been revoked due to security violation');
+            error.code = 'invalid_grant';
+            throw error;
+        }
+
         try {
-            tokenData = JSON.parse(tokenDataJson);
+            // 新しいトークンペア生成
+            const newAccessToken = this._generateSecureToken();
+            const newRefreshToken = this._generateSecureToken();
+            const now = Date.now();
+
+            // 新しいアクセストークンデータ
+            const newAccessTokenData = {
+                access_token_hash: this._hashToken(newAccessToken),
+                user_id: tokenData.user_id,
+                client_id: tokenData.client_id,
+                scopes: tokenData.scopes || ['mcp:read'],
+                expires_at: now + (tokenConfig.accessTokenLifetime * 1000),
+                created_at: now
+            };
+
+            // 新しいリフレッシュトークンデータ
+            const newRefreshTokenData = {
+                refresh_token_hash: this._hashToken(newRefreshToken),
+                access_token_hash: newAccessTokenData.access_token_hash,
+                user_id: tokenData.user_id,
+                client_id: tokenData.client_id,
+                expires_at: now + (tokenConfig.refreshTokenLifetime * 1000),
+                created_at: now,
+                parent_token_hash: refreshTokenHash
+            };
+
+            // Token Storage経由でトークン回転実行
+            await TokenStorage.rotateRefreshToken(
+                refreshTokenHash,
+                this._hashToken(newRefreshToken),
+                newRefreshTokenData
+            );
+
+            // 新しいアクセストークンを保存
+            await TokenStorage.storeAccessToken(
+                newAccessTokenData.access_token_hash,
+                newAccessTokenData,
+                tokenConfig.accessTokenLifetime
+            );
+
+            winston.info('[mcp-server] Refresh token rotated successfully', { 
+                user_id: tokenData.user_id, 
+                client_id: tokenData.client_id,
+                family_id: tokenData.rotation_family_id,
+                old_generation: tokenData.generation,
+                new_generation: (tokenData.generation || 1) + 1
+            });
+
+            // レスポンス
+            return {
+                access_token: newAccessToken,
+                token_type: 'Bearer',
+                expires_in: tokenConfig.accessTokenLifetime,
+                refresh_token: newRefreshToken,
+                scope: Array.isArray(newAccessTokenData.scopes) ? newAccessTokenData.scopes.join(' ') : (newAccessTokenData.scopes || '')
+            };
+
         } catch (err) {
-            throw new Error('Invalid refresh token format');
+            winston.error('[mcp-server] Refresh token rotation failed:', err);
+            const error = new Error('Failed to refresh token');
+            error.code = 'server_error';
+            throw error;
         }
-
-        const now = Date.now();
-        if (now > tokenData.expires_at) {
-            throw new Error('Refresh token has expired');
-        }
-
-        // 新しいトークンペア生成
-        const newTokens = await this.generateDeviceTokens(
-            tokenData.user_id,
-            tokenData.client_id,
-            tokenData.scopes || ['mcp:read']
-        );
-
-        // 古いリフレッシュトークンを無効化（rotation）
-        await db.delete(refreshTokenKey);
-        
-        // 関連するアクセストークンも無効化
-        if (tokenData.access_token_hash) {
-            await db.delete(`oauth:access_token:${tokenData.access_token_hash}`);
-        }
-
-        winston.info('[mcp-server] Refresh token rotated', { 
-            user_id: tokenData.user_id, 
-            client_id: tokenData.client_id 
-        });
-
-        return newTokens;
     }
 
     /**
@@ -586,25 +660,38 @@ class OAuthToken {
         }
 
         const tokenHash = this._hashToken(accessToken);
-        const tokenKey = `oauth:access_token:${tokenHash}`;
         
-        const tokenDataJson = await db.get(tokenKey);
-        if (!tokenDataJson) {
-            throw new Error('Invalid access token');
+        // Token Storage経由でアクセストークン取得
+        const tokenData = await TokenStorage.getToken(tokenHash, 'access');
+        if (!tokenData) {
+            throw new Error('Invalid or expired access token');
         }
 
-        let tokenData;
-        try {
-            tokenData = JSON.parse(tokenDataJson);
-        } catch (err) {
-            throw new Error('Invalid access token format');
+        return {
+            userId: tokenData.user_id,
+            clientId: tokenData.client_id,
+            scopes: tokenData.scopes || [],
+            expiresAt: tokenData.expires_at,
+            createdAt: tokenData.created_at
+        };
+    }
+
+    /**
+     * Device Grant用トークン検証 (Token Storage経由)
+     * @param {string} accessToken - アクセストークン
+     * @returns {Promise<Object>} トークン情報 (userId, scopes, etc.)
+     */
+    async validateDeviceAccessToken(accessToken) {
+        if (!accessToken) {
+            throw new Error('Missing access token');
         }
 
-        const now = Date.now();
-        if (now > tokenData.expires_at) {
-            // 期限切れトークンを削除
-            await db.delete(tokenKey);
-            throw new Error('Access token has expired');
+        const tokenHash = this._hashToken(accessToken);
+        
+        // Token Storage経由でアクセストークン取得
+        const tokenData = await TokenStorage.getToken(tokenHash, 'access');
+        if (!tokenData) {
+            throw new Error('Invalid or expired access token');
         }
 
         return {
