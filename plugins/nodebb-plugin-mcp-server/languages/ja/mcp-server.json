@@ -67,6 +67,9 @@
             "footer": "MCP Server Device Authorization"
         }
     },
+    "server": {
+        "name": "NodeBB MCPサーバー"
+    },
     "scope": {
         "mcp:read": "読み取りアクセス - コンテンツと情報の表示",
         "mcp-read": "読み取りアクセス - コンテンツと情報の表示",

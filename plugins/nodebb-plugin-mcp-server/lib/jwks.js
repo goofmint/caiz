@@ -159,6 +159,73 @@ class JWKSManager {
     }
 
     /**
+     * Verify JWT token signature and extract payload
+     * @param {string} jwt - JWT token to verify
+     * @returns {Object} JWT payload if valid
+     * @throws {Error} If token is invalid
+     */
+    verifyJWT(jwt) {
+        if (!jwt || typeof jwt !== 'string') {
+            throw new Error('Invalid JWT token');
+        }
+
+        const parts = jwt.split('.');
+        if (parts.length !== 3) {
+            throw new Error('Invalid JWT format');
+        }
+
+        try {
+            // Decode header and payload
+            const header = JSON.parse(this.base64UrlDecode(parts[0]));
+            const payload = JSON.parse(this.base64UrlDecode(parts[1]));
+            const signature = Buffer.from(parts[2], 'base64url');
+
+            // Verify algorithm
+            if (header.alg !== 'RS256') {
+                throw new Error('Unsupported algorithm');
+            }
+
+            // Verify signature
+            const signingInput = `${parts[0]}.${parts[1]}`;
+            const isValid = crypto.verify(
+                'RSA-SHA256',
+                Buffer.from(signingInput),
+                {
+                    key: this.keyPair.publicKey,
+                    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+                },
+                signature
+            );
+
+            if (!isValid) {
+                throw new Error('Invalid JWT signature');
+            }
+
+            return payload;
+        } catch (err) {
+            throw new Error(`JWT verification failed: ${err.message}`);
+        }
+    }
+
+    /**
+     * Base64URL decode
+     * @param {string} str - Base64URL encoded string
+     * @returns {string} Decoded string
+     * @private
+     */
+    base64UrlDecode(str) {
+        // Add padding if needed
+        let padded = str;
+        while (padded.length % 4) {
+            padded += '=';
+        }
+        
+        // Replace URL-safe chars with standard base64 chars
+        const base64 = padded.replace(/-/g, '+').replace(/_/g, '/');
+        return Buffer.from(base64, 'base64').toString('utf8');
+    }
+
+    /**
      * Create a test JWT token for authentication testing
      * @param {Object} userInfo - User information
      * @returns {string} Test JWT token

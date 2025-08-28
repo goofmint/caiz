@@ -40,17 +40,17 @@ async function getAuthorizationServerMetadata(req, res) {
         
         const metadata = {
             issuer: baseUrl,
-            authorization_endpoint: `${baseUrl}/oauth/authorize`,
             device_authorization_endpoint: `${baseUrl}/oauth/device_authorization`,
             token_endpoint: `${baseUrl}/oauth/token`,
             registration_endpoint: `${baseUrl}/oauth/register`,
+            authorization_endpoint: `${baseUrl}/oauth/authorize`,
             grant_types_supported: [
-                'urn:ietf:params:oauth:grant-type:device_code',
+                'authorization_code',
                 'refresh_token'
             ],
-            response_types_supported: ['device_code'],
+            response_types_supported: ['code'],
             scopes_supported: oauth2Config.supportedScopes,
-            token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
+            token_endpoint_auth_methods_supported: ['none'],
             code_challenge_methods_supported: ['S256'],
             registration_endpoint_auth_methods_supported: ['none']
         };

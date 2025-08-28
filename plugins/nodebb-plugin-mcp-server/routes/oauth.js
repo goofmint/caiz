@@ -294,20 +294,31 @@ module.exports = function(router, middleware) {
             }
 
             // Check if user is authenticated
-            if (!req.session.uid) {
+            winston.verbose('[mcp-server] Checking authentication sources:', {
+                sessionUid: req.session?.uid,
+                reqUser: !!req.user,
+                reqUserId: req.user?.uid || req.user?.id,
+                userAgent: req.get('User-Agent')
+            });
+
+            const userId = req.session?.uid || req.user?.uid || req.user?.id;
+            
+            if (!userId) {
                 winston.verbose('[mcp-server] User not authenticated, redirecting to NodeBB login');
                 
                 // Store OAuth parameters in session for after login
                 req.session.oauthParams = req.query;
                 
                 // Redirect to NodeBB login
-                return res.redirect(`/login?next=${encodeURIComponent('/oauth/authorize?' + new URLSearchParams(req.query).toString())}`);
+                const loginUrl = `/login?next=${encodeURIComponent('/oauth/authorize?' + new URLSearchParams(req.query).toString())}`;
+                winston.verbose('[mcp-server] Redirecting to login URL:', loginUrl);
+                return res.redirect(loginUrl);
             }
 
             // Get user information
-            const userData = await user.getUserData(req.session.uid);
+            const userData = await user.getUserData(userId);
             if (!userData) {
-                winston.error('[mcp-server] Failed to get user data for uid:', req.session.uid);
+                winston.error('[mcp-server] Failed to get user data for uid:', userId);
                 const errorUrl = OAuthAuth.generateErrorRedirect(
                     req.query.redirect_uri,
                     'server_error',
@@ -324,7 +335,7 @@ module.exports = function(router, middleware) {
             
             // Render authorization consent screen
             res.render('oauth/authorize', {
-                title: 'OAuth Authorization',
+                title: 'OAuth認証',
                 clientName: req.query.client_id,
                 response_type: req.query.response_type,
                 client_id: req.query.client_id,
@@ -366,8 +377,10 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] OAuth authorization form submitted');
 
-            // Check if user is authenticated
-            if (!req.session.uid) {
+            // Check if user is authenticated  
+            const userId = req.session?.uid || req.user?.uid || req.user?.id;
+            
+            if (!userId) {
                 winston.error('[mcp-server] User not authenticated on form submit');
                 const errorUrl = OAuthAuth.generateErrorRedirect(
                     req.body.redirect_uri,
@@ -431,7 +444,7 @@ module.exports = function(router, middleware) {
             // Generate authorization code
             const scopes = req.body.scope.split(' ');
             const authCode = OAuthAuth.generateAuthCode(
-                req.session.uid,
+                userId,
                 req.body.client_id,
                 scopes,
                 req.body.code_challenge,
@@ -748,23 +761,40 @@ module.exports = function(router, middleware) {
     router.post('/oauth/register', async (req, res) => {
         try {
             winston.verbose('[mcp-server] Dynamic client registration request received');
+            winston.info('[mcp-server] Client registration request body:', JSON.stringify(req.body, null, 2));
+            winston.info('[mcp-server] Client registration headers:', JSON.stringify(req.headers, null, 2));
             
             // Extract client metadata from request
             const clientMetadata = req.body || {};
             
-            // For mcp-remote compatibility, we'll create a registration response
-            // but use our predefined client_id since we don't support full dynamic registration
+            // Extract callback port from request if provided by mcp-remote
+            const callbackPort = clientMetadata.callback_port || 
+                                 (clientMetadata.redirect_uris && clientMetadata.redirect_uris[0] ? 
+                                  new URL(clientMetadata.redirect_uris[0]).port : '13818');
+                                  
+            // Dynamic Client Registration with comprehensive client information for mcp-remote
             const registrationResponse = {
                 client_id: 'mcp-client',
-                client_secret: '', // Empty string for device flow (no secret required)
+                client_secret: '',
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
                 client_uri: clientMetadata.client_uri || '',
-                redirect_uris: [], // Empty for Device Authorization Grant
-                grant_types: ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
-                response_types: ['device_code'],
+                logo_uri: clientMetadata.logo_uri || '',
+                redirect_uris: [
+                    `http://localhost:${callbackPort}/callback`,
+                    `http://127.0.0.1:${callbackPort}/callback`,
+                    'http://localhost:13818/callback',
+                    'http://localhost:13819/callback',
+                    'http://localhost:13820/callback',
+                    'http://127.0.0.1:13818/callback',
+                    'http://127.0.0.1:13819/callback',
+                    'http://127.0.0.1:13820/callback'
+                ],
+                grant_types: ['authorization_code', 'refresh_token'],
+                response_types: ['code'],
                 token_endpoint_auth_method: 'none',
-                scope: 'mcp:read mcp:write',
-                client_id_issued_at: Math.floor(Date.now() / 1000)
+                application_type: 'native',
+                client_id_issued_at: Math.floor(Date.now() / 1000),
+                scope: 'mcp:read mcp:write'
             };
             
             // Set appropriate headers (RFC 7591 Section 3.2)

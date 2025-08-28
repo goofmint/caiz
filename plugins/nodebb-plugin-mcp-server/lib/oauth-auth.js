@@ -21,12 +21,18 @@ class OAuthAuth {
     validateAuthParams(params) {
         winston.verbose('[mcp-server] Validating OAuth authorization parameters');
 
-        // Check required parameters
-        const required = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge', 'code_challenge_method', 'resource'];
+        // Check required parameters (scope is optional, will use default if missing)
+        const required = ['response_type', 'client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method'];
         for (const param of required) {
             if (!params[param]) {
                 throw new Error(`Missing required parameter: ${param}`);
             }
+        }
+
+        // Set default scope if not provided
+        if (!params.scope) {
+            params.scope = 'mcp:read mcp:write';
+            winston.verbose('[mcp-server] Using default scope: mcp:read mcp:write');
         }
 
         // Validate response_type
@@ -52,10 +58,13 @@ class OAuthAuth {
             throw new Error('Invalid redirect_uri. Only loopback addresses are allowed');
         }
 
-        // Validate resource (must match this server)
-        const baseUrl = nconf.get('url');
-        if (params.resource !== baseUrl) {
-            throw new Error(`Invalid resource parameter. Expected: ${baseUrl}`);
+        // Validate resource (optional, should match this server if provided)
+        if (params.resource) {
+            const baseUrl = nconf.get('url');
+            if (params.resource !== baseUrl) {
+                winston.verbose(`[mcp-server] Resource parameter mismatch: ${params.resource} vs ${baseUrl}`);
+                // Don't throw error, just log for debugging
+            }
         }
 
         // Validate scope
@@ -143,7 +152,17 @@ class OAuthAuth {
      * @returns {Array<Object>} Scope objects for template
      */
     parseScopes(scopeString) {
-        return scopeString.split(' ').map(scope => ({ scope }));
+        const scopeDescriptions = {
+            'mcp:read': '読み取りアクセス - コンテンツと情報の表示',
+            'mcp:write': '書き込みアクセス - データの変更と作成',
+            'mcp:admin': '管理者アクセス - システム設定の変更',
+            'mcp:search': '検索アクセス - コンテンツの検索'
+        };
+        
+        return scopeString.split(' ').map(scope => ({
+            scope,
+            description: scopeDescriptions[scope] || scope
+        }));
     }
 
     /**
