@@ -359,6 +359,132 @@ function getMCPServer() {
     return instance.server;
 }
 
+/**
+ * Enhanced 401 response for MCP initial connection
+ * Provides OAuth2 Device Authorization Grant flow information
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+function sendMCPAuthenticationRequired(req, res) {
+    const authServerUrl = `${req.protocol}://${req.get('Host')}`;
+    const deviceAuthUrl = `${authServerUrl}/api/oauth/device_authorization`;
+    const tokenUrl = `${authServerUrl}/api/oauth/token`;
+    
+    // Log authentication flow initiation for audit
+    winston.info('[mcp-server] OAuth2 authentication flow initiated', {
+        clientIP: req.ip,
+        userAgent: req.get('User-Agent'),
+        endpoint: req.path,
+        timestamp: new Date().toISOString()
+    });
+    
+    res.status(401).set({
+        'WWW-Authenticate': `Bearer realm="MCP API", error="invalid_token", error_description="Authentication required"`,
+        'Cache-Control': 'no-store',
+        'Pragma': 'no-cache'
+    }).json({
+        error: 'authentication_required',
+        error_description: 'MCP access requires OAuth2 authentication',
+        oauth2: {
+            device_authorization_endpoint: deviceAuthUrl,
+            token_endpoint: tokenUrl,
+            grant_types_supported: ['urn:ietf:params:oauth:grant-type:device_code'],
+            scopes_supported: ['mcp:read', 'mcp:write'],
+            client_id: 'mcp-client'
+        },
+        instructions: {
+            step1: 'Make POST request to device_authorization_endpoint with client_id',
+            step2: 'Direct user to verification_uri with user_code',
+            step3: 'Poll token_endpoint until authorization is complete',
+            step4: 'Retry MCP connection with access_token'
+        }
+    });
+}
+
+/**
+ * Monitor token expiration during SSE connection
+ * Send authentication events when token expires
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Object} authInfo - Authentication information
+ */
+function monitorTokenExpiration(req, res, authInfo) {
+    if (!authInfo || !authInfo.tokenExpiresAt) {
+        winston.verbose('[mcp-server] No token expiration info available for monitoring');
+        return;
+    }
+    
+    const expiryTime = new Date(authInfo.tokenExpiresAt).getTime();
+    const now = Date.now();
+    const timeToExpiry = expiryTime - now;
+    
+    winston.verbose('[mcp-server] Token monitoring setup', {
+        expiresAt: authInfo.tokenExpiresAt,
+        timeToExpiry: timeToExpiry,
+        userId: authInfo.userId
+    });
+    
+    // If token expires within 5 minutes, schedule expiration warning
+    if (timeToExpiry > 0 && timeToExpiry < 300000) { // 5分以内に期限切れ
+        const warningDelay = Math.max(0, timeToExpiry - 300000); // 5分前に通知
+        
+        setTimeout(() => {
+            try {
+                if (res.writableEnded) {
+                    winston.verbose('[mcp-server] SSE connection closed, skipping token expiry warning');
+                    return;
+                }
+                
+                const expiryNotification = {
+                    jsonrpc: '2.0',
+                    method: 'notifications/token_expiring',
+                    params: {
+                        expires_in: Math.max(0, Math.floor((expiryTime - Date.now()) / 1000)),
+                        refresh_required: true,
+                        message: 'Access token will expire soon. Please refresh your authentication.'
+                    }
+                };
+                
+                res.write(`event: token_expiring\n`);
+                res.write(`data: ${JSON.stringify(expiryNotification)}\n\n`);
+                
+                winston.info('[mcp-server] Token expiration warning sent', {
+                    userId: authInfo.userId,
+                    expiresIn: expiryNotification.params.expires_in
+                });
+            } catch (err) {
+                winston.error('[mcp-server] Error sending token expiry warning:', err);
+            }
+        }, warningDelay);
+    }
+}
+
+/**
+ * MCP authentication middleware with enhanced 401 response
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object  
+ * @param {Function} next - Express next function
+ */
+async function mcpAuthenticate(req, res, next) {
+    const OAuthAuthenticator = require('../lib/unified-auth');
+    
+    // Extract Bearer token
+    const token = OAuthAuthenticator.extractBearerToken(req.get('Authorization'));
+    
+    if (!token) {
+        winston.verbose('[mcp-server] No Bearer token provided for MCP endpoint');
+        return sendMCPAuthenticationRequired(req, res);
+    }
+
+    // Validate token through unified auth
+    try {
+        await OAuthAuthenticator.authenticate(req, res, next);
+    } catch (err) {
+        winston.verbose('[mcp-server] MCP authentication failed:', err.message);
+        return sendMCPAuthenticationRequired(req, res);
+    }
+}
+
 module.exports = function(router) {
     /**
      * MCP over HTTP Endpoint
@@ -371,7 +497,7 @@ module.exports = function(router) {
      * This is the main MCP endpoint as per specification
      */
     router.post('/api/mcp', 
-        require('../lib/unified-auth').authenticate,
+        mcpAuthenticate,
         async (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
@@ -482,7 +608,7 @@ module.exports = function(router) {
      * GET /api/mcp - Server-Sent Events
      */
     router.get('/api/mcp', 
-        require('../lib/unified-auth').authenticate,
+        mcpAuthenticate,
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP GET request received');
@@ -573,6 +699,9 @@ module.exports = function(router) {
 
                 res.write(`event: initialized\n`);
                 res.write(`data: ${JSON.stringify(initNotification)}\n\n`);
+
+                // Monitor token expiration during SSE connection
+                monitorTokenExpiration(req, res, req.auth);
 
                 // Idempotent teardown function with proper cleanup
                 let teardownDone = false;
@@ -762,7 +891,7 @@ module.exports = function(router) {
      * GET /api/mcp/session
      */
     router.get('/api/mcp/session', 
-        require('../lib/unified-auth').authenticate,
+        mcpAuthenticate,
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP session requested');
