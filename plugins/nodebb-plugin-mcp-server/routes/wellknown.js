@@ -43,6 +43,7 @@ async function getAuthorizationServerMetadata(req, res) {
             authorization_endpoint: `${baseUrl}/oauth/authorize`,
             device_authorization_endpoint: `${baseUrl}/oauth/device_authorization`,
             token_endpoint: `${baseUrl}/oauth/token`,
+            registration_endpoint: `${baseUrl}/oauth/register`,
             grant_types_supported: [
                 'urn:ietf:params:oauth:grant-type:device_code',
                 'refresh_token'
@@ -51,7 +52,7 @@ async function getAuthorizationServerMetadata(req, res) {
             scopes_supported: oauth2Config.supportedScopes,
             token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
             code_challenge_methods_supported: ['S256'],
-            device_authorization_endpoint: `${baseUrl}/oauth/device_authorization`
+            registration_endpoint_auth_methods_supported: ['none']
         };
         
         // RFC 8414準拠のセキュリティヘッダー設定

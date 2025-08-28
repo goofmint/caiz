@@ -740,5 +740,57 @@ module.exports = function(router, middleware) {
         }
     });
 
+    /**
+     * OAuth Dynamic Client Registration Endpoint
+     * POST /oauth/register
+     * RFC 7591 compliant client registration for mcp-remote compatibility
+     */
+    router.post('/oauth/register', async (req, res) => {
+        try {
+            winston.verbose('[mcp-server] Dynamic client registration request received');
+            
+            // Extract client metadata from request
+            const clientMetadata = req.body || {};
+            
+            // For mcp-remote compatibility, we'll create a registration response
+            // but use our predefined client_id since we don't support full dynamic registration
+            const registrationResponse = {
+                client_id: 'mcp-client',
+                client_name: clientMetadata.client_name || 'MCP Remote Client',
+                client_uri: clientMetadata.client_uri || '',
+                grant_types: ['urn:ietf:params:oauth:grant-type:device_code'],
+                response_types: ['device_code'],
+                token_endpoint_auth_method: 'none',
+                scope: 'mcp:read mcp:write'
+            };
+            
+            // Set appropriate headers (RFC 7591 Section 3.2)
+            res.set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            });
+            
+            res.status(201).json(registrationResponse);
+            
+            winston.verbose('[mcp-server] Dynamic client registration completed', {
+                client_id: registrationResponse.client_id,
+                client_name: registrationResponse.client_name
+            });
+            
+        } catch (err) {
+            winston.error('[mcp-server] Dynamic client registration error:', err);
+            
+            res.status(500).set({
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache'
+            }).json({
+                error: 'server_error',
+                error_description: 'Failed to register client'
+            });
+        }
+    });
+
     return router;
 };
