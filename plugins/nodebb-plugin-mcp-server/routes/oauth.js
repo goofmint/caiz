@@ -593,9 +593,13 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] Token introspection request received');
             
+            const OAuthClients = require('../lib/oauth-clients');
+            
             // RFC 7662 Section 2.1: Client Authentication Required
             const authHeader = req.get('Authorization');
-            if (!authHeader || !authHeader.startsWith('Basic ')) {
+            const credentials = OAuthClients.parseBasicAuth(authHeader);
+            
+            if (!credentials) {
                 winston.warn('[mcp-server] Missing or invalid client authentication for introspection');
                 return res.status(401).set({
                     'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
@@ -608,30 +612,40 @@ module.exports = function(router, middleware) {
                 });
             }
             
-            // Decode Basic auth (simplified - in production should verify against registered clients)
-            try {
-                const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString();
-                const [clientId] = credentials.split(':');
-                
-                // Basic client validation (in production: verify against client registry)
-                if (!clientId || clientId !== 'mcp-client') {
-                    winston.warn('[mcp-server] Invalid client credentials for introspection', { client_id: clientId });
-                    return res.status(401).set({
-                        'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
-                        'Content-Type': 'application/json'
-                    }).json({
-                        error: 'invalid_client',
-                        error_description: 'Invalid client credentials'
-                    });
-                }
-            } catch (err) {
-                winston.warn('[mcp-server] Failed to decode client credentials:', err.message);
+            // Authenticate client with secure credential verification
+            const authenticatedClient = await OAuthClients.authenticateClient(
+                credentials.clientId, 
+                credentials.clientSecret
+            );
+            
+            if (!authenticatedClient) {
+                winston.warn('[mcp-server] Client authentication failed for introspection', { 
+                    client_id: credentials.clientId 
+                });
                 return res.status(401).set({
                     'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
                 }).json({
                     error: 'invalid_client',
-                    error_description: 'Invalid client authentication format'
+                    error_description: 'Invalid client credentials'
+                });
+            }
+            
+            // Check if client is authorized for introspection
+            if (!OAuthClients.isIntrospectionAllowed(authenticatedClient)) {
+                winston.warn('[mcp-server] Client not authorized for token introspection', { 
+                    client_id: authenticatedClient.id 
+                });
+                return res.status(401).set({
+                    'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store',
+                    'Pragma': 'no-cache'
+                }).json({
+                    error: 'invalid_client',
+                    error_description: 'Client not authorized for token introspection'
                 });
             }
             
@@ -656,6 +670,23 @@ module.exports = function(router, middleware) {
                 // Try to validate as access token
                 const tokenData = await OAuthToken.validateDeviceAccessToken(token);
                 
+                // Check if authenticated client is authorized for this specific token
+                if (!OAuthClients.isClientAuthorizedForToken(authenticatedClient, tokenData)) {
+                    winston.warn('[mcp-server] Client not authorized for this token', { 
+                        client_id: authenticatedClient.id,
+                        token_client_id: tokenData.clientId
+                    });
+                    return res.status(401).set({
+                        'WWW-Authenticate': 'Basic realm="OAuth2 Token Introspection", charset="UTF-8"',
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-store',
+                        'Pragma': 'no-cache'
+                    }).json({
+                        error: 'invalid_client',
+                        error_description: 'Client not authorized to introspect this token'
+                    });
+                }
+                
                 // RFC 7662 Section 2.2: Successful response
                 introspectionResponse = {
                     active: true,
@@ -668,7 +699,8 @@ module.exports = function(router, middleware) {
                 };
                 
                 winston.verbose('[mcp-server] Token introspection successful', { 
-                    client_id: tokenData.clientId,
+                    requesting_client_id: authenticatedClient.id,
+                    token_client_id: tokenData.clientId,
                     scope: introspectionResponse.scope,
                     expires_at: new Date(tokenData.expiresAt).toISOString()
                 });
