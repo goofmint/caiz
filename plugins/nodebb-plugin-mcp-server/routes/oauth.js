@@ -762,42 +762,14 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] Dynamic client registration request received');
             
-            // Handle req.body which might be a Buffer or object
-            let clientMetadata = {};
+            // Parse client metadata from request body
+            const clientMetadata = req.body || {};
             
-            if (Buffer.isBuffer(req.body)) {
-                // Convert Buffer to string and parse JSON
-                const bodyString = req.body.toString('utf8');
-                winston.verbose('[mcp-server] Body is Buffer, converted to string:', bodyString);
-                try {
-                    clientMetadata = JSON.parse(bodyString);
-                } catch (parseErr) {
-                    winston.error('[mcp-server] Failed to parse JSON from Buffer:', parseErr);
-                    return res.status(400).json({
-                        error: 'invalid_client_metadata',
-                        error_description: 'Invalid JSON in request body'
-                    });
-                }
-            } else if (typeof req.body === 'string') {
-                // Parse JSON string
-                try {
-                    clientMetadata = JSON.parse(req.body);
-                } catch (parseErr) {
-                    winston.error('[mcp-server] Failed to parse JSON string:', parseErr);
-                    return res.status(400).json({
-                        error: 'invalid_client_metadata',
-                        error_description: 'Invalid JSON in request body'
-                    });
-                }
-            } else if (typeof req.body === 'object' && req.body !== null) {
-                // Already parsed object
-                clientMetadata = req.body;
-            } else {
-                winston.error('[mcp-server] Unexpected req.body type:', typeof req.body);
-                clientMetadata = {};
-            }
-            
-            winston.info('[mcp-server] Parsed client metadata:', JSON.stringify(clientMetadata, null, 2));
+            winston.verbose('[mcp-server] Client registration metadata:', {
+                client_name: clientMetadata.client_name,
+                redirect_uris: clientMetadata.redirect_uris,
+                grant_types: clientMetadata.grant_types
+            });
             
             // Extract callback port from request if provided by mcp-remote
             const callbackPort = clientMetadata.callback_port || 
@@ -809,8 +781,6 @@ module.exports = function(router, middleware) {
                 client_id: 'mcp-client',
                 client_secret: '',
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
-                client_uri: clientMetadata.client_uri || '',
-                logo_uri: clientMetadata.logo_uri || '',
                 redirect_uris: [
                     `http://localhost:${callbackPort}/callback`,
                     `http://127.0.0.1:${callbackPort}/callback`,
@@ -828,6 +798,14 @@ module.exports = function(router, middleware) {
                 client_id_issued_at: Math.floor(Date.now() / 1000),
                 scope: 'mcp:read mcp:write'
             };
+            
+            // Optional fields - only add if provided and valid
+            if (clientMetadata.client_uri) {
+                registrationResponse.client_uri = clientMetadata.client_uri;
+            }
+            if (clientMetadata.logo_uri) {
+                registrationResponse.logo_uri = clientMetadata.logo_uri;
+            }
             
             // Set appropriate headers (RFC 7591 Section 3.2)
             res.set({
