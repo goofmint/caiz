@@ -544,13 +544,15 @@ class OAuthToken {
     }
 
     /**
-     * リフレッシュトークンでアクセストークン更新
+     * リフレッシュトークンでアクセストークン更新 (Token Rotation)
      * @param {string} refreshToken - リフレッシュトークン
      * @returns {Promise<Object>} 新しいToken pair
      */
     async refreshDeviceAccessToken(refreshToken) {
         if (!refreshToken) {
-            throw new Error('Missing refresh token');
+            const error = new Error('Missing required parameter: refresh_token');
+            error.code = 'invalid_request';
+            throw error;
         }
 
         const refreshTokenHash = this._hashToken(refreshToken);
@@ -650,7 +652,7 @@ class OAuthToken {
     }
 
     /**
-     * Device Grant用トークン検証
+     * Device Grant用トークン検証 (Token Storage経由)
      * @param {string} accessToken - アクセストークン
      * @returns {Promise<Object>} トークン情報 (userId, scopes, etc.)
      */

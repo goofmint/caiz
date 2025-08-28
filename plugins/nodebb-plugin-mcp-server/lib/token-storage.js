@@ -29,7 +29,9 @@ class TokenStorage {
             
             winston.verbose('[token-storage] Access token stored', { 
                 hash: tokenHash.substring(0, 8) + '...',
-                expires_in: ttl
+                expires_in: ttl,
+                user_id: tokenData.user_id, 
+                client_id: tokenData.client_id
             });
         } catch (err) {
             winston.error('[token-storage] Failed to store access token:', err);
@@ -76,7 +78,9 @@ class TokenStorage {
             winston.verbose('[token-storage] Refresh token stored', { 
                 hash: tokenHash.substring(0, 8) + '...',
                 family_id: familyId,
-                generation: enrichedData.generation
+                generation: enrichedData.generation,
+                user_id: tokenData.user_id, 
+                client_id: tokenData.client_id
             });
         } catch (err) {
             winston.error('[token-storage] Failed to store refresh token:', err);
@@ -91,7 +95,7 @@ class TokenStorage {
      * @returns {Promise<Object|null>} Token data or null if not found
      */
     static async getToken(tokenHash, tokenType) {
-        if (!tokenHash || !tokenType) {
+        if (!tokenHash || !['access', 'refresh'].includes(tokenType)) {
             return null;
         }
 
@@ -108,12 +112,17 @@ class TokenStorage {
             // Check if token is expired (double-check)
             if (tokenData.expires_at && Date.now() > tokenData.expires_at) {
                 await db.delete(key);
+                winston.verbose('[token-storage] Expired token removed', { 
+                    type: tokenType, 
+                    hash: tokenHash.substring(0, 8) + '...' 
+                });
                 return null;
             }
 
             return tokenData;
         } catch (err) {
             winston.error(`[token-storage] Failed to get ${tokenType} token:`, err);
+            await db.delete(key);
             return null;
         }
     }
@@ -176,7 +185,8 @@ class TokenStorage {
                 old_hash: oldTokenHash.substring(0, 8) + '...',
                 new_hash: newTokenHash.substring(0, 8) + '...',
                 family_id: oldTokenData.rotation_family_id,
-                generation: enrichedNewData.generation
+                old_generation: oldTokenData.generation,
+                new_generation: enrichedNewData.generation
             });
         } catch (err) {
             winston.error('[token-storage] Failed to rotate refresh token:', err);
@@ -198,23 +208,36 @@ class TokenStorage {
         
         try {
             const tokenHashes = await db.getSetMembers(familyKey);
+            if (!tokenHashes || tokenHashes.length === 0) {
+                return 0;
+            }
+
             let revokedCount = 0;
+            const now = Date.now();
 
             for (const tokenHash of tokenHashes) {
-                const key = `oauth:refresh_token:${tokenHash}`;
-                const tokenDataJson = await db.get(key);
-                
-                if (tokenDataJson) {
-                    const tokenData = JSON.parse(tokenDataJson);
-                    const revokedData = {
-                        ...tokenData,
-                        revoked_at: Date.now(),
-                        revocation_reason: 'security_breach'
-                    };
+                try {
+                    const key = `oauth:refresh_token:${tokenHash}`;
+                    const tokenDataJson = await db.get(key);
                     
-                    await db.set(key, JSON.stringify(revokedData));
-                    await db.expire(key, 300); // Keep for 5 minutes for audit
-                    revokedCount++;
+                    if (tokenDataJson) {
+                        const tokenData = JSON.parse(tokenDataJson);
+                        const revokedData = {
+                            ...tokenData,
+                            revoked_at: now,
+                            revocation_reason: 'security_breach'
+                        };
+                        
+                        await db.set(key, JSON.stringify(revokedData));
+                        await db.expire(key, 300); // Keep for 5 minutes for audit
+                        revokedCount++;
+                    }
+                } catch (err) {
+                    winston.error('[token-storage] Failed to revoke token in family', { 
+                        family_id: familyId, 
+                        token_hash: tokenHash.substring(0, 8) + '...', 
+                        error: err.message 
+                    });
                 }
             }
 
@@ -244,47 +267,65 @@ class TokenStorage {
 
             // Cleanup access tokens
             const accessKeys = await db.keys('oauth:access_token:*');
-            for (const key of accessKeys) {
-                const tokenDataJson = await db.get(key);
-                if (tokenDataJson) {
-                    const tokenData = JSON.parse(tokenDataJson);
-                    if (tokenData.expires_at && now > tokenData.expires_at) {
-                        await db.delete(key);
-                        cleanedCount++;
+            for (const key of accessKeys || []) {
+                try {
+                    const tokenDataJson = await db.get(key);
+                    if (tokenDataJson) {
+                        const tokenData = JSON.parse(tokenDataJson);
+                        if (tokenData.expires_at && now > tokenData.expires_at) {
+                            await db.delete(key);
+                            cleanedCount++;
+                        }
                     }
+                } catch (err) {
+                    // Delete corrupted entries
+                    await db.delete(key);
+                    cleanedCount++;
                 }
             }
 
             // Cleanup refresh tokens
             const refreshKeys = await db.keys('oauth:refresh_token:*');
-            for (const key of refreshKeys) {
-                const tokenDataJson = await db.get(key);
-                if (tokenDataJson) {
-                    const tokenData = JSON.parse(tokenDataJson);
-                    if (tokenData.expires_at && now > tokenData.expires_at) {
-                        await db.delete(key);
-                        cleanedCount++;
-                        
-                        // Remove from family tracking
-                        if (tokenData.rotation_family_id) {
-                            const familyKey = `oauth:token_family:${tokenData.rotation_family_id}`;
-                            const tokenHash = key.replace('oauth:refresh_token:', '');
-                            await db.setRemove(familyKey, tokenHash);
+            for (const key of refreshKeys || []) {
+                try {
+                    const tokenDataJson = await db.get(key);
+                    if (tokenDataJson) {
+                        const tokenData = JSON.parse(tokenDataJson);
+                        if (tokenData.expires_at && now > tokenData.expires_at) {
+                            await db.delete(key);
+                            cleanedCount++;
+                            
+                            // Remove from family tracking
+                            if (tokenData.rotation_family_id) {
+                                const familyKey = `oauth:token_family:${tokenData.rotation_family_id}`;
+                                const tokenHash = key.replace('oauth:refresh_token:', '');
+                                await db.setRemove(familyKey, tokenHash);
+                            }
                         }
                     }
+                } catch (err) {
+                    // Delete corrupted entries
+                    await db.delete(key);
+                    cleanedCount++;
                 }
             }
 
             // Cleanup device authorization codes
             const deviceKeys = await db.keys('oauth:device:*');
-            for (const key of deviceKeys) {
-                const deviceDataJson = await db.get(key);
-                if (deviceDataJson) {
-                    const deviceData = JSON.parse(deviceDataJson);
-                    if (deviceData.expires_at && now > deviceData.expires_at) {
-                        await db.delete(key);
-                        cleanedCount++;
+            for (const key of deviceKeys || []) {
+                try {
+                    const deviceDataJson = await db.get(key);
+                    if (deviceDataJson) {
+                        const deviceData = JSON.parse(deviceDataJson);
+                        if (deviceData.expires_at && now > deviceData.expires_at) {
+                            await db.delete(key);
+                            cleanedCount++;
+                        }
                     }
+                } catch (err) {
+                    // Delete corrupted entries
+                    await db.delete(key);
+                    cleanedCount++;
                 }
             }
 
@@ -310,15 +351,8 @@ class TokenStorage {
         }
 
         try {
-            const key = `oauth:refresh_token:${tokenHash}`;
-            const tokenDataJson = await db.get(key);
-            
-            if (!tokenDataJson) {
-                return true; // Not found = revoked
-            }
-
-            const tokenData = JSON.parse(tokenDataJson);
-            return tokenData.revoked_at !== null;
+            const tokenData = await TokenStorage.getToken(tokenHash, 'refresh');
+            return tokenData ? Boolean(tokenData.revoked_at) : true;
         } catch (err) {
             winston.error('[token-storage] Failed to check revocation status:', err);
             return true; // Assume revoked on error
@@ -356,6 +390,36 @@ class TokenStorage {
             winston.warn('[token-storage] Failed to track token usage:', err);
             // Don't throw - this is non-critical
         }
+    }
+
+    /**
+     * Hash token using SHA-256
+     * @param {string} token - Base64URL encoded token
+     * @returns {string} Hex encoded hash
+     */
+    static hashToken(token) {
+        if (!token) {
+            throw new Error('Token required for hashing');
+        }
+
+        return crypto
+            .createHash('sha256')
+            .update(Buffer.from(token, 'base64url'))
+            .digest('hex');
+    }
+
+    /**
+     * Generate cryptographically secure token
+     * @param {number} length - Length in bytes (default: 32)
+     * @returns {string} Base64URL encoded token
+     */
+    static generateSecureToken(length = 32) {
+        const bytes = crypto.randomBytes(length);
+        return bytes
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
     }
 }
 
