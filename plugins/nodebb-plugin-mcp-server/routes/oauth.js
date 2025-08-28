@@ -762,67 +762,18 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] Dynamic client registration request received');
             
-            // Handle req.body which might be a Buffer, array-like object, or normal object
-            let clientMetadata = {};
+            // Debug req.body issue
+            winston.verbose('[mcp-server] req.body type:', typeof req.body);
+            winston.verbose('[mcp-server] req.body constructor:', req.body?.constructor?.name);
+            winston.verbose('[mcp-server] req.body keys:', Object.keys(req.body || {}));
+            winston.verbose('[mcp-server] req.headers content-type:', req.headers['content-type']);
             
-            if (Buffer.isBuffer(req.body)) {
-                // Convert Buffer to string and parse JSON
-                const bodyString = req.body.toString('utf8');
-                winston.verbose('[mcp-server] Body is Buffer, converted to string:', bodyString);
-                try {
-                    clientMetadata = JSON.parse(bodyString);
-                } catch (parseErr) {
-                    winston.error('[mcp-server] Failed to parse JSON from Buffer:', parseErr);
-                    return res.status(400).json({
-                        error: 'invalid_client_metadata',
-                        error_description: 'Invalid JSON in request body'
-                    });
-                }
-            } else if (typeof req.body === 'string') {
-                // Parse JSON string
-                try {
-                    clientMetadata = JSON.parse(req.body);
-                } catch (parseErr) {
-                    winston.error('[mcp-server] Failed to parse JSON string:', parseErr);
-                    return res.status(400).json({
-                        error: 'invalid_client_metadata',
-                        error_description: 'Invalid JSON in request body'
-                    });
-                }
-            } else if (typeof req.body === 'object' && req.body !== null) {
-                // Check if it's an array-like object with numeric keys (character-by-character)
-                const hasNumericKeys = Object.keys(req.body).every(key => /^\d+$/.test(key));
-                
-                if (hasNumericKeys) {
-                    // Reconstruct string from array-like object
-                    const maxIndex = Math.max(...Object.keys(req.body).map(Number));
-                    let bodyString = '';
-                    for (let i = 0; i <= maxIndex; i++) {
-                        if (req.body[i] !== undefined) {
-                            bodyString += req.body[i];
-                        }
-                    }
-                    winston.verbose('[mcp-server] Reconstructed string from array-like object:', bodyString);
-                    
-                    try {
-                        clientMetadata = JSON.parse(bodyString);
-                    } catch (parseErr) {
-                        winston.error('[mcp-server] Failed to parse reconstructed JSON:', parseErr);
-                        return res.status(400).json({
-                            error: 'invalid_client_metadata',
-                            error_description: 'Invalid JSON in request body'
-                        });
-                    }
-                } else {
-                    // Already parsed object
-                    clientMetadata = req.body;
-                }
-            } else {
-                winston.error('[mcp-server] Unexpected req.body type:', typeof req.body);
-                clientMetadata = {};
-            }
+            // Parse client metadata from request body
+            // req.body should already be parsed by Express JSON middleware
+            const clientMetadata = req.body || {};
             
-            winston.info('[mcp-server] Parsed client metadata:', JSON.stringify(clientMetadata, null, 2));
+            winston.verbose('[mcp-server] Client metadata redirect_uris:', clientMetadata.redirect_uris);
+            winston.verbose('[mcp-server] Client metadata grant_types:', clientMetadata.grant_types);
             
             // Extract callback port from request if provided by mcp-remote
             const callbackPort = clientMetadata.callback_port || 
