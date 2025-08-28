@@ -677,33 +677,6 @@ class OAuthToken {
     }
 
     /**
-     * Device Grant用トークン検証 (Token Storage経由)
-     * @param {string} accessToken - アクセストークン
-     * @returns {Promise<Object>} トークン情報 (userId, scopes, etc.)
-     */
-    async validateDeviceAccessToken(accessToken) {
-        if (!accessToken) {
-            throw new Error('Missing access token');
-        }
-
-        const tokenHash = this._hashToken(accessToken);
-        
-        // Token Storage経由でアクセストークン取得
-        const tokenData = await TokenStorage.getToken(tokenHash, 'access');
-        if (!tokenData) {
-            throw new Error('Invalid or expired access token');
-        }
-
-        return {
-            userId: tokenData.user_id,
-            clientId: tokenData.client_id,
-            scopes: tokenData.scopes || [],
-            expiresAt: tokenData.expires_at,
-            createdAt: tokenData.created_at
-        };
-    }
-
-    /**
      * 暗号学的に安全なトークン生成
      * @returns {string} Base64URL encoded token
      * @private
