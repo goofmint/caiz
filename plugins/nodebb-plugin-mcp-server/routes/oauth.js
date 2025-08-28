@@ -759,9 +759,9 @@ module.exports = function(router, middleware) {
                 client_secret: '', // Empty string for device flow (no secret required)
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
                 client_uri: clientMetadata.client_uri || '',
-                redirect_uris: [], // Empty array for device authorization grant
-                grant_types: ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
-                response_types: ['device_code'],
+                redirect_uris: [`http://localhost:${clientMetadata.callback_port || '13818'}/callback`], // Callback URL for authorization code grant
+                grant_types: ['urn:ietf:params:oauth:grant-type:device_code', 'authorization_code', 'refresh_token'],
+                response_types: ['device_code', 'code'],
                 token_endpoint_auth_method: 'none',
                 scope: 'mcp:read mcp:write',
                 client_id_issued_at: Math.floor(Date.now() / 1000)
