@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const winston = require.main.require('winston');
 const OAuthToken = require('./oauth-token');
 
@@ -10,6 +11,41 @@ const OAuthToken = require('./oauth-token');
  */
 class OAuthAuthenticator {
     /**
+     * Get or create server-side secret for HMAC
+     * @returns {string} Server secret
+     */
+    static getServerSecret() {
+        if (!this._serverSecret) {
+            // Generate a secure 32-byte secret
+            this._serverSecret = crypto.randomBytes(32).toString('hex');
+            winston.verbose('[mcp-server] Generated new server secret for token HMAC');
+        }
+        return this._serverSecret;
+    }
+
+    /**
+     * Create secure token hint and hash
+     * @param {string} token - Full token
+     * @returns {Object} {tokenHint, tokenHash}
+     */
+    static createTokenMetadata(token) {
+        if (!token) {
+            return { tokenHint: null, tokenHash: null };
+        }
+
+        // Create hint (first 8 chars + '...')
+        const tokenHint = token.substring(0, 8) + '...';
+        
+        // Create HMAC-SHA256 hash using server secret
+        const secret = this.getServerSecret();
+        const tokenHash = crypto
+            .createHmac('sha256', secret)
+            .update(token)
+            .digest('hex');
+
+        return { tokenHint, tokenHash };
+    }
+    /**
      * Extract Bearer token from Authorization header
      * @param {string} authHeader - Authorization header value
      * @returns {string|null} Extracted token or null
@@ -19,17 +55,13 @@ class OAuthAuthenticator {
             return null;
         }
 
-        const parts = authHeader.trim().split(' ');
-        if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
+        // Use regex to handle multiple spaces/tabs between Bearer and token
+        const match = authHeader.match(/^\s*Bearer\s+([^\s]+)\s*$/i);
+        if (!match) {
             return null;
         }
         
-        const token = parts[1].trim();
-        if (!token) {
-            return null;
-        }
-        
-        return token;
+        return match[1];
     }
 
     /**
@@ -75,22 +107,69 @@ class OAuthAuthenticator {
     }
 
     /**
-     * Send 401 Unauthorized response
+     * Escape double quotes for WWW-Authenticate header
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string
+     */
+    static escapeHeaderValue(str) {
+        return str.replace(/"/g, '\\"');
+    }
+
+    /**
+     * Send 401 Unauthorized response for invalid tokens (RFC 6750)
      * @param {Object} res - Express response object
      * @param {string} errorDescription - Error description (optional)
      * @returns {void}
      */
     static sendUnauthorized(res, errorDescription) {
         const description = errorDescription || 'Invalid or expired token';
+        const escapedDesc = this.escapeHeaderValue(description);
         
         res.status(401).set({
-            'WWW-Authenticate': `Bearer realm="MCP API", error="invalid_token", error_description="${description}"`,
-            'Content-Type': 'application/json',
+            'WWW-Authenticate': `Bearer realm="MCP API", error="invalid_token", error_description="${escapedDesc}"`,
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
         }).json({
-            error: 'unauthorized',
+            error: 'invalid_token',
             error_description: description
+        });
+    }
+
+    /**
+     * Send 400 Bad Request for invalid requests (RFC 6750)
+     * @param {Object} res - Express response object
+     * @param {string} description - Error description
+     * @returns {void}
+     */
+    static sendInvalidRequest(res, description) {
+        const escapedDesc = this.escapeHeaderValue(description);
+        
+        res.status(400).set({
+            'WWW-Authenticate': `Bearer realm="MCP API", error="invalid_request", error_description="${escapedDesc}"`,
+            'Cache-Control': 'no-store',
+            'Pragma': 'no-cache'
+        }).json({
+            error: 'invalid_request',
+            error_description: description
+        });
+    }
+
+    /**
+     * Send 403 Forbidden for insufficient scope (RFC 6750)
+     * @param {Object} res - Express response object
+     * @param {Array<string>} requiredScopes - Required scopes
+     * @returns {void}
+     */
+    static sendInsufficientScope(res, requiredScopes) {
+        const scopesString = Array.isArray(requiredScopes) ? requiredScopes.join(' ') : requiredScopes;
+        
+        res.status(403).set({
+            'WWW-Authenticate': `Bearer realm="MCP API", error="insufficient_scope", scope="${scopesString}"`,
+            'Cache-Control': 'no-store',
+            'Pragma': 'no-cache'
+        }).json({
+            error: 'insufficient_scope',
+            required_scopes: requiredScopes
         });
     }
 
@@ -111,7 +190,7 @@ class OAuthAuthenticator {
         
         if (!token) {
             winston.verbose('[mcp-server] No Bearer token provided');
-            return OAuthAuthenticator.sendUnauthorized(res, 'Missing or invalid Authorization header');
+            return OAuthAuthenticator.sendInvalidRequest(res, 'Missing or malformed Authorization header');
         }
 
         // Determine token type and validate
@@ -134,18 +213,30 @@ class OAuthAuthenticator {
             return OAuthAuthenticator.sendUnauthorized(res, 'User account not found');
         }
 
-        // Set authentication context
+        // Create secure token metadata (never store full token)
+        const { tokenHint, tokenHash } = OAuthAuthenticator.createTokenMetadata(token);
+        const now = new Date();
+        const expiresAt = new Date(authInfo.expiresAt);
+        const expirySeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+
+        // Set authentication context (no raw token stored)
         req.auth = {
             userId: authInfo.userId,
             type: authInfo.type,
             clientId: authInfo.clientId,
             scopes: authInfo.scopes,
-            token: token.substring(0, 8) + '...', // Store partial token for audit
-            authenticatedAt: Date.now(),
+            tokenHint: tokenHint, // Safe partial token for audit
+            tokenHash: tokenHash, // HMAC hash for verification
+            tokenExpiresAt: expiresAt.toISOString(), // ISO timestamp
+            tokenExpirySeconds: expirySeconds, // Seconds until expiry
+            authenticatedAt: now.toISOString(), // ISO timestamp when authenticated
             username: userData.username,
             email: userData.email,
             displayname: userData.displayname || userData.username
         };
+
+        // Ensure full token is not kept in memory
+        // (token variable will be garbage collected after this scope)
 
         winston.verbose('[mcp-server] Authentication successful', {
             userId: authInfo.userId,
@@ -178,13 +269,22 @@ class OAuthAuthenticator {
                 const userData = await User.getUserData(authInfo.userId);
                 
                 if (userData) {
+                    // Create secure token metadata (never store full token)
+                    const { tokenHint, tokenHash } = OAuthAuthenticator.createTokenMetadata(token);
+                    const now = new Date();
+                    const expiresAt = new Date(authInfo.expiresAt);
+                    const expirySeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+
                     req.auth = {
                         userId: authInfo.userId,
                         type: authInfo.type,
                         clientId: authInfo.clientId,
                         scopes: authInfo.scopes,
-                        token: token.substring(0, 8) + '...',
-                        authenticatedAt: Date.now(),
+                        tokenHint: tokenHint, // Safe partial token for audit
+                        tokenHash: tokenHash, // HMAC hash for verification
+                        tokenExpiresAt: expiresAt.toISOString(), // ISO timestamp
+                        tokenExpirySeconds: expirySeconds, // Seconds until expiry
+                        authenticatedAt: now.toISOString(), // ISO timestamp when authenticated
                         username: userData.username,
                         email: userData.email,
                         displayname: userData.displayname || userData.username
