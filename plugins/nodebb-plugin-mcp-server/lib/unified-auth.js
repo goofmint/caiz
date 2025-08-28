@@ -45,6 +45,78 @@ class OAuthAuthenticator {
 
         return { tokenHint, tokenHash };
     }
+
+    /**
+     * Safely parse and validate expiration timestamp
+     * @param {any} expiresAt - Expiration timestamp (number or string)
+     * @returns {Object} {isValid, date, isoString, expirySeconds}
+     */
+    static parseExpiresAt(expiresAt) {
+        const now = new Date();
+        
+        if (!expiresAt) {
+            return {
+                isValid: false,
+                date: null,
+                isoString: null,
+                expirySeconds: 0
+            };
+        }
+
+        let timestamp;
+        
+        // Try to parse as number (Unix timestamp in milliseconds)
+        if (typeof expiresAt === 'number') {
+            timestamp = expiresAt;
+        } else if (typeof expiresAt === 'string') {
+            // Try to parse as ISO string or numeric string
+            timestamp = Date.parse(expiresAt);
+            if (isNaN(timestamp)) {
+                // Try parsing as numeric string (Unix timestamp)
+                const numericValue = Number(expiresAt);
+                if (!isNaN(numericValue)) {
+                    timestamp = numericValue;
+                } else {
+                    timestamp = NaN;
+                }
+            }
+        } else {
+            timestamp = NaN;
+        }
+
+        // Validate the timestamp
+        if (isNaN(timestamp) || timestamp <= 0) {
+            return {
+                isValid: false,
+                date: null,
+                isoString: null,
+                expirySeconds: 0
+            };
+        }
+
+        const expiryDate = new Date(timestamp);
+        
+        // Check if the date is valid
+        if (isNaN(expiryDate.getTime())) {
+            return {
+                isValid: false,
+                date: null,
+                isoString: null,
+                expirySeconds: 0
+            };
+        }
+
+        // Calculate expiry seconds (ensure non-negative integer)
+        const expirySeconds = Math.max(0, Math.floor((expiryDate.getTime() - now.getTime()) / 1000));
+
+        return {
+            isValid: true,
+            date: expiryDate,
+            isoString: expiryDate.toISOString(),
+            expirySeconds: expirySeconds
+        };
+    }
+
     /**
      * Extract Bearer token from Authorization header
      * @param {string} authHeader - Authorization header value
@@ -216,8 +288,9 @@ class OAuthAuthenticator {
         // Create secure token metadata (never store full token)
         const { tokenHint, tokenHash } = OAuthAuthenticator.createTokenMetadata(token);
         const now = new Date();
-        const expiresAt = new Date(authInfo.expiresAt);
-        const expirySeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+        
+        // Safely parse expiration timestamp
+        const expiryInfo = OAuthAuthenticator.parseExpiresAt(authInfo.expiresAt);
 
         // Set authentication context (no raw token stored)
         req.auth = {
@@ -227,8 +300,8 @@ class OAuthAuthenticator {
             scopes: authInfo.scopes,
             tokenHint: tokenHint, // Safe partial token for audit
             tokenHash: tokenHash, // HMAC hash for verification
-            tokenExpiresAt: expiresAt.toISOString(), // ISO timestamp
-            tokenExpirySeconds: expirySeconds, // Seconds until expiry
+            tokenExpiresAt: expiryInfo.isoString, // ISO timestamp or null if invalid
+            tokenExpirySeconds: expiryInfo.expirySeconds, // Seconds until expiry (0 if invalid)
             authenticatedAt: now.toISOString(), // ISO timestamp when authenticated
             username: userData.username,
             email: userData.email,
@@ -272,8 +345,9 @@ class OAuthAuthenticator {
                     // Create secure token metadata (never store full token)
                     const { tokenHint, tokenHash } = OAuthAuthenticator.createTokenMetadata(token);
                     const now = new Date();
-                    const expiresAt = new Date(authInfo.expiresAt);
-                    const expirySeconds = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+                    
+                    // Safely parse expiration timestamp
+                    const expiryInfo = OAuthAuthenticator.parseExpiresAt(authInfo.expiresAt);
 
                     req.auth = {
                         userId: authInfo.userId,
@@ -282,8 +356,8 @@ class OAuthAuthenticator {
                         scopes: authInfo.scopes,
                         tokenHint: tokenHint, // Safe partial token for audit
                         tokenHash: tokenHash, // HMAC hash for verification
-                        tokenExpiresAt: expiresAt.toISOString(), // ISO timestamp
-                        tokenExpirySeconds: expirySeconds, // Seconds until expiry
+                        tokenExpiresAt: expiryInfo.isoString, // ISO timestamp or null if invalid
+                        tokenExpirySeconds: expiryInfo.expirySeconds, // Seconds until expiry (0 if invalid)
                         authenticatedAt: now.toISOString(), // ISO timestamp when authenticated
                         username: userData.username,
                         email: userData.email,
