@@ -145,7 +145,6 @@
     - [ ] タスク6: 認証ミドルウェア更新
       - Bearer Token認証とOAuth2認証の共存
       - OAuth2トークンでの認証処理追加
-      - 既存のAPIトークンとの互換性維持
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-auth.js` (新規)
