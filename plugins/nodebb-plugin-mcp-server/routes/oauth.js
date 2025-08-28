@@ -762,7 +762,7 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] Dynamic client registration request received');
             
-            // Handle req.body which might be a Buffer or object
+            // Handle req.body which might be a Buffer, array-like object, or normal object
             let clientMetadata = {};
             
             if (Buffer.isBuffer(req.body)) {
@@ -790,8 +790,33 @@ module.exports = function(router, middleware) {
                     });
                 }
             } else if (typeof req.body === 'object' && req.body !== null) {
-                // Already parsed object
-                clientMetadata = req.body;
+                // Check if it's an array-like object with numeric keys (character-by-character)
+                const hasNumericKeys = Object.keys(req.body).every(key => /^\d+$/.test(key));
+                
+                if (hasNumericKeys) {
+                    // Reconstruct string from array-like object
+                    const maxIndex = Math.max(...Object.keys(req.body).map(Number));
+                    let bodyString = '';
+                    for (let i = 0; i <= maxIndex; i++) {
+                        if (req.body[i] !== undefined) {
+                            bodyString += req.body[i];
+                        }
+                    }
+                    winston.verbose('[mcp-server] Reconstructed string from array-like object:', bodyString);
+                    
+                    try {
+                        clientMetadata = JSON.parse(bodyString);
+                    } catch (parseErr) {
+                        winston.error('[mcp-server] Failed to parse reconstructed JSON:', parseErr);
+                        return res.status(400).json({
+                            error: 'invalid_client_metadata',
+                            error_description: 'Invalid JSON in request body'
+                        });
+                    }
+                } else {
+                    // Already parsed object
+                    clientMetadata = req.body;
+                }
             } else {
                 winston.error('[mcp-server] Unexpected req.body type:', typeof req.body);
                 clientMetadata = {};
