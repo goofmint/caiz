@@ -89,7 +89,7 @@ class MCPServer {
      */
     getMetadata() {
         return {
-            name: 'NodeBB MCP Server',
+            name: 'Caiz',
             version: this.version,
             description: 'MCP server implementation for NodeBB',
             protocol_version: '0.1.0',

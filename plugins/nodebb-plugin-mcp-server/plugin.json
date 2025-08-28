@@ -1,6 +1,6 @@
 {
   "id": "nodebb-plugin-mcp-server",
-  "name": "NodeBB MCP Server",
+  "name": "Caiz MCP Server",
   "description": "MCP (Model Context Protocol) server implementation for NodeBB",
   "url": "https://github.com/goofmint/caiz",
   "library": "./library.js",

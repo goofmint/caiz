@@ -68,7 +68,7 @@
         }
     },
     "server": {
-        "name": "NodeBB MCPサーバー"
+        "name": "Caiz"
     },
     "scope": {
         "mcp:read": "読み取りアクセス - コンテンツと情報の表示",

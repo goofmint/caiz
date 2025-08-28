@@ -108,7 +108,7 @@ async function processJsonRpcMessage(message, req) {
                     logging: {}
                 },
                 serverInfo: {
-                    name: 'NodeBB MCP Server',
+                    name: 'Caiz',
                     version: pluginVersion
                 }
             },
@@ -685,7 +685,7 @@ module.exports = function(router) {
                     params: {
                         protocolVersion: '2024-11-05',
                         serverInfo: {
-                            name: 'NodeBB MCP Server',
+                            name: 'Caiz',
                             version: pluginVersion
                         },
                         capabilities: {
@@ -741,7 +741,7 @@ module.exports = function(router) {
                             method: 'notifications/ping',
                             params: { 
                                 timestamp: new Date().toISOString(), 
-                                server: 'NodeBB MCP Server' 
+                                server: 'Caiz' 
                             }
                         };
                         res.write(`event: ping\n`);
