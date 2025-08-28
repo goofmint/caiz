@@ -762,18 +762,14 @@ module.exports = function(router, middleware) {
         try {
             winston.verbose('[mcp-server] Dynamic client registration request received');
             
-            // Debug req.body issue
-            winston.verbose('[mcp-server] req.body type:', typeof req.body);
-            winston.verbose('[mcp-server] req.body constructor:', req.body?.constructor?.name);
-            winston.verbose('[mcp-server] req.body keys:', Object.keys(req.body || {}));
-            winston.verbose('[mcp-server] req.headers content-type:', req.headers['content-type']);
-            
             // Parse client metadata from request body
-            // req.body should already be parsed by Express JSON middleware
             const clientMetadata = req.body || {};
             
-            winston.verbose('[mcp-server] Client metadata redirect_uris:', clientMetadata.redirect_uris);
-            winston.verbose('[mcp-server] Client metadata grant_types:', clientMetadata.grant_types);
+            winston.verbose('[mcp-server] Client registration metadata:', {
+                client_name: clientMetadata.client_name,
+                redirect_uris: clientMetadata.redirect_uris,
+                grant_types: clientMetadata.grant_types
+            });
             
             // Extract callback port from request if provided by mcp-remote
             const callbackPort = clientMetadata.callback_port || 
