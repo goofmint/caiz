@@ -143,12 +143,13 @@
         - `plugins/nodebb-plugin-mcp-server/routes/oauth.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/lib/oauth-clients.js` (新規)
   - フェーズ3: 認証切り替え（修正ファイル: 2〜3個）
-    - [ ] タスク6: 認証ミドルウェア更新
+    - [x] タスク6: 認証ミドルウェア更新
       - Bearer Token認証とOAuth2認証の共存
       - OAuth2トークンでの認証処理追加
+      - SSE接続の堅牢性改善とユーザー識別
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` (更新)
-        - `plugins/nodebb-plugin-mcp-server/lib/oauth-auth.js` (新規)
+        - `plugins/nodebb-plugin-mcp-server/routes/mcp.js` (更新)
     - [ ] タスク7: MCP初回接続フロー
       - 未認証時の401応答とOAuth2フロー開始
       - デバイス認証後の自動接続
