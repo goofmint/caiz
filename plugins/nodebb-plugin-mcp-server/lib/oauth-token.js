@@ -46,9 +46,16 @@ class OAuthToken {
             throw new Error('Unsupported grant_type. Only "authorization_code" is supported');
         }
 
-        // Validate code_verifier format (base64url)
-        if (!/^[A-Za-z0-9_-]+$/.test(params.code_verifier)) {
-            throw new Error('Invalid code_verifier format. Must be base64url encoded');
+        // Validate code_verifier format (RFC 7636: unreserved characters)
+        winston.verbose('[mcp-server] Validating code_verifier:', {
+            codeVerifier: params.code_verifier,
+            length: params.code_verifier?.length,
+            isValid: /^[A-Za-z0-9_~.-]+$/.test(params.code_verifier || '')
+        });
+        
+        // RFC 7636: code_verifier = unreserved characters [A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~"
+        if (!/^[A-Za-z0-9_~.-]+$/.test(params.code_verifier)) {
+            throw new Error('Invalid code_verifier format. Must contain only unreserved characters (RFC 7636)');
         }
 
         // Validate code_verifier length (43-128 characters per RFC 7636)
@@ -56,9 +63,17 @@ class OAuthToken {
             throw new Error('Invalid code_verifier length. Must be 43-128 characters');
         }
 
-        // Validate resource parameter
+        // Validate resource parameter (allow trailing slash variations)
         const baseUrl = nconf.get('url');
-        if (params.resource !== baseUrl) {
+        const normalizeUrl = (url) => url?.replace(/\/+$/, ''); // Remove trailing slashes
+        
+        if (params.resource && normalizeUrl(params.resource) !== normalizeUrl(baseUrl)) {
+            winston.verbose('[mcp-server] Resource parameter mismatch:', {
+                provided: params.resource,
+                expected: baseUrl,
+                normalizedProvided: normalizeUrl(params.resource),
+                normalizedExpected: normalizeUrl(baseUrl)
+            });
             throw new Error(`Invalid resource parameter. Expected: ${baseUrl}`);
         }
         
@@ -648,6 +663,41 @@ class OAuthToken {
             const error = new Error('Failed to refresh token');
             error.code = 'server_error';
             throw error;
+        }
+    }
+
+    /**
+     * Authorization Code Grant用トークン検証 (JWT検証)
+     * @param {string} accessToken - JWT アクセストークン
+     * @returns {Promise<Object>} トークン情報 (userId, scopes, etc.)
+     */
+    async validateJWTAccessToken(accessToken) {
+        if (!accessToken) {
+            throw new Error('Missing access token');
+        }
+
+        try {
+            // JWT検証
+            const payload = JWKSManager.verifyJWT(accessToken);
+            
+            // トークンの有効期限確認
+            const now = Math.floor(Date.now() / 1000);
+            if (payload.exp && payload.exp < now) {
+                throw new Error('Access token has expired');
+            }
+
+            return {
+                userId: parseInt(payload.sub),
+                clientId: payload.client_id || 'mcp-client',
+                scopes: payload.scope ? payload.scope.split(' ') : [],
+                expiresAt: payload.exp ? new Date(payload.exp * 1000) : null,
+                createdAt: payload.iat ? new Date(payload.iat * 1000) : null,
+                username: payload.preferred_username,
+                email: payload.email
+            };
+        } catch (err) {
+            winston.verbose('[mcp-server] JWT validation failed:', err.message);
+            throw new Error('Invalid or expired access token');
         }
     }
 

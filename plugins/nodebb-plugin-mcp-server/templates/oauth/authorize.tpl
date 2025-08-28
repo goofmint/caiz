@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>[[mcp-server:oauth.title]] - NodeBB MCP Server</title>
+    <title>{title}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{relative_path}/assets/client.css">
@@ -14,26 +14,26 @@
                     <div class="panel-heading">
                         <h3 class="panel-title">
                             <i class="fa fa-server"></i>
-                            [[mcp-server:oauth.title]]
+                            認証の確認
                         </h3>
                     </div>
                     <div class="panel-body">
                         <div class="alert alert-info">
-                            <p>[[mcp-server:oauth.client_request]] <strong>{clientName}</strong></p>
+                            <p>以下のアプリケーションが権限を要求しています: <strong>{clientName}</strong></p>
                         </div>
                         
-                        <h4>[[mcp-server:oauth.requested_permissions]]</h4>
+                        <h4>要求されている権限:</h4>
                         <ul class="list-group" style="margin-bottom: 20px;">
                             <!-- BEGIN scopes -->
                             <li class="list-group-item">
                                 <i class="fa fa-check text-success"></i>
-                                [[mcp-server:scope.{scopes.scope}]]
+                                {scopes.description}
                             </li>
                             <!-- END scopes -->
                         </ul>
                         
                         <div class="alert alert-warning">
-                            <small>[[mcp-server:oauth.security_notice]]</small>
+                            <small>承認すると、このアプリケーションはあなたのアカウントに代わって指定された操作を実行できるようになります。</small>
                         </div>
                         
                         <form method="POST" action="/oauth/authorize">
@@ -50,11 +50,11 @@
                             <div class="form-group text-center">
                                 <button type="submit" name="action" value="approve" class="btn btn-primary btn-lg">
                                     <i class="fa fa-check"></i>
-                                    [[mcp-server:oauth.approve]]
+                                    承認
                                 </button>
                                 <button type="submit" name="action" value="deny" class="btn btn-default btn-lg" style="margin-left: 10px;">
                                     <i class="fa fa-times"></i>
-                                    [[mcp-server:oauth.deny]]
+                                    拒否
                                 </button>
                             </div>
                         </form>
@@ -62,8 +62,8 @@
                         <hr>
                         <div class="text-center">
                             <small class="text-muted">
-                                [[mcp-server:oauth.logged_in_as]] <strong>{user.username}</strong>
-                                | <a href="/logout">[[mcp-server:oauth.logout]]</a>
+                                ログイン中: <strong>{user.username}</strong>
+                                | <a href="/logout">ログアウト</a>
                             </small>
                         </div>
                     </div>

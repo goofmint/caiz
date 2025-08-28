@@ -67,6 +67,9 @@
             "footer": "MCP Server Device Authorization"
         }
     },
+    "server": {
+        "name": "Caiz"
+    },
     "scope": {
         "mcp:read": "Read Access - View content and information",
         "mcp-read": "Read Access - View content and information",

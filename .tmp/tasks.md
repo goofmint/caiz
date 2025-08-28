@@ -150,9 +150,10 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` (更新)
         - `plugins/nodebb-plugin-mcp-server/routes/mcp.js` (更新)
-    - [ ] タスク7: MCP初回接続フロー
+    - [x] タスク7: MCP初回接続フロー
       - 未認証時の401応答とOAuth2フロー開始
       - デバイス認証後の自動接続
+      - トークン期限監視とリアルタイム通知
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/routes/mcp.js` (更新)
   - フェーズ4: 統合テスト（修正ファイル: 1〜2個）

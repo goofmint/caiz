@@ -145,8 +145,8 @@ class OAuthAuthenticator {
         try {
             winston.verbose('[mcp-server] Validating OAuth2 access token');
             
-            // Validate token through OAuth Token module
-            const tokenData = await OAuthToken.validateDeviceAccessToken(accessToken);
+            // Validate token through OAuth Token module (JWT for Authorization Code Grant)
+            const tokenData = await OAuthToken.validateJWTAccessToken(accessToken);
             
             winston.verbose('[mcp-server] OAuth2 token validated successfully', {
                 userId: tokenData.userId,
