@@ -371,7 +371,7 @@ module.exports = function(router) {
      * This is the main MCP endpoint as per specification
      */
     router.post('/api/mcp', 
-        require('../lib/simple-auth').requireAuth(),
+        require('../lib/unified-auth').authenticate,
         async (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP POST request received');
@@ -482,7 +482,7 @@ module.exports = function(router) {
      * GET /api/mcp - Server-Sent Events
      */
     router.get('/api/mcp', 
-        require('../lib/simple-auth').requireAuth(),
+        require('../lib/unified-auth').authenticate,
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP GET request received');
@@ -689,7 +689,7 @@ module.exports = function(router) {
      * GET /api/mcp/metadata
      */
     router.get('/api/mcp/metadata', 
-        require('../lib/simple-auth').optionalAuth(),
+        require('../lib/unified-auth').optionalAuth,
         async (req, res) => {
             try {
                 winston.verbose('[mcp-server] Metadata requested');
@@ -762,43 +762,46 @@ module.exports = function(router) {
      * GET /api/mcp/session
      */
     router.get('/api/mcp/session', 
-        require('../lib/simple-auth').requireAuth(),
+        require('../lib/unified-auth').authenticate,
         (req, res) => {
             try {
                 winston.verbose('[mcp-server] MCP session requested');
                 
-                // Build session response using authenticated user info
+                // Build session response using OAuth2 authenticated user info
                 const user = {
                     uid: req.auth.userId,
                     username: req.auth.username,
                     displayname: req.auth.displayname
                 };
                 
-                // Only include email if token has appropriate permission
-                const tokenPermissions = req.auth.token.permissions || [];
-                if (tokenPermissions.includes('user:email:read') || tokenPermissions.includes('read')) {
+                // Include email for OAuth2 tokens (scopes control access)
+                if (req.auth.email && req.auth.scopes && req.auth.scopes.includes('mcp:read')) {
                     user.email = req.auth.email;
                 }
                 
                 const sessionResponse = {
                     status: 'authenticated',
                     user: user,
-                    token: {
-                        id: req.auth.token.id,
-                        name: req.auth.token.name,
-                        permissions: req.auth.token.permissions,
-                        created_at: req.auth.token.created_at,
-                        last_used_at: req.auth.token.last_used_at
+                    oauth2: {
+                        client_id: req.auth.clientId,
+                        scopes: req.auth.scopes || [],
+                        token_hint: req.auth.tokenHint,
+                        expires_at: req.auth.tokenExpiresAt,
+                        expiry_seconds: req.auth.tokenExpirySeconds,
+                        authenticated_at: req.auth.authenticatedAt
                     },
                     capabilities: {
                         protocolVersion: '2024-11-05',
                         supported_tools: ['search', 'read'],
-                        max_message_size: 1048576
+                        max_message_size: 1048576,
+                        supported_grants: ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
+                        token_format: 'opaque'
                     },
                     session: {
                         authenticated: true,
-                        type: 'bearer',
-                        scopes: tokenPermissions,  // Use actual token permissions
+                        type: 'oauth2',
+                        auth_method: req.auth.type,
+                        scopes: req.auth.scopes || [],
                         timestamp: new Date().toISOString()
                     }
                 };
