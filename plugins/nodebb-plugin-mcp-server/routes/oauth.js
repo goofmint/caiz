@@ -781,8 +781,6 @@ module.exports = function(router, middleware) {
                 client_id: 'mcp-client',
                 client_secret: '',
                 client_name: clientMetadata.client_name || 'MCP Remote Client',
-                client_uri: clientMetadata.client_uri || '',
-                logo_uri: clientMetadata.logo_uri || '',
                 redirect_uris: [
                     `http://localhost:${callbackPort}/callback`,
                     `http://127.0.0.1:${callbackPort}/callback`,
@@ -800,6 +798,14 @@ module.exports = function(router, middleware) {
                 client_id_issued_at: Math.floor(Date.now() / 1000),
                 scope: 'mcp:read mcp:write'
             };
+            
+            // Optional fields - only add if provided and valid
+            if (clientMetadata.client_uri) {
+                registrationResponse.client_uri = clientMetadata.client_uri;
+            }
+            if (clientMetadata.logo_uri) {
+                registrationResponse.logo_uri = clientMetadata.logo_uri;
+            }
             
             // Set appropriate headers (RFC 7591 Section 3.2)
             res.set({
