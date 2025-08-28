@@ -121,7 +121,7 @@ async function getUserAccessibleCategories(userId) {
         // Extract category IDs
         const categoryIds = allCategories.map(cat => parseInt(cat.cid)).filter(cid => !isNaN(cid));
         
-        winston.verbose(`[mcp-server] User ${userId} can access categories:`, categoryIds);
+        winston.verbose(`[mcp-server] User ${userId} can access categories: [${categoryIds.join(', ')}]`);
         return categoryIds;
     } catch (err) {
         winston.error('[mcp-server] Error getting user accessible categories:', err);
@@ -171,7 +171,11 @@ async function searchTopics(query, userId, limit) {
             itemsPerPage: limit
         };
         
+        winston.verbose(`[mcp-server] Executing topic search with data - query: "${query}", categories: ${accessibleCategories.length} categories, uid: ${userId}`);
+        
         const result = await search.search(searchData);
+        
+        winston.verbose(`[mcp-server] Topic search result - found ${result?.posts?.length || 0} posts`);
         
         if (!result || !result.posts) {
             return [];
@@ -234,7 +238,11 @@ async function searchPosts(query, userId, limit) {
             showAs: 'posts'
         };
         
+        winston.verbose(`[mcp-server] Executing post search with data - query: "${query}", categories: ${accessibleCategories.length} categories, uid: ${userId}`);
+        
         const result = await search.search(searchData);
+        
+        winston.verbose(`[mcp-server] Post search result - found ${result?.posts?.length || 0} posts`);
         
         if (!result || !result.posts) {
             return [];
