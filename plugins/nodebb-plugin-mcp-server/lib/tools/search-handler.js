@@ -193,11 +193,11 @@ async function searchTopics(query, userId, limit) {
             const hasAccess = await checkContentAccess(userId, post.topic, 'topic');
             if (hasAccess && !post.topic.deleted && !post.deleted) {
                 topicIds.add(post.topic.tid);
-                const sanitizedContent = utils.stripHTML(post.content || '');
+                const sanitizedContent = utils.stripHTMLTags(post.content || '');
                 filtered.push({
                     type: 'topic',
                     id: String(post.topic.tid),
-                    title: utils.stripHTML(post.topic.title || ''),
+                    title: utils.stripHTMLTags(post.topic.title || ''),
                     content: sanitizedContent,
                     score: post.score || 0,
                     metadata: {
@@ -253,11 +253,11 @@ async function searchPosts(query, userId, limit) {
         for (const post of result.posts) {
             const hasAccess = await checkContentAccess(userId, post, 'post');
             if (hasAccess && !post.deleted) {
-                const sanitizedContent = utils.stripHTML(post.content || '');
+                const sanitizedContent = utils.stripHTMLTags(post.content || '');
                 filtered.push({
                     type: 'post',
                     id: String(post.pid),
-                    title: utils.stripHTML(post.topic?.title || 'Reply'),
+                    title: utils.stripHTMLTags(post.topic?.title || 'Reply'),
                     content: sanitizedContent,
                     score: post.score || 0,
                     metadata: {
@@ -321,11 +321,11 @@ async function searchUsers(query, userId, limit) {
                 lastOnline = date.toISOString();
             }
             
-            const sanitizedAboutMe = utils.stripHTML(userData.aboutme || '');
+            const sanitizedAboutMe = utils.stripHTMLTags(userData.aboutme || '');
             filtered.push({
                 type: 'user',
                 id: String(userData.uid),
-                title: utils.stripHTML(userData.displayname || userData.username || ''),
+                title: utils.stripHTMLTags(userData.displayname || userData.username || ''),
                 content: sanitizedAboutMe,
                 score: userData.score || 0,
                 metadata: {
