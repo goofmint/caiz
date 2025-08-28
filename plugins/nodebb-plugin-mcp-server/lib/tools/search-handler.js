@@ -161,7 +161,7 @@ async function searchTopics(query, userId, limit) {
         
         const searchData = {
             query: query,
-            searchIn: 'titles',
+            searchIn: 'titlesposts',  // Search in both titles and posts
             matchWords: 'any',
             categories: accessibleCategories,
             uid: userId,
@@ -227,7 +227,7 @@ async function searchPosts(query, userId, limit) {
         
         const searchData = {
             query: query,
-            searchIn: 'posts', 
+            searchIn: 'titlesposts',  // Search in both titles and posts
             matchWords: 'any',
             categories: accessibleCategories,
             uid: userId,
