@@ -2,176 +2,227 @@
 
 ## 概要
 
-既存のBearer Token認証システム（simple-auth.js）とOAuth2認証システムを統合し、両方の認証方式をサポートする統一された認証ミドルウェアを実装します。既存のAPIトークンは破棄し、OAuth2 Device Authorization Grant で発行されたトークンでの認証のみ可能にします。
+統一認証ミドルウェア（unified-auth.js）を既存のMCP認証フローに統合し、legacy APIトークン認証を完全に廃止してOAuth2 Device Authorization Grant認証のみをサポートするシステムを構築します。
+simple-auth.jsとの統合により、既存エンドポイントでのOAuth2認証への完全移行を実現します。
+
+### サポートするOAuth2 Grant Types
+- **Device Authorization Grant** (RFC 8628) - プライマリ認証方式
+- **Refresh Token Grant** (RFC 6749 Section 6) - トークン更新用
+- **Client Credentials Grant** - サポート対象外（明示的に除外）
+
+### トークン形式と検証
+- **トークン形式**: Opaque tokens（不透明トークン）
+- **検証方式**: ローカル検証（データベース照合）
+- **イントロスペクション**: 内部実装（外部エンドポイント不要）
+- **検証ポリシー**: 
+  - 有効期限（exp）チェック
+  - クライアントID検証
+  - スコープ検証
+  - トークンファミリー検証（リフレッシュトークン）
 
 ## 実装対象
 
-### 1. 統合認証ミドルウェア (lib/oauth-auth.js)
+### 1. 既存認証システムの移行 (lib/simple-auth.js)
 
-OAuth2トークンとAPIトークンの両方をサポートする認証ミドルウェアを新規作成します。
+現在のAPIトークン認証システムを完全廃止し、unified-auth.jsによるOAuth2認証システムへ移行します。
 
-#### インターフェース
+#### 現在の実装状況
+- unified-auth.jsは既に実装済み（OAuth2専用認証ミドルウェア）
+- RFC 6750準拠のセキュアな認証システム
+- セキュアなトークンヒントとHMACベースのメタデータ管理
+
+#### 更新が必要な箇所
 
 ```javascript
-class OAuthAuthenticator {
+class SimpleAuth {
     /**
-     * 統合認証ミドルウェア
-     * APIトークンとOAuth2トークンの両方をサポート
+     * Legacy API token validation - 完全廃止
+     * @deprecated OAuth2認証への移行により廃止
+     */
+    static async validateAPIToken(apiToken) {
+        // Deprecated path – fail fast and surface telemetry
+        if (process.emitWarning) {
+            process.emitWarning('SimpleAuth.validateAPIToken is removed. Migrate to unified-auth.', {
+                code: 'MCP_DEPRECATED_AUTH',
+                detail: 'This call will throw from next release.',
+            });
+        }
+        const err = new Error('Legacy API token auth is removed');
+        err.code = 'E_AUTH_REMOVED';
+        throw err;
+    }
+
+    /**
+     * Unified authentication middleware - OAuth2専用
+     * OAuthAuthenticatorへの移行
      * @param {Object} req - Express request object
-     * @param {Object} res - Express response object  
-     * @param {Function} next - Express next function
-     * @returns {Promise<void>}
-     */
-    static async authenticate(req, res, next);
-    
-    /**
-     * OAuth2アクセストークン検証
-     * @param {string} accessToken - OAuth2アクセストークン
-     * @returns {Promise<Object>} 認証情報 { userId, clientId, scopes, type: 'oauth2' }
-     */
-    static async validateOAuth2Token(accessToken);
-    
-    /**
-     * APIトークン検証（下位互換性）
-     * @param {string} apiToken - 既存APIトークン
-     * @returns {Promise<Object>} 認証情報 { userId, type: 'api' }
-     */
-    static async validateAPIToken(apiToken);
-    
-    /**
-     * Bearer Token抽出
-     * @param {string} authHeader - Authorization ヘッダー
-     * @returns {string|null} 抽出されたトークン
-     */
-    static extractBearerToken(authHeader);
-    
-    /**
-     * 401 Unauthorized応答送信
      * @param {Object} res - Express response object
-     * @param {string} errorDescription - エラー詳細（オプション）
-     * @returns {void}
+     * @param {Function} next - Express next function
      */
-    static sendUnauthorized(res, errorDescription);
+    static async authenticate(req, res, next) {
+        const OAuthAuthenticator = require('./unified-auth');
+        return OAuthAuthenticator.authenticate(req, res, next);
+    }
+    
+    /**
+     * Optional authentication middleware - OAuth2専用
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next function
+     */
+    static async optionalAuth(req, res, next) {
+        const OAuthAuthenticator = require('./unified-auth');
+        return OAuthAuthenticator.optionalAuth(req, res, next);
+    }
 }
 ```
 
-### 2. 既存認証モジュール更新 (lib/simple-auth.js)
+### 2. MCPルートでの認証ミドルウェア統合 (routes/mcp.js)
 
-既存のsimple-auth.jsを更新して、統合認証ミドルウェアを使用するように変更します。
+MCPエンドポイントで統一認証ミドルウェアを使用するように更新します。
 
 #### 更新内容
 
 ```javascript
-// 旧実装
-const requireAuth = (req, res, next) => {
-    // APIトークンのみサポート
-};
+// 統一実装のみ - 直接unified-authを使用
+const OAuthAuthenticator = require('../lib/unified-auth');
+router.use('/api/mcp', OAuthAuthenticator.authenticate);
 
-// 新実装  
-const requireAuth = (req, res, next) => {
-    return OAuthAuthenticator.authenticate(req, res, next);
-};
+// オプション認証: 未認証でも200系で応答可能
+// optionalAuthは無効トークン時にreq.auth = nullを設定し、401を送信しない
+router.get('/api/mcp/public', OAuthAuthenticator.optionalAuth, (req, res) => {
+    // req.auth は null または認証済みオブジェクト
+    return handler(req, res);
+});
 ```
 
-### 3. 認証情報コンテキスト管理
+#### optionalAuth動作仕様
+- **認証成功**: `req.auth` に認証情報を設定、`next()`を呼び出し
+- **認証失敗/未認証**: `req.auth = null`を設定、401を送信せずに`next()`を呼び出し
+- **最終ハンドラー**: `req.auth`の状態を確認して適切なレスポンスを決定
 
-認証成功後のリクエストオブジェクトに認証情報を添付するコンテキスト管理を実装します。
+### 3. セキュアな認証コンテキスト管理
 
-#### コンテキスト構造
+unified-auth.jsによる強化された認証コンテキストが`req.auth`に設定されます。
+
+#### 認証コンテキスト構造
 
 ```javascript
-// req.auth に以下の情報を設定
+// OAuth2認証成功時のreq.authオブジェクト
 req.auth = {
-    userId: 123,              // NodeBB User ID
-    type: 'oauth2' | 'api',  // 認証方式
-    clientId: 'mcp-client',  // OAuth2の場合のみ
-    scopes: ['mcp:read'],    // OAuth2の場合のみ  
-    token: 'original-token', // 元のトークン（監査ログ用）
-    authenticatedAt: Date.now()
+    userId: 123,                              // NodeBB User ID
+    type: 'oauth2',                          // 認証方式（OAuth2のみ）
+    clientId: 'mcp-client',                  // OAuth2クライアントID
+    scopes: ['mcp:read', 'mcp:write'],       // 許可されたスコープ
+    tokenHint: 'abcd1234...',               // セキュアなトークンヒント
+    tokenHash: 'sha256_hash_value',         // HMACベーストークンハッシュ
+    tokenExpiresAt: '2024-08-28T12:00:00Z', // ISO timestamp（有効期限）
+    tokenExpirySeconds: 3600,               // 有効期限までの秒数
+    authenticatedAt: '2024-08-28T11:00:00Z', // 認証時刻（ISO timestamp）
+    username: 'user123',                     // NodeBBユーザー名
+    email: 'user@example.com',              // ユーザーメールアドレス
+    displayname: 'Display Name'             // 表示名
 };
 ```
 
 ## 実装詳細
 
-### 認証フロー
+### 統一認証フロー
 
-1. **Bearer Token抽出**: Authorization ヘッダーから `Bearer <token>` を抽出
-2. **トークン形式判別**: トークンの特徴からOAuth2トークンかAPIトークンかを判別
-3. **適切な検証**: 判別結果に基づいて適切な検証メソッドを呼び出し
-4. **コンテキスト設定**: 認証成功時に `req.auth` に認証情報を設定
-5. **エラーハンドリング**: 認証失敗時の統一されたエラー応答
+1. **Bearer Token抽出**: 正規表現による堅牢なトークン抽出（複数スペース対応）
+2. **OAuth2検証**: 統一認証ミドルウェアによるOAuth2専用トークン検証
+3. **安全なメタデータ生成**: HMACベーストークンハッシュとセキュアなヒント作成
+4. **コンテキスト設定**: 強化された認証情報を`req.auth`に設定
+5. **RFC 6750準拠エラー**: 適切なHTTPステータスとWWW-Authenticateヘッダー
 
-### トークン形式判別ロジック
+### Legacy API認証の完全廃止
 
 ```javascript
-// OAuth2トークン: Base64URL形式、32バイト（43文字程度）
-// APIトークン: 既存形式（UUIDベースなど）
-
-static determineTokenType(token) {
-    // OAuth2 access tokenの特徴：base64url, 固定長
-    if (/^[A-Za-z0-9_-]{43,}$/.test(token) && token.length >= 43) {
-        return 'oauth2';
+// simple-auth.js内のLegacy実装廃止
+class SimpleAuth {
+    static async validateAPIToken(apiToken) {
+        // 完全廃止 - 常にnullを返す
+        winston.verbose('[mcp-server] API token validation is deprecated and disabled');
+        return null;
     }
-    
-    // APIトークンの特徴：既存のフォーマット
-    return 'api';
 }
 ```
 
-### エラー応答の統一
+### RFC 6750準拠エラーレスポンス
 
-OAuth2で統一されたエラー応答形式を提供します。
+unified-auth.jsによる標準準拠エラーハンドリング：
 
 ```javascript
-// 401 Unauthorized応答（OAuth2準拠）
-res.status(401).set({
-    'WWW-Authenticate': 'Bearer realm="MCP API", error="invalid_token"',
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store',
-    'Pragma': 'no-cache'
-}).json({
-    error: 'unauthorized',
-    error_description: 'Invalid or expired token'
-});
+// 400 Bad Request - invalid_request
+{
+    error: 'invalid_request',
+    error_description: 'Missing or malformed Authorization header'
+}
+
+// 401 Unauthorized - invalid_token  
+{
+    error: 'invalid_token',
+    error_description: 'The access token provided is invalid or expired'
+}
+
+// 403 Forbidden - insufficient_scope
+{
+    error: 'insufficient_scope', 
+    required_scopes: ['mcp:admin']
+}
 ```
 
-## セキュリティ考慮事項
+## セキュリティ強化
 
-### 1. トークン検証の破棄
+### 1. トークンセキュリティ向上
 
-- APIトークンの検証ロジックは破棄
+- 生のBearerトークンをメモリに保持しない設計
+- HMAC-SHA256によるセキュアなトークンハッシュ化
+- 暗号学的に安全な32バイトサーバーシークレット
 
-### 2. 下位互換性
-- 既存のAPIトークンは破棄
+### 2. 安全な日付処理
 
-### 3. 監査ログ
+- トークン有効期限の堅牢な検証
+- NaN日付の防止とフォールバック値の適用
+- 複数日付形式への対応（数値、ISO文字列、数値文字列）
 
-- 認証試行と成功/失敗の記録
-- 使用されたトークンタイプの記録
+### 3. 監査とロギング
+
+- 認証成功/失敗の詳細ログ
+- トークンヒントによる安全な監査証跡
+- セキュリティイベントの追跡可能性
 
 ## 実装ファイル
 
-### 新規作成
-- `lib/oauth-auth.js` - 統合認証ミドルウェア
+### 更新対象
+- `plugins/nodebb-plugin-mcp-server/lib/simple-auth.js` - legacy API認証廃止、unified-auth統合
+- `plugins/nodebb-plugin-mcp-server/routes/mcp.js` - 認証ミドルウェアの統合適用
 
-### 更新対象  
-- `lib/simple-auth.js` - 統合認証ミドルウェア使用に変更
-- `routes/mcp.js` - 更新された認証ミドルウェア使用（必要に応じて）
+### 既存実装（変更なし）
+- `plugins/nodebb-plugin-mcp-server/lib/unified-auth.js` - 統一認証ミドルウェア（実装済み）
 
 ## テスト観点
 
 ### 正常系
-1. OAuth2アクセストークンでの認証成功
-2. 既存APIトークンでの認証不可
-3. 適切なコンテキスト情報の設定
+1. OAuth2アクセストークンでの認証成功とセキュアなメタデータ生成
+2. 強化された`req.auth`コンテキストの適切な設定
+3. RFC 6750準拠のエラーレスポンス
+4. 安全な日付処理による堅牢な有効期限管理
 
 ### 異常系
-1. 無効なOAuth2トークンでの認証失敗
-2. 期限切れOAuth2トークンでの認証失敗
-3. APIトークンでの認証失敗
-4. Authorization ヘッダー不正形式での認証失敗
+1. Legacy APIトークンでの認証完全拒否
+2. 無効・期限切れOAuth2トークンでの適切なエラー応答
+3. 不正形式Authorization ヘッダーでのinvalid_request応答
+4. NaN日付・無効タイムスタンプの安全な処理
 
-### 互換性
-1. 既存APIトークンの破棄
-2. 新しいOAuth2トークン利用クライアントの正常動作
-3. エラーレスポンス一貫性
+### セキュリティ
+1. 生のBearerトークンがメモリに残存しないこと
+2. HMACベーストークンハッシュの正確性
+3. トークンヒントによる安全な監査ログ
+4. エラーレスポンスでのセキュリティ情報漏洩防止
+
+### 移行確認
+1. 既存MCPエンドポイントでのOAuth2認証動作
+2. simple-auth.js経由での統一認証ミドルウェア利用
+3. legacy認証の完全無効化
+4. 後方互換性のないAPI認証の適切な拒否
