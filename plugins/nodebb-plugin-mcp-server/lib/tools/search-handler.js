@@ -156,8 +156,16 @@ async function checkContentAccess(userId, content, contentType) {
  */
 async function searchTopics(query, userId, limit) {
     try {
+        winston.verbose('[mcp-server] searchTopics called for user:', userId);
+        
         // Get user's accessible categories
         const accessibleCategories = await getUserAccessibleCategories(userId);
+        
+        winston.verbose('[mcp-server] User accessible categories for search:', {
+            userId: userId,
+            categories: accessibleCategories,
+            categoryCount: accessibleCategories.length
+        });
         
         const searchData = {
             query: query,

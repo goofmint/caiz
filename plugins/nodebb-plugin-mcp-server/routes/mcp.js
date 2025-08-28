@@ -184,6 +184,15 @@ async function processJsonRpcMessage(message, req) {
             const userId = req.auth?.userId || 0;
             const roles = req.auth?.roles || [];
             
+            winston.verbose('[mcp-server] Search tool called with auth context:', {
+                userId: userId,
+                username: req.auth?.username,
+                clientId: req.auth?.clientId,
+                scopes: req.auth?.scopes,
+                query: query,
+                category: category
+            });
+            
             try {
                 result = await searchHandler.executeSearch(query, category, {
                     userId: userId,
