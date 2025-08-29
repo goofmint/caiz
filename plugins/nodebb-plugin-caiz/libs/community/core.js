@@ -787,7 +787,16 @@ async function filterTopicsBuild(hookData) {
             
             winston.info(`[plugin/caiz] Topic ${topic.tid} - parent category data: ${JSON.stringify(parentCategory)}`);
             
-            if (parentCategory) {
+          if (parentCategory) {
+              // Apply i18n display to parent (community) name
+              try {
+                const displayI18n = require('../community-i18n-display');
+                const locale = await displayI18n.resolveLocale(hookData.req);
+                if (locale) {
+                  const t = await displayI18n.getCategoryDisplayText(parentCategory.cid, locale);
+                  if (t.name) parentCategory.name = t.name; // keep original if missing
+                }
+              } catch {}
               // コミュニティ情報を追加
               topic.community = {
                 cid: parentCategory.cid,
@@ -804,6 +813,15 @@ async function filterTopicsBuild(hookData) {
             }
           } else if (parentCid === topic.cid) {
             // これ自体がコミュニティカテゴリの場合
+            // Apply i18n display to root category
+            try {
+              const displayI18n = require('../community-i18n-display');
+              const locale = await displayI18n.resolveLocale(hookData.req);
+              if (locale) {
+                const t = await displayI18n.getCategoryDisplayText(topic.category.cid, locale);
+                if (t.name) topic.category.name = t.name;
+              }
+            } catch {}
             topic.community = {
               cid: topic.category.cid,
               name: topic.category.name,

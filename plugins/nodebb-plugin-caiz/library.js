@@ -9,6 +9,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
+const displayI18n = require('./libs/community-i18n-display');
 const { GetMemberRole } = require('./libs/community/core');
 const apiTokens = require('./libs/api-tokens');
 
@@ -200,6 +201,13 @@ plugin.filterCategoryBuild = async function (hookData) {
       const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
       templateData.isOwner = isOwner;
       winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+    }
+    // Apply i18n display for community (top-level category)
+    const locale = await displayI18n.resolveLocale(hookData.req);
+    if (locale) {
+      const texts = await displayI18n.getCategoryDisplayText(templateData.cid, locale);
+      if (texts.name) templateData.name = texts.name; // fallback to existing if missing
+      if (texts.description) templateData.description = texts.description;
     }
   } catch (err) {
     winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
