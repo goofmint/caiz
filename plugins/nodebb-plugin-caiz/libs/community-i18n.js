@@ -54,16 +54,26 @@ async function translateOnCreate({ name, description }) {
   if (!name || typeof name !== 'string' || !name.trim()) {
     throw new Error('INVALID_INPUT: name is required');
   }
+  winston.info('[community-i18n] translateOnCreate: input', {
+    nameLength: name.length,
+    hasDescription: typeof description === 'string' && !!description.trim(),
+  });
+
   const apiKey = await i18nSettings.getApiKey();
   if (!apiKey) {
     throw new Error('MISSING_API_KEY');
   }
+  winston.info('[community-i18n] translateOnCreate: apiKeyPresent = true');
   const namePrompt = buildPrompt('name', name.trim());
+  winston.info('[community-i18n] translateOnCreate: namePromptBuilt', { promptLength: namePrompt.length });
   const nameTranslations = await translateWithGemini(namePrompt, apiKey);
+  winston.info('[community-i18n] translateOnCreate: nameTranslations', { languages: Object.keys(nameTranslations) });
   let descTranslations = undefined;
   if (typeof description === 'string' && description.trim()) {
     const descPrompt = buildPrompt('description', description.trim());
+    winston.info('[community-i18n] translateOnCreate: descPromptBuilt', { promptLength: descPrompt.length });
     descTranslations = await translateWithGemini(descPrompt, apiKey);
+    winston.info('[community-i18n] translateOnCreate: descTranslations', { languages: Object.keys(descTranslations) });
   }
   return { nameTranslations, descTranslations };
 }
@@ -73,6 +83,11 @@ async function saveTranslations(cid, translations) {
   if (!cid || !nameTranslations) {
     throw new Error('Invalid parameters for saveTranslations');
   }
+  winston.info('[community-i18n] saveTranslations: begin', {
+    cid,
+    nameLangs: Object.keys(nameTranslations || {}),
+    descLangs: Object.keys(descTranslations || {}),
+  });
   // Persist under category hash fields (no fallbacks)
   for (const lang of LANG_KEYS) {
     await data.setObjectField(`category:${cid}`, `i18n:name:${lang}`, nameTranslations[lang]);
