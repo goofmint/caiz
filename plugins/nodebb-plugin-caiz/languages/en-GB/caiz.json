@@ -11,6 +11,8 @@
   "unfollowing": "Leave Membership",
   "follow_success": "Successfully became a member",
   "unfollow_success": "Successfully left membership",
+  "admin.i18n.title": "Community I18n Settings",
+  "admin.i18n.gemini-api-key": "Gemini API Key",
   "error.generic": "An error occurred",
   "error.members-only-posting": "Only community members can post in this category",
   "error.community-not-found": "Community not found",

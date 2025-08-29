@@ -29,10 +29,12 @@
     "static/style.scss"
   ],
   "modules": {
-    "../admin/plugins/caiz-oauth.js": "static/lib/admin/plugins/caiz.js"
+    "../admin/plugins/caiz-oauth.js": "static/lib/admin/plugins/caiz.js",
+    "../admin/plugins/caiz-i18n.js": "static/lib/admin/plugins/caiz-i18n.js"
   },
   "acpScripts": [
-    "static/lib/admin/plugins/caiz.js"
+    "static/lib/admin/plugins/caiz.js",
+    "static/lib/admin/plugins/caiz-i18n.js"
   ],
   "hooks": [
     {

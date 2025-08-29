@@ -11,6 +11,8 @@
   "unfollowing": "メンバー解除",
   "follow_success": "メンバーになりました",
   "unfollow_success": "メンバーを解除しました",
+  "admin.i18n.title": "コミュニティ名の多言語化設定",
+  "admin.i18n.gemini-api-key": "Gemini APIキー",
   "error.generic": "エラーが発生しました",
   "error.members-only-posting": "このカテゴリへの投稿はコミュニティメンバーのみ可能です",
   "error.community-not-found": "コミュニティが見つかりません",

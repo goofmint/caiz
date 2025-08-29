@@ -46,6 +46,11 @@ plugin.init = async function (params) {
       discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`
     });
   });
+
+  // Admin route for I18n (Gemini API key)
+  routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-i18n', [], (req, res) => {
+    res.render('admin/plugins/caiz-i18n');
+  });
   
   // OAuth callback routes
   router.post('/api/v3/plugins/caiz/oauth/discord/callback', (req, res) => {
@@ -269,6 +274,11 @@ plugin.addAdminNavigation = function (header, callback) {
     icon: 'fa-key',
     name: 'Caiz OAuth Settings'
   });
+  header.plugins.push({
+    route: '/plugins/caiz-i18n',
+    icon: 'fa-language',
+    name: 'Caiz I18n Settings'
+  });
   
   callback(null, header);
 };
@@ -473,6 +483,7 @@ sockets.caiz.disconnectDiscord = async function(socket, data) {
 // Admin socket handlers for OAuth settings
 const oauthSettings = require('./libs/oauth-settings');
 const adminSockets = require.main.require('./src/socket.io/admin');
+const i18nSettings = require('./libs/i18n-settings');
 
 adminSockets.plugins = adminSockets.plugins || {};
 adminSockets.plugins.caiz = adminSockets.plugins.caiz || {};
@@ -514,6 +525,27 @@ adminSockets.plugins.caiz.testOAuthConnection = async function(socket, data) {
   }
   
   return await oauthSettings.testConnection(data.platform);
+};
+
+// Admin socket handlers for I18n (Gemini API key)
+adminSockets.plugins.caiz.getI18nSettings = async function(socket) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  return await i18nSettings.getSettings();
+};
+
+adminSockets.plugins.caiz.saveI18nSettings = async function(socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!data || typeof data.apiKey !== 'string' || !data.apiKey.trim()) {
+    throw new Error('Invalid parameters');
+  }
+  await i18nSettings.saveSettings({ apiKey: data.apiKey.trim() });
+  return { success: true };
 };
 
 // Slack notification settings socket handlers
