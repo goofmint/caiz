@@ -274,7 +274,7 @@ async function createCommunity(uid, { name, description }) {
   return newCategory;
 }
 
-async function getUserCommunities(uid) {
+async function getUserCommunities(uid, opts = {}) {
   winston.info(`[plugin/caiz] getUserCommunities for uid: ${uid}`);
   
   if (!uid) {
@@ -297,6 +297,7 @@ async function getUserCommunities(uid) {
   
   // Check membership for each community
   const userCommunities = [];
+  const locale = opts && opts.locale;
   for (const category of topLevelCategories) {
     winston.info(`[plugin/caiz] Checking membership for user ${uid} in category ${category.cid} (${category.name})`);
     const role = await getUserRole(uid, category.cid);
@@ -314,8 +315,24 @@ async function getUserCommunities(uid) {
         handle = category.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
       }
       
+      // Apply i18n if locale specified (fallback to original on missing)
+      let nameToUse = category.name;
+      let descToUse = undefined;
+      if (locale) {
+        try {
+          const tName = await data.getObjectField(`category:${category.cid}`, `i18n:name:${locale}`);
+          const tDesc = await data.getObjectField(`category:${category.cid}`, `i18n:description:${locale}`);
+          if (typeof tName === 'string' && tName.trim()) nameToUse = tName;
+          if (typeof tDesc === 'string' && tDesc.trim()) descToUse = tDesc;
+        } catch (e) {
+          winston.warn(`[plugin/caiz] i18n lookup failed for category ${category.cid}: ${e.message}`);
+        }
+      }
+
       const communityData = {
         ...category,
+        name: nameToUse,
+        ...(descToUse ? { description: descToUse } : {}),
         handle: handle
       };
       userCommunities.push(communityData);

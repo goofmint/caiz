@@ -67,9 +67,24 @@ class Community extends Base {
       winston.error('[plugin/caiz] No uid in socket, user not logged in');
       throw new Error('Not logged in');
     }
-    const communities = await community.getUserCommunities(uid);
-    winston.info(`[plugin/caiz] Returning ${communities.length} communities to client`);
-    return communities;
+    // Resolve locale using same precedence as server-side rendering
+    try {
+      const displayI18n = require('./community-i18n-display');
+      const reqLike = {
+        query: { locale: data && data.locale },
+        headers: (socket.request && socket.request.headers) || {},
+        uid: uid,
+      };
+      const locale = await displayI18n.resolveLocale(reqLike);
+      const communities = await community.getUserCommunities(uid, { locale });
+      winston.info(`[plugin/caiz] Returning ${communities.length} communities to client`);
+      return communities;
+    } catch (err) {
+      winston.warn(`[plugin/caiz] Failed to resolve locale for user communities: ${err.message}`);
+      const communities = await community.getUserCommunities(uid);
+      winston.info(`[plugin/caiz] Returning ${communities.length} communities to client`);
+      return communities;
+    }
   }
 
   // Delegate all other WebSocket handlers to community module
