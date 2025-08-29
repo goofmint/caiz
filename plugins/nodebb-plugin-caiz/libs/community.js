@@ -10,6 +10,9 @@ const helpers = require('./community/helpers');
  */
 
 class Community extends Base {
+  // In-flight deduplication for create requests (per uid + payload)
+  static #createLocks = new Set();
+
   // HTTP Request Handler
   static async Index(req, res, next) {
     try {
@@ -35,6 +38,12 @@ class Community extends Base {
     if (!name || name.length < 3) {
       throw new Error('Community name is too short');
     }
+    const lockKey = `${uid}::${name}::${description || ''}`;
+    if (Community.#createLocks.has(lockKey)) {
+      winston.warn(`[plugin/caiz] Duplicate create request suppressed for uid=${uid}`);
+      throw new Error('Duplicate request in progress');
+    }
+    Community.#createLocks.add(lockKey);
     try {
       const newCommunity = await community.createCommunity(uid, { name, description });
       return {
@@ -44,6 +53,8 @@ class Community extends Base {
     } catch (err) {
       winston.error(`[plugin/caiz] Error creating community: ${err.message}`);
       throw err;
+    } finally {
+      Community.#createLocks.delete(lockKey);
     }
   }
 
