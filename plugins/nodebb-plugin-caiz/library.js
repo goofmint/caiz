@@ -569,6 +569,52 @@ adminSockets.plugins.caiz.saveI18nSettings = async function(socket, data) {
   return { success: true };
 };
 
+// Admin: list communities (top-level categories only)
+adminSockets.plugins.caiz.listCommunities = async function(socket) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  const Categories = require.main.require('./src/categories');
+  const all = await Categories.getAllCategoryFields(['cid', 'name', 'parentCid', 'slug', 'handle']);
+  const tops = (all || []).filter(c => c && c.parentCid === 0);
+  return tops.map(c => ({
+    cid: c.cid,
+    name: c.name,
+    handle: c.handle || (c.slug ? (c.slug.split('/')[1] || c.slug) : ''),
+  }));
+};
+
+// Admin: re-translate selected communities and persist into DB
+adminSockets.plugins.caiz.retranslateCommunities = async function(socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!data || !Array.isArray(data.cids) || data.cids.length === 0) {
+    throw new Error('Invalid parameters');
+  }
+  const Categories = require.main.require('./src/categories');
+  const i18n = require('./libs/community-i18n');
+
+  const items = [];
+  for (const cid of data.cids) {
+    try {
+      const cat = await Categories.getCategoryData(cid);
+      if (!cat || cat.parentCid !== 0) {
+        items.push({ cid, ok: false, error: 'Not a top-level community' });
+        continue;
+      }
+      const translations = await i18n.translateOnCreate({ name: String(cat.name || ''), description: String(cat.description || '') });
+      await i18n.saveTranslations(cid, translations);
+      items.push({ cid, ok: true });
+    } catch (err) {
+      items.push({ cid, ok: false, error: err.message });
+    }
+  }
+  return { items };
+};
+
 // Slack notification settings socket handlers
 sockets.caiz.getSlackNotificationSettings = async function(socket, data) {
   if (!socket.uid) {
