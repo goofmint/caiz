@@ -32,7 +32,11 @@ class I18nSettings {
       throw err;
     }
   }
+
+  async getApiKey() {
+    const key = await meta.settings.getOne('caiz', this.settingsKey);
+    return key;
+  }
 }
 
 module.exports = new I18nSettings();
-

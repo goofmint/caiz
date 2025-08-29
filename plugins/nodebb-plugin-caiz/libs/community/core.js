@@ -48,6 +48,9 @@ async function getParentCategory(cid) {
 }
 
 async function createCommunity(uid, { name, description }) {
+  // Pre-translate name/description to 20 languages; no fallbacks allowed
+  const communityI18n = require('../community-i18n');
+  const translations = await communityI18n.translateOnCreate({ name, description });
   const ownerPrivileges = await Privileges.categories.getGroupPrivilegeList();
   
   winston.info(`[plugin/caiz] Creating community: ${JSON.stringify(ownerPrivileges)}`);
@@ -65,6 +68,9 @@ async function createCommunity(uid, { name, description }) {
 
   const newCategory = await data.createCategory(categoryData);
   const cid = newCategory.cid;
+
+  // Persist translations for display usage
+  await communityI18n.saveTranslations(cid, translations);
 
   // Create community groups
   const ownerGroupName = getGroupName(cid, GROUP_SUFFIXES.OWNERS);
