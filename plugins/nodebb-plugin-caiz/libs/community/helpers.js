@@ -34,9 +34,17 @@ async function customizeIndexLink(dataInput) {
     }
 
     if (!category.children) continue;
-    category.children.forEach(child => {
+    for (const child of category.children) {
       child.link = `/${category.handle}/${child.cid}-${child.handle}`;
-    });
+      if (locale) {
+        try {
+          const displayI18n = require('../community-i18n-display');
+          const tChild = await displayI18n.getCategoryDisplayText(child.cid, locale);
+          if (tChild.name) child.name = tChild.name;
+          if (tChild.description) child.description = tChild.description;
+        } catch {}
+      }
+    }
   }
   return dataInput;
 }

@@ -189,7 +189,7 @@ plugin.filterCategoryBuild = async function (hookData) {
   const { templateData } = hookData;
   const { uid } = hookData.req;
   
-  if (!uid || !templateData.cid || templateData.parentCid !== 0) {
+  if (!templateData || !templateData.cid || templateData.parentCid !== 0) {
     return hookData;
   }
   
@@ -206,8 +206,21 @@ plugin.filterCategoryBuild = async function (hookData) {
     const locale = await displayI18n.resolveLocale(hookData.req);
     if (locale) {
       const texts = await displayI18n.getCategoryDisplayText(templateData.cid, locale);
-      if (texts.name) templateData.name = texts.name; // fallback to existing if missing
-      if (texts.description) templateData.description = texts.description;
+      if (texts.name) templateData.name = texts.name; // fallback if missing
+      if (texts.description) {
+        templateData.description = texts.description;
+        if (templateData.descriptionParsed) {
+          templateData.descriptionParsed = texts.description; // keep simple text; NodeBB may parse downstream
+        }
+      }
+      // Apply to subcategories if present
+      if (Array.isArray(templateData.children) && templateData.children.length) {
+        for (const child of templateData.children) {
+          const t = await displayI18n.getCategoryDisplayText(child.cid, locale);
+          if (t.name) child.name = t.name;
+          if (t.description) child.description = t.description;
+        }
+      }
     }
   } catch (err) {
     winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
