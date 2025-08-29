@@ -6,6 +6,7 @@ const Groups = require.main.require('./src/groups');
 const user = require.main.require('./src/user');
 const meta = require.main.require('./src/meta');
 const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
+const caizSubI18n = require(path.join(__dirname, '../../data/default-subcategories.i18n.json'));
 const data = require('./data');
 const permissions = require('./permissions');
 const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./shared/constants');
@@ -163,6 +164,39 @@ async function createCommunity(uid, { name, description }) {
     }
     winston.info(`[plugin/caiz] Using language: ${userLang} for subcategory translations`);
     
+    const LANG_KEYS = [
+      'en','zh-CN','hi','es','ar','fr','bn','ru','pt','ur',
+      'id','de','ja','fil','tr','ko','fa','sw','ha','it',
+    ];
+
+    function extractSubKeyFromName(nameKey) {
+      // Expect format: [[caiz:subcategory.<key>]]
+      if (typeof nameKey !== 'string') return null;
+      const m = nameKey.match(/\[\[caiz:subcategory\.([a-z-]+)\]\]/i);
+      return m ? m[1] : null;
+    }
+
+    async function saveSubcategoryI18n(cid, key) {
+      const entry = caizSubI18n && caizSubI18n[key];
+      if (!entry) {
+        winston.warn(`[plugin/caiz] No seed i18n found for subcategory key: ${key}`);
+        return;
+      }
+      // Validate completeness
+      for (const lang of LANG_KEYS) {
+        const n = entry.name && entry.name[lang];
+        const d = entry.description && entry.description[lang];
+        if (!n || !d) {
+          throw new Error(`Incomplete i18n seed for key=${key}, lang=${lang}`);
+        }
+      }
+      for (const lang of LANG_KEYS) {
+        await data.setObjectField(`category:${cid}`, `i18n:name:${lang}`, entry.name[lang]);
+        await data.setObjectField(`category:${cid}`, `i18n:description:${lang}`, entry.description[lang]);
+      }
+      winston.info(`[plugin/caiz] Saved seed i18n for subcategory ${cid} (key=${key})`);
+    }
+
     await Promise.all(categoriesToCreate.map(async (category) => {
       if (!category || !category.name) {
         winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
@@ -220,7 +254,19 @@ async function createCommunity(uid, { name, description }) {
       }
       
       winston.info(`[plugin/caiz] AFTER translation - name: ${translatedCategory.name}, desc: ${translatedCategory.description}`);
-      return data.createCategory({ ...translatedCategory, parentCid: cid });
+      const created = await data.createCategory({ ...translatedCategory, parentCid: cid });
+      // Save pre-translated i18n for this subcategory (no runtime API, no fallbacks)
+      try {
+        const subKey = extractSubKeyFromName(category.name);
+        if (subKey) {
+          await saveSubcategoryI18n(created.cid, subKey);
+        } else {
+          winston.warn(`[plugin/caiz] Could not extract subcategory key from name: ${category.name}`);
+        }
+      } catch (err) {
+        winston.error(`[plugin/caiz] Failed to save seed i18n for subcategory: ${err.message}`);
+      }
+      return created;
     }));
   }
 
