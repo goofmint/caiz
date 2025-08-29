@@ -16,8 +16,14 @@ $(document).ready(function () {
         $('#community-create-modal').modal('show');
     });
 
-    // モーダル内の作成ボタンのクリックイベント
-    $('#submit-community-create').on('click', function() {
+    // モーダル内の作成ボタンのクリックイベント（多重バインド防止）
+    const $btn = $('#submit-community-create');
+    if ($btn.data('caizBound')) {
+        return; // already bound elsewhere
+    }
+    $btn.data('caizBound', true);
+
+    $btn.on('click', function() {
         const form = $('#community-create-form');
 
         const formData = form.serializeArray().reduce((obj, item) => {
