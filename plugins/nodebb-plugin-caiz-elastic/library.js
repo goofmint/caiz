@@ -79,6 +79,8 @@ async function ensureIndex() {
               content: { type: 'text' },
               title_tokens: { type: 'keyword' },
               content_tokens: { type: 'keyword' },
+              name_tokens: { type: 'keyword' },
+              description_tokens: { type: 'keyword' },
               tags: { type: 'keyword' },
               language: { type: 'keyword' },
               locale: { type: 'keyword' },
@@ -560,6 +562,34 @@ plugin.indexPost = async function ({ post, translations }) {
     createdAt: new Date(post.timestamp || Date.now()).toISOString(),
     updatedAt: new Date().toISOString(),
     visibility: post.deleted ? 'private' : 'public',
+  };
+  await indexDocument(doc);
+};
+
+plugin.indexCommunity = async function ({ community, nameTranslations, descTranslations }) {
+  if (!ready) throw new Error('[caiz-elastic] Not configured');
+  if (!community || !community.cid) throw new Error('[caiz-elastic] Missing community');
+  assertFullTranslations(nameTranslations);
+  const nameTokens = tokensFromTranslations(nameTranslations);
+  let descriptionTokens = undefined;
+  if (descTranslations) {
+    assertFullTranslations(descTranslations);
+    descriptionTokens = tokensFromTranslations(descTranslations);
+  }
+  const doc = {
+    id: `community:${community.cid}`,
+    type: 'community',
+    cid: community.cid,
+    title: String(community.name || ''),
+    name_tokens: nameTokens,
+    content: String(community.description || ''),
+    description_tokens: descriptionTokens,
+    tags: [],
+    language: undefined,
+    locale: undefined,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    visibility: 'public',
   };
   await indexDocument(doc);
 };

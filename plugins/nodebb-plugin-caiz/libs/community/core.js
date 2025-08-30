@@ -72,6 +72,17 @@ async function createCommunity(uid, { name, description }) {
 
   // Persist translations for display usage
   await communityI18n.saveTranslations(cid, translations);
+  // Index community into Elasticsearch (no fallbacks)
+  try {
+    const elastic = require('../../../nodebb-plugin-caiz-elastic/library');
+    await elastic.indexCommunity({
+      community: { cid, name, description },
+      nameTranslations: translations.nameTranslations,
+      descTranslations: translations.descTranslations,
+    });
+  } catch (err) {
+    winston.error(`[plugin/caiz] Failed to index community ${cid} into Elastic: ${err.message}`);
+  }
 
   // Create community groups
   const ownerGroupName = getGroupName(cid, GROUP_SUFFIXES.OWNERS);
