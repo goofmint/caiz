@@ -172,9 +172,9 @@
     - [x] 更新時
     - [x] 表示
   - 検索のElastic対応
-    - [ ] docker-composeの用意
-    - [ ] 既存のライブラリのフォーク
-    - [ ] 多言語対応（Intl.Segmenter）
+    - [x] docker-composeの用意
+    - [x] 既存のライブラリのフォーク
+    - [ ] インデックスの多言語対応（Intl.Segmenter）
     - [ ] 検索対応/表示
   - AIサマリーの多言語化
     - [ ] サマリー作成時の多言語対応
