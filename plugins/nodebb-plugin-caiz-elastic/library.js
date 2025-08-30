@@ -302,3 +302,14 @@ plugin.onSearchQuery = async function (data) {
 };
 
 module.exports = plugin;
+
+// Admin menu entry
+plugin.addAdminNavigation = function (header, callback) {
+  header.plugins = header.plugins || [];
+  header.plugins.push({
+    route: '/plugins/caiz-elastic',
+    icon: 'fa-search',
+    name: 'Elastic Search'
+  });
+  callback(null, header);
+};

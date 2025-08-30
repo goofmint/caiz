@@ -13,6 +13,7 @@
   ],
   "hooks": [
     { "hook": "static:app.load", "method": "init" },
+    { "hook": "filter:admin.header.build", "method": "addAdminNavigation" },
     { "hook": "action:topic.save", "method": "onTopicSave" },
     { "hook": "action:post.save", "method": "onPostSave" },
     { "hook": "action:topic.purge", "method": "onTopicPurge" },
