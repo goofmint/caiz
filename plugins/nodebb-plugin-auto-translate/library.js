@@ -1005,6 +1005,55 @@ function parseBrowserLanguage(acceptLang) {
 }
 
 /**
+ * Hook: Filter search results to apply i18n (title/content)
+ */
+plugin.filterSearchContentGetResult = async function(payload) {
+    try {
+        if (!payload || !payload.result || !Array.isArray(payload.result.posts)) {
+            return payload;
+        }
+        const uid = payload && payload.data && payload.data.uid;
+        if (!uid) {
+            // No user context; do not alter
+            return payload;
+        }
+        const User = require.main.require('./src/user');
+        const userSettings = await User.getSettings(uid);
+        const userLang = userSettings && (userSettings.userLang || userSettings.language);
+        const targetLang = normalizeBrowserLanguage(userLang);
+        if (!targetLang || !isSupportedLanguage(targetLang)) {
+            return payload;
+        }
+
+        // Apply translation per post summary
+        for (const post of payload.result.posts) {
+            // Topic title translation
+            if (post && post.topic && post.topic.tid) {
+                const t = await getTranslations('topic', post.topic.tid);
+                const translatedTitle = t && t.translations && t.translations[targetLang];
+                if (translatedTitle) {
+                    const clean = cleanMarkdownTitle(translatedTitle);
+                    post.topic.title = clean;
+                }
+            }
+            // Post content translation
+            if (post && post.pid) {
+                const t = await getTranslations('post', post.pid);
+                const translatedContent = t && t.translations && t.translations[targetLang];
+                if (translatedContent) {
+                    // Keep it simple: wrap as paragraph (search summaries are HTML snippets)
+                    post.content = `<p>${translatedContent}</p>`;
+                }
+            }
+        }
+    } catch (err) {
+        winston.error('[auto-translate] Failed to apply i18n to search results:', err);
+        // Do not block search rendering
+    }
+    return payload;
+};
+
+/**
  * Normalize browser language code
  */
 function normalizeBrowserLanguage(langCode) {
