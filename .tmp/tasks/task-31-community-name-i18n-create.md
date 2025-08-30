@@ -8,6 +8,7 @@
 
 - 入力: `name`（必須）, `description`（任意）。入力言語は任意（`sourceLocale`は指定可）。
 - 翻訳: Gemini 2.5 Flash を用いて、以下20言語 `LANG_KEYS` に対して翻訳を作成する。
+  - 似たような処理を `nodebb-plugin-auto-translate` で実装しているので、参考にする。
 - 保存: 生成した各言語の `name` と `description` をDBへ保存。UI表示も保存済みデータを参照する。
 - 設定: Gemini APIキーは管理画面で設定・保存（ハードコーディング禁止）。
 - 注意: NodeBBのi18nはUI文言用。コミュニティ名/説明文はユーザ生成データのため翻訳キーにしない。
@@ -104,5 +105,6 @@ export interface CommunityDisplayService {
 
 ## 管理画面
 
-- Gemini APIキーを入力・保存できるシンプルな設定UIを提供する（実装は別タスク）。
-- 取得失敗時はエラーとし、翻訳処理は開始しない。
+- 同じような機能を `nodebb-plugin-auto-translate` で実装しているので、参考にする。
+- Gemini APIキーを入力・保存できるシンプルな設定UIを提供する。
+
