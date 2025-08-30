@@ -202,7 +202,20 @@ function normalizeToken(t) {
   return String(t).toLowerCase();
 }
 
-function tokensFromTranslations(translations, field) {
+function assertFullTranslations(translations) {
+  if (!translations || typeof translations !== 'object') {
+    throw new Error('[caiz-elastic] Invalid translations payload');
+  }
+  for (const lang of LANG_KEYS) {
+    const v = translations[lang];
+    if (!v || typeof v !== 'string' || !v.trim()) {
+      throw new Error(`[caiz-elastic] Incomplete translations, missing ${lang}`);
+    }
+  }
+}
+
+function tokensFromTranslations(translations) {
+  assertFullTranslations(translations);
   const set = new Set();
   for (const lang of LANG_KEYS) {
     const text = String(translations[lang] || '');
@@ -222,7 +235,7 @@ function tokensFromTranslations(translations, field) {
 async function buildTopicDoc(topic) {
   const translations = await loadTranslations('topic', topic.tid);
   const title = String(topic.title || '');
-  const titleTokens = tokensFromTranslations(translations, 'title');
+  const titleTokens = tokensFromTranslations(translations);
   return {
     id: `topic:${topic.tid}`,
     type: 'topic',
@@ -244,7 +257,7 @@ async function buildTopicDoc(topic) {
 async function buildPostDoc(post) {
   const translations = await loadTranslations('post', post.pid);
   const content = String(post.content || '');
-  const contentTokens = tokensFromTranslations(translations, 'content');
+  const contentTokens = tokensFromTranslations(translations);
   return {
     id: `post:${post.pid}`,
     type: 'post',
@@ -482,4 +495,67 @@ plugin.addAdminNavigation = function (header, callback) {
     name: 'Elastic Search'
   });
   callback(null, header);
+};
+
+// Public API for other plugins (server-to-server usage)
+// These functions DO NOT use fallbacks. Translations must include all LANG_KEYS.
+plugin.indexTopic = async function ({ topic, translations }) {
+  if (!ready) throw new Error('[caiz-elastic] Not configured');
+  if (!topic || !topic.tid) throw new Error('[caiz-elastic] Missing topic');
+  assertFullTranslations(translations);
+  const titleTokens = tokensFromTranslations(translations);
+  const doc = {
+    id: `topic:${topic.tid}`,
+    type: 'topic',
+    cid: topic.cid,
+    tid: topic.tid,
+    title: String(topic.title || ''),
+    title_tokens: titleTokens,
+    content: undefined,
+    content_tokens: undefined,
+    tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
+    language: undefined,
+    locale: undefined,
+    createdAt: new Date(topic.timestamp || Date.now()).toISOString(),
+    updatedAt: new Date().toISOString(),
+    visibility: topic.deleted ? 'private' : 'public',
+  };
+  await indexDocument(doc);
+};
+
+plugin.indexPost = async function ({ post, translations }) {
+  if (!ready) throw new Error('[caiz-elastic] Not configured');
+  if (!post || !post.pid) throw new Error('[caiz-elastic] Missing post');
+  assertFullTranslations(translations);
+  const contentTokens = tokensFromTranslations(translations);
+  const doc = {
+    id: `post:${post.pid}`,
+    type: 'post',
+    cid: post.cid,
+    tid: post.tid,
+    pid: post.pid,
+    title: undefined,
+    title_tokens: undefined,
+    content: String(post.content || ''),
+    content_tokens: contentTokens,
+    tags: [],
+    language: undefined,
+    locale: undefined,
+    createdAt: new Date(post.timestamp || Date.now()).toISOString(),
+    updatedAt: new Date().toISOString(),
+    visibility: post.deleted ? 'private' : 'public',
+  };
+  await indexDocument(doc);
+};
+
+plugin.removeTopic = async function ({ tid }) {
+  if (!ready) throw new Error('[caiz-elastic] Not configured');
+  if (!tid) throw new Error('[caiz-elastic] Missing tid');
+  await deleteDocument(`topic:${tid}`);
+};
+
+plugin.removePost = async function ({ pid }) {
+  if (!ready) throw new Error('[caiz-elastic] Not configured');
+  if (!pid) throw new Error('[caiz-elastic] Missing pid');
+  await deleteDocument(`post:${pid}`);
 };
