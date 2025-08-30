@@ -112,11 +112,12 @@ function getUserLangFromReq(req) {
   });
 }
 
-async function indexDocument(doc) {
+async function indexDocument(doc, opts = {}) {
   const c = getClient();
   const index = getIndexName();
   await ensureIndex();
-  await c.index({ index, id: doc.id, document: doc, refresh: 'true' });
+  const refresh = opts && Object.prototype.hasOwnProperty.call(opts, 'refresh') ? opts.refresh : true;
+  await c.index({ index, id: doc.id, document: doc, refresh: refresh ? 'true' : undefined });
 }
 
 async function deleteDocument(id) {
@@ -467,12 +468,19 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
   };
 
   emitProgress('start', `scope=${scope}`);
-  if (scope === 'all' || scope === 'communities') await reindexCommunities();
-  if (scope === 'all' || scope === 'topics') await reindexTopics();
-  if (scope === 'all' || scope === 'posts') await reindexPosts();
-  emitProgress('done', 'completed', processed);
+  setImmediate(async () => {
+    try {
+      if (scope === 'all' || scope === 'communities') await reindexCommunities();
+      if (scope === 'all' || scope === 'topics') await reindexTopics();
+      if (scope === 'all' || scope === 'posts') await reindexPosts();
+      try { const c = getClient(); await c.indices.refresh({ index: getIndexName() }); } catch {}
+      emitProgress('done', 'completed', processed);
+    } catch (err) {
+      emitProgress('error', err.message || String(err));
+    }
+  });
 
-  return { ok: true, processed };
+  return { ok: true, started: true };
 };
 
 plugin.onTopicSave = async function (hookData) {
@@ -643,7 +651,7 @@ plugin.addAdminNavigation = function (header, callback) {
 
 // Public API for other plugins (server-to-server usage)
 // These functions DO NOT use fallbacks. Translations must include all LANG_KEYS.
-plugin.indexTopic = async function ({ topic, translations }) {
+plugin.indexTopic = async function ({ topic, translations }, opts = {}) {
   if (!ready) throw new Error('[caiz-elastic] Not configured');
   if (!topic || !topic.tid) throw new Error('[caiz-elastic] Missing topic');
   assertFullTranslations(translations);
@@ -664,10 +672,10 @@ plugin.indexTopic = async function ({ topic, translations }) {
     updatedAt: new Date().toISOString(),
     visibility: topic.deleted ? 'private' : 'public',
   };
-  await indexDocument(doc);
+  await indexDocument(doc, opts);
 };
 
-plugin.indexPost = async function ({ post, translations }) {
+plugin.indexPost = async function ({ post, translations }, opts = {}) {
   if (!ready) throw new Error('[caiz-elastic] Not configured');
   if (!post || !post.pid) throw new Error('[caiz-elastic] Missing post');
   assertFullTranslations(translations);
@@ -689,10 +697,10 @@ plugin.indexPost = async function ({ post, translations }) {
     updatedAt: new Date().toISOString(),
     visibility: post.deleted ? 'private' : 'public',
   };
-  await indexDocument(doc);
+  await indexDocument(doc, opts);
 };
 
-plugin.indexCommunity = async function ({ community, nameTranslations, descTranslations }) {
+plugin.indexCommunity = async function ({ community, nameTranslations, descTranslations }, opts = {}) {
   if (!ready) throw new Error('[caiz-elastic] Not configured');
   if (!community || !community.cid) throw new Error('[caiz-elastic] Missing community');
   assertFullTranslations(nameTranslations);
@@ -717,7 +725,7 @@ plugin.indexCommunity = async function ({ community, nameTranslations, descTrans
     updatedAt: new Date().toISOString(),
     visibility: 'public',
   };
-  await indexDocument(doc);
+  await indexDocument(doc, opts);
 };
 
 plugin.removeTopic = async function ({ tid }) {
