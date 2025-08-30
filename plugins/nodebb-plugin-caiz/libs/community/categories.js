@@ -82,7 +82,7 @@ async function CreateSubCategory(socket, dataInput) {
   const maxOrder = Math.max(0, ...existingSubcategories.map(cat => cat.order || 0));
   const order = maxOrder + 1;
   
-  // Create subcategory
+  // Prepare payload
   const categoryData = {
     name: name.trim(),
     description: description ? description.trim() : '',
@@ -95,8 +95,15 @@ async function CreateSubCategory(socket, dataInput) {
   if (color) categoryData.color = color;
   if (bgColor) categoryData.bgColor = bgColor;
   
+  // i18n: translate first (no fallbacks). Abort creation if translation fails
+  const i18n = require('../community-i18n');
+  const translations = await i18n.translateOnCreate({ name: categoryData.name, description: categoryData.description });
+
+  // Create subcategory in DB
   const newCategory = await Categories.create(categoryData);
   winston.info(`[plugin/caiz] Subcategory created: ${newCategory.cid}`);
+  // Persist translations for this subcategory
+  await i18n.saveTranslations(newCategory.cid, translations);
   
   return {
     success: true,
@@ -165,12 +172,28 @@ async function UpdateSubCategory(socket, dataInput) {
   if (color !== undefined) updateData.color = color || '';
   if (bgColor !== undefined) updateData.bgColor = bgColor || '';
   
+  // If name/description are changing, translate first to ensure atomic behavior (no fallbacks)
+  let pendingTranslations = null;
+  if (updateData.name !== undefined || updateData.description !== undefined) {
+    const i18n = require('../community-i18n');
+    const current = await Categories.getCategoryData(cid);
+    const newName = (updateData.name !== undefined ? String(updateData.name) : String(current && current.name || ''));
+    const newDesc = (updateData.description !== undefined ? String(updateData.description) : String(current && current.description || ''));
+    if (!newName || !newName.trim()) {
+      throw new Error('Category name is required');
+    }
+    pendingTranslations = await i18n.translateOnCreate({ name: newName.trim(), description: (newDesc || '').trim() });
+  }
+
   // Update category using proper NodeBB Categories API
   winston.info(`[plugin/caiz] Updating category ${cid} with data:`, updateData);
-  
-  // Use the correct Categories.update method: modified object with cid as key
   const modified = { [cid]: updateData };
   await Categories.update(modified);
+
+  if (pendingTranslations) {
+    const i18n = require('../community-i18n');
+    await i18n.saveTranslations(cid, pendingTranslations);
+  }
   
   winston.info(`[plugin/caiz] Subcategory updated: ${cid}`);
   

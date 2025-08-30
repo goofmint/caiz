@@ -12,13 +12,40 @@ async function getCommunity(params) {
 
 async function customizeIndexLink(dataInput) {
   const { categories } = dataInput.templateData;
-  categories.forEach(category => {
+  const req = dataInput.req;
+  let locale = null;
+  try {
+    const displayI18n = require('../community-i18n-display');
+    locale = await displayI18n.resolveLocale(req);
+  } catch {}
+
+  for (const category of categories) {
+    // Link shaping
     category.link = `/${category.handle}`;
-    if (!category.children) return;
-    category.children.forEach(child => {
+
+    // i18n for top-level communities only (do not touch children here)
+    if (locale) {
+      try {
+        const displayI18n = require('../community-i18n-display');
+        const t = await displayI18n.getCategoryDisplayText(category.cid, locale);
+        if (t.name) category.name = t.name; // fallback to existing if missing
+        if (t.description) category.description = t.description;
+      } catch {}
+    }
+
+    if (!category.children) continue;
+    for (const child of category.children) {
       child.link = `/${category.handle}/${child.cid}-${child.handle}`;
-    });
-  });
+      if (locale) {
+        try {
+          const displayI18n = require('../community-i18n-display');
+          const tChild = await displayI18n.getCategoryDisplayText(child.cid, locale);
+          if (tChild.name) child.name = tChild.name;
+          if (tChild.description) child.description = tChild.description;
+        } catch {}
+      }
+    }
+  }
   return dataInput;
 }
 

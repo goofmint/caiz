@@ -30,7 +30,17 @@ const updateCommunities = async () => {
     return;
   }
   
-  socket.emit('plugins.caiz.getCommunities', {}, async function (err, communities) {
+  // URLのクエリからlocaleパラメータを拾ってサーバへ伝搬
+  let payload = {};
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const locale = params.get('locale');
+    if (locale && locale.trim()) {
+      payload.locale = locale.trim();
+    }
+  } catch {}
+
+  socket.emit('plugins.caiz.getCommunities', payload, async function (err, communities) {
     console.log('[caiz] getCommunities response - err:', err, 'communities:', communities);
     // フラグをリセット
     isUpdatingCommunities = false;
@@ -270,6 +280,12 @@ const initCommunityCreateModal = () => {
     return;
   }
   
+  // Prevent duplicate binding across ajaxify reloads or other scripts
+  if (submitBtn.dataset.caizBound === '1') {
+    return;
+  }
+  submitBtn.dataset.caizBound = '1';
+
   // Handle form submission
   submitBtn.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -291,6 +307,10 @@ const initCommunityCreateModal = () => {
       description: descInput ? descInput.value.trim() : ''
     };
     
+    // If another handler (modal.js) already handles this, avoid double-submit
+    if (submitBtn.classList.contains('disabled') || submitBtn.disabled) {
+      return;
+    }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creating...';
     

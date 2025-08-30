@@ -6,6 +6,7 @@ const Groups = require.main.require('./src/groups');
 const user = require.main.require('./src/user');
 const meta = require.main.require('./src/meta');
 const caizCategories = require(path.join(__dirname, '../../data/default-subcategories.json'));
+const caizSubI18n = require(path.join(__dirname, '../../data/default-subcategories.i18n.json'));
 const data = require('./data');
 const permissions = require('./permissions');
 const { ROLES, GROUP_SUFFIXES, getGroupName, GUEST_PRIVILEGES } = require('./shared/constants');
@@ -48,6 +49,9 @@ async function getParentCategory(cid) {
 }
 
 async function createCommunity(uid, { name, description }) {
+  // Pre-translate name/description to 20 languages; no fallbacks allowed
+  const communityI18n = require('../community-i18n');
+  const translations = await communityI18n.translateOnCreate({ name, description });
   const ownerPrivileges = await Privileges.categories.getGroupPrivilegeList();
   
   winston.info(`[plugin/caiz] Creating community: ${JSON.stringify(ownerPrivileges)}`);
@@ -65,6 +69,9 @@ async function createCommunity(uid, { name, description }) {
 
   const newCategory = await data.createCategory(categoryData);
   const cid = newCategory.cid;
+
+  // Persist translations for display usage
+  await communityI18n.saveTranslations(cid, translations);
 
   // Create community groups
   const ownerGroupName = getGroupName(cid, GROUP_SUFFIXES.OWNERS);
@@ -157,6 +164,39 @@ async function createCommunity(uid, { name, description }) {
     }
     winston.info(`[plugin/caiz] Using language: ${userLang} for subcategory translations`);
     
+    const LANG_KEYS = [
+      'en','zh-CN','hi','es','ar','fr','bn','ru','pt','ur',
+      'id','de','ja','fil','tr','ko','fa','sw','ha','it',
+    ];
+
+    function extractSubKeyFromName(nameKey) {
+      // Expect format: [[caiz:subcategory.<key>]]
+      if (typeof nameKey !== 'string') return null;
+      const m = nameKey.match(/\[\[caiz:subcategory\.([a-z-]+)\]\]/i);
+      return m ? m[1] : null;
+    }
+
+    async function saveSubcategoryI18n(cid, key) {
+      const entry = caizSubI18n && caizSubI18n[key];
+      if (!entry) {
+        winston.warn(`[plugin/caiz] No seed i18n found for subcategory key: ${key}`);
+        return;
+      }
+      // Validate completeness
+      for (const lang of LANG_KEYS) {
+        const n = entry.name && entry.name[lang];
+        const d = entry.description && entry.description[lang];
+        if (!n || !d) {
+          throw new Error(`Incomplete i18n seed for key=${key}, lang=${lang}`);
+        }
+      }
+      for (const lang of LANG_KEYS) {
+        await data.setObjectField(`category:${cid}`, `i18n:name:${lang}`, entry.name[lang]);
+        await data.setObjectField(`category:${cid}`, `i18n:description:${lang}`, entry.description[lang]);
+      }
+      winston.info(`[plugin/caiz] Saved seed i18n for subcategory ${cid} (key=${key})`);
+    }
+
     await Promise.all(categoriesToCreate.map(async (category) => {
       if (!category || !category.name) {
         winston.warn('[plugin/caiz] Skipping invalid subcategory entry (missing name).', category);
@@ -214,7 +254,19 @@ async function createCommunity(uid, { name, description }) {
       }
       
       winston.info(`[plugin/caiz] AFTER translation - name: ${translatedCategory.name}, desc: ${translatedCategory.description}`);
-      return data.createCategory({ ...translatedCategory, parentCid: cid });
+      const created = await data.createCategory({ ...translatedCategory, parentCid: cid });
+      // Save pre-translated i18n for this subcategory (no runtime API, no fallbacks)
+      try {
+        const subKey = extractSubKeyFromName(category.name);
+        if (subKey) {
+          await saveSubcategoryI18n(created.cid, subKey);
+        } else {
+          winston.warn(`[plugin/caiz] Could not extract subcategory key from name: ${category.name}`);
+        }
+      } catch (err) {
+        winston.error(`[plugin/caiz] Failed to save seed i18n for subcategory: ${err.message}`);
+      }
+      return created;
     }));
   }
 
@@ -222,7 +274,7 @@ async function createCommunity(uid, { name, description }) {
   return newCategory;
 }
 
-async function getUserCommunities(uid) {
+async function getUserCommunities(uid, opts = {}) {
   winston.info(`[plugin/caiz] getUserCommunities for uid: ${uid}`);
   
   if (!uid) {
@@ -245,6 +297,7 @@ async function getUserCommunities(uid) {
   
   // Check membership for each community
   const userCommunities = [];
+  const locale = opts && opts.locale;
   for (const category of topLevelCategories) {
     winston.info(`[plugin/caiz] Checking membership for user ${uid} in category ${category.cid} (${category.name})`);
     const role = await getUserRole(uid, category.cid);
@@ -262,8 +315,24 @@ async function getUserCommunities(uid) {
         handle = category.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
       }
       
+      // Apply i18n if locale specified (fallback to original on missing)
+      let nameToUse = category.name;
+      let descToUse = undefined;
+      if (locale) {
+        try {
+          const tName = await data.getObjectField(`category:${category.cid}`, `i18n:name:${locale}`);
+          const tDesc = await data.getObjectField(`category:${category.cid}`, `i18n:description:${locale}`);
+          if (typeof tName === 'string' && tName.trim()) nameToUse = tName;
+          if (typeof tDesc === 'string' && tDesc.trim()) descToUse = tDesc;
+        } catch (e) {
+          winston.warn(`[plugin/caiz] i18n lookup failed for category ${category.cid}: ${e.message}`);
+        }
+      }
+
       const communityData = {
         ...category,
+        name: nameToUse,
+        ...(descToUse ? { description: descToUse } : {}),
         handle: handle
       };
       userCommunities.push(communityData);
@@ -781,7 +850,16 @@ async function filterTopicsBuild(hookData) {
             
             winston.info(`[plugin/caiz] Topic ${topic.tid} - parent category data: ${JSON.stringify(parentCategory)}`);
             
-            if (parentCategory) {
+          if (parentCategory) {
+              // Apply i18n display to parent (community) name
+              try {
+                const displayI18n = require('../community-i18n-display');
+                const locale = await displayI18n.resolveLocale(hookData.req);
+                if (locale) {
+                  const t = await displayI18n.getCategoryDisplayText(parentCategory.cid, locale);
+                  if (t.name) parentCategory.name = t.name; // keep original if missing
+                }
+              } catch {}
               // コミュニティ情報を追加
               topic.community = {
                 cid: parentCategory.cid,
@@ -798,6 +876,15 @@ async function filterTopicsBuild(hookData) {
             }
           } else if (parentCid === topic.cid) {
             // これ自体がコミュニティカテゴリの場合
+            // Apply i18n display to root category
+            try {
+              const displayI18n = require('../community-i18n-display');
+              const locale = await displayI18n.resolveLocale(hookData.req);
+              if (locale) {
+                const t = await displayI18n.getCategoryDisplayText(topic.category.cid, locale);
+                if (t.name) topic.category.name = t.name;
+              }
+            } catch {}
             topic.community = {
               cid: topic.category.cid,
               name: topic.category.name,

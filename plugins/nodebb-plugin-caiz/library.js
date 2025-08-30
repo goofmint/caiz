@@ -9,6 +9,7 @@ const Community = require('./libs/community');
 const Category = require('./libs/category');
 const Topic = require('./libs/topic');
 const Header = require('./libs/header');
+const displayI18n = require('./libs/community-i18n-display');
 const { GetMemberRole } = require('./libs/community/core');
 const apiTokens = require('./libs/api-tokens');
 
@@ -45,6 +46,11 @@ plugin.init = async function (params) {
       slackRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/slack/callback`,
       discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`
     });
+  });
+
+  // Admin route for I18n (Gemini API key)
+  routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-i18n', [], (req, res) => {
+    res.render('admin/plugins/caiz-i18n');
   });
   
   // OAuth callback routes
@@ -182,24 +188,59 @@ plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
 plugin.filterCategoryBuild = async function (hookData) {
   const { templateData } = hookData;
   const { uid } = hookData.req;
-  
-  if (!uid || !templateData.cid || templateData.parentCid !== 0) {
+
+  if (!templateData || !templateData.cid) {
     return hookData;
   }
-  
+
   try {
-    const data = require('./libs/community/data');
-    const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
-    
-    if (ownerGroup) {
-      const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
-      templateData.isOwner = isOwner;
-      winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+    // トップレベルカテゴリのみオーナー情報を付与
+    if (templateData.parentCid === 0) {
+      const data = require('./libs/community/data');
+      const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
+
+      if (ownerGroup) {
+        const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+        templateData.isOwner = isOwner;
+        winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+      }
+    }
+
+    // カテゴリ（トップ/サブ共通）のヘッダーにi18n表示を適用
+    const locale = await displayI18n.resolveLocale(hookData.req);
+    if (locale) {
+      const texts = await displayI18n.getCategoryDisplayText(templateData.cid, locale);
+      if (texts.name) templateData.name = texts.name;
+      if (texts.description) {
+        templateData.description = texts.description;
+        if (templateData.descriptionParsed) {
+          templateData.descriptionParsed = texts.description;
+        }
+      }
+
+      // サブカテゴリ一覧（トップレベル表示時）にも適用
+      if (templateData.parentCid === 0 && Array.isArray(templateData.children) && templateData.children.length) {
+        for (const child of templateData.children) {
+          const t = await displayI18n.getCategoryDisplayText(child.cid, locale);
+          if (t.name) child.name = t.name;
+          if (t.description) child.description = t.description;
+        }
+      }
+
+      // トピック一覧のコミュニティ情報にも既存ロジックを適用
+      if (Array.isArray(templateData.topics) && templateData.topics.length) {
+        try {
+          const Community = require('./libs/community');
+          await Community.filterTopicsBuild({ req: hookData.req, templateData: hookData.templateData });
+        } catch (err) {
+          winston.warn(`[plugin/caiz] Failed to apply i18n to topics in category build: ${err.message}`);
+        }
+      }
     }
   } catch (err) {
-    winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
+    winston.error(`[plugin/caiz] Error in filterCategoryBuild for category ${templateData.cid}: ${err.message}`);
   }
-  
+
   return hookData;
 };
 
@@ -268,6 +309,11 @@ plugin.addAdminNavigation = function (header, callback) {
     route: '/plugins/caiz-oauth',
     icon: 'fa-key',
     name: 'Caiz OAuth Settings'
+  });
+  header.plugins.push({
+    route: '/plugins/caiz-i18n',
+    icon: 'fa-language',
+    name: 'Caiz I18n Settings'
   });
   
   callback(null, header);
@@ -473,6 +519,7 @@ sockets.caiz.disconnectDiscord = async function(socket, data) {
 // Admin socket handlers for OAuth settings
 const oauthSettings = require('./libs/oauth-settings');
 const adminSockets = require.main.require('./src/socket.io/admin');
+const i18nSettings = require('./libs/i18n-settings');
 
 adminSockets.plugins = adminSockets.plugins || {};
 adminSockets.plugins.caiz = adminSockets.plugins.caiz || {};
@@ -514,6 +561,90 @@ adminSockets.plugins.caiz.testOAuthConnection = async function(socket, data) {
   }
   
   return await oauthSettings.testConnection(data.platform);
+};
+
+// Admin socket handlers for I18n (Gemini API key)
+adminSockets.plugins.caiz.getI18nSettings = async function(socket) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  return await i18nSettings.getSettings();
+};
+
+adminSockets.plugins.caiz.saveI18nSettings = async function(socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!data || typeof data.apiKey !== 'string' || !data.apiKey.trim()) {
+    throw new Error('Invalid parameters');
+  }
+  await i18nSettings.saveSettings({ apiKey: data.apiKey.trim() });
+  return { success: true };
+};
+
+// Admin: list communities (top-level categories only)
+adminSockets.plugins.caiz.listCommunities = async function(socket) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  const Categories = require.main.require('./src/categories');
+  const all = await Categories.getAllCategoryFields(['cid', 'name', 'parentCid', 'slug', 'handle', 'disabled']);
+  const tops = (all || []).filter(c => c && c.parentCid === 0 && !c.disabled);
+  return tops.map(c => ({
+    cid: c.cid,
+    name: c.name,
+    handle: c.handle || (c.slug ? (c.slug.split('/')[1] || c.slug) : ''),
+  }));
+};
+
+// Admin: re-translate selected communities and persist into DB
+adminSockets.plugins.caiz.retranslateCommunities = async function(socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!data || !Array.isArray(data.cids) || data.cids.length === 0) {
+    throw new Error('Invalid parameters');
+  }
+  const Categories = require.main.require('./src/categories');
+  const i18n = require('./libs/community-i18n');
+
+  const items = [];
+  for (const cid of data.cids) {
+    try {
+      const cat = await Categories.getCategoryData(cid);
+      if (!cat || cat.parentCid !== 0) {
+        items.push({ cid, ok: false, error: 'Not a top-level community' });
+        continue;
+      }
+
+      // 子カテゴリを含めて再翻訳
+      let children = [];
+      try {
+        const lists = await Categories.getChildren([cid], socket.uid);
+        children = (lists && Array.isArray(lists[0])) ? lists[0] : [];
+      } catch (e) {
+        // 子カテゴリ取得に失敗しても親の再翻訳は継続（フォールバックは入れない）
+        children = [];
+      }
+
+      const targets = [cat, ...children];
+      for (const target of targets) {
+        const tName = String(target.name || '');
+        const tDesc = String(target.description || '');
+        const translations = await i18n.translateOnCreate({ name: tName, description: tDesc });
+        await i18n.saveTranslations(target.cid, translations);
+      }
+
+      items.push({ cid, ok: true, subcats: children.length });
+    } catch (err) {
+      items.push({ cid, ok: false, error: err.message });
+    }
+  }
+  return { items };
 };
 
 // Slack notification settings socket handlers

@@ -157,12 +157,28 @@
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/routes/mcp.js` (更新)
   - フェーズ4: 統合テスト（修正ファイル: 1〜2個）
-    - [ ] タスク8: Claude Desktop統合
+    - [x] タスク8: Claude Desktop統合
       - `mcp-remote`経由での接続確認
       - OAuth2フロー全体のE2Eテスト
       - エラーハンドリングとリトライ
       - 修正ファイル:
         - `plugins/nodebb-plugin-mcp-server/tests/oauth-flow.js` (新規)
+  - コミュニティ名の多言語化
+    - [ ] 作成時
+    - [ ] 更新時
+    - [ ] 表示
+  - サブカテゴリーの多言語化
+    - [ ] 作成時
+    - [ ] 更新時
+    - [ ] 表示
+  - 検索のElastic対応
+    - [ ] docker-composeの用意
+    - [ ] 既存のライブラリのフォーク
+    - [ ] 多言語対応（Intl.Segmenter）
+    - [ ] 検索対応/表示
+  - AIサマリーの多言語化
+    - [ ] サマリー作成時の多言語対応
+    - [ ] サマリーの表示時の多言語対応
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
   - [ ] 逆プロキシ前提のヘッダ/タイムアウト

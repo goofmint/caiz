@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "library.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node tests/community-i18n.test.js",
+    "test:i18n": "node tests/community-i18n.test.js"
   },
   "keywords": [],
   "author": "",
