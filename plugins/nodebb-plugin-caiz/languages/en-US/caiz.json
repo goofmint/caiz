@@ -24,6 +24,7 @@
   "admin.i18n.status": "Status",
   "admin.i18n.done": "Done",
   "admin.i18n.failed": "Failed",
+  "admin.i18n.done-subcats": "Done (%1 subcats)",
   "error.generic": "An error occurred",
   "error.members-only-posting": "Only community members can post in this category",
   "error.community-not-found": "Community not found",

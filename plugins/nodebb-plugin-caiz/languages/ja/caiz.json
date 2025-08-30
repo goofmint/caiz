@@ -24,6 +24,7 @@
   "admin.i18n.status": "状態",
   "admin.i18n.done": "完了",
   "admin.i18n.failed": "失敗",
+  "admin.i18n.done-subcats": "完了（サブカテゴリ%1件）",
   "error.generic": "エラーが発生しました",
   "error.members-only-posting": "このカテゴリへの投稿はコミュニティメンバーのみ可能です",
   "error.community-not-found": "コミュニティが見つかりません",

@@ -188,44 +188,59 @@ plugin.loadCommunityEditModal = Header.loadCommunityEditModal;
 plugin.filterCategoryBuild = async function (hookData) {
   const { templateData } = hookData;
   const { uid } = hookData.req;
-  
-  if (!templateData || !templateData.cid || templateData.parentCid !== 0) {
+
+  if (!templateData || !templateData.cid) {
     return hookData;
   }
-  
+
   try {
-    const data = require('./libs/community/data');
-    const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
-    
-    if (ownerGroup) {
-      const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
-      templateData.isOwner = isOwner;
-      winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+    // トップレベルカテゴリのみオーナー情報を付与
+    if (templateData.parentCid === 0) {
+      const data = require('./libs/community/data');
+      const ownerGroup = await data.getObjectField(`category:${templateData.cid}`, 'ownerGroup');
+
+      if (ownerGroup) {
+        const isOwner = await data.isMemberOfGroup(uid, ownerGroup);
+        templateData.isOwner = isOwner;
+        winston.info(`[plugin/caiz] Category ${templateData.cid} isOwner: ${isOwner} for user ${uid}`);
+      }
     }
-    // Apply i18n display for community (top-level category)
+
+    // カテゴリ（トップ/サブ共通）のヘッダーにi18n表示を適用
     const locale = await displayI18n.resolveLocale(hookData.req);
     if (locale) {
       const texts = await displayI18n.getCategoryDisplayText(templateData.cid, locale);
-      if (texts.name) templateData.name = texts.name; // fallback if missing
+      if (texts.name) templateData.name = texts.name;
       if (texts.description) {
         templateData.description = texts.description;
         if (templateData.descriptionParsed) {
-          templateData.descriptionParsed = texts.description; // keep simple text; NodeBB may parse downstream
+          templateData.descriptionParsed = texts.description;
         }
       }
-      // Apply to subcategories if present
-      if (Array.isArray(templateData.children) && templateData.children.length) {
+
+      // サブカテゴリ一覧（トップレベル表示時）にも適用
+      if (templateData.parentCid === 0 && Array.isArray(templateData.children) && templateData.children.length) {
         for (const child of templateData.children) {
           const t = await displayI18n.getCategoryDisplayText(child.cid, locale);
           if (t.name) child.name = t.name;
           if (t.description) child.description = t.description;
         }
       }
+
+      // トピック一覧のコミュニティ情報にも既存ロジックを適用
+      if (Array.isArray(templateData.topics) && templateData.topics.length) {
+        try {
+          const Community = require('./libs/community');
+          await Community.filterTopicsBuild({ req: hookData.req, templateData: hookData.templateData });
+        } catch (err) {
+          winston.warn(`[plugin/caiz] Failed to apply i18n to topics in category build: ${err.message}`);
+        }
+      }
     }
   } catch (err) {
-    winston.error(`[plugin/caiz] Error checking ownership for category ${templateData.cid}: ${err.message}`);
+    winston.error(`[plugin/caiz] Error in filterCategoryBuild for category ${templateData.cid}: ${err.message}`);
   }
-  
+
   return hookData;
 };
 
@@ -576,8 +591,8 @@ adminSockets.plugins.caiz.listCommunities = async function(socket) {
     throw new Error('[[error:no-privileges]]');
   }
   const Categories = require.main.require('./src/categories');
-  const all = await Categories.getAllCategoryFields(['cid', 'name', 'parentCid', 'slug', 'handle']);
-  const tops = (all || []).filter(c => c && c.parentCid === 0);
+  const all = await Categories.getAllCategoryFields(['cid', 'name', 'parentCid', 'slug', 'handle', 'disabled']);
+  const tops = (all || []).filter(c => c && c.parentCid === 0 && !c.disabled);
   return tops.map(c => ({
     cid: c.cid,
     name: c.name,
@@ -605,9 +620,26 @@ adminSockets.plugins.caiz.retranslateCommunities = async function(socket, data) 
         items.push({ cid, ok: false, error: 'Not a top-level community' });
         continue;
       }
-      const translations = await i18n.translateOnCreate({ name: String(cat.name || ''), description: String(cat.description || '') });
-      await i18n.saveTranslations(cid, translations);
-      items.push({ cid, ok: true });
+
+      // 子カテゴリを含めて再翻訳
+      let children = [];
+      try {
+        const lists = await Categories.getChildren([cid], socket.uid);
+        children = (lists && Array.isArray(lists[0])) ? lists[0] : [];
+      } catch (e) {
+        // 子カテゴリ取得に失敗しても親の再翻訳は継続（フォールバックは入れない）
+        children = [];
+      }
+
+      const targets = [cat, ...children];
+      for (const target of targets) {
+        const tName = String(target.name || '');
+        const tDesc = String(target.description || '');
+        const translations = await i18n.translateOnCreate({ name: tName, description: tDesc });
+        await i18n.saveTranslations(target.cid, translations);
+      }
+
+      items.push({ cid, ok: true, subcats: children.length });
     } catch (err) {
       items.push({ cid, ok: false, error: err.message });
     }

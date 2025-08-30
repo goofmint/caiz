@@ -1,4 +1,4 @@
-define('admin/plugins/caiz-i18n', ['alerts'], function (alerts) {
+define('admin/plugins/caiz-i18n', ['alerts', 'translator'], function (alerts, translator) {
   const I18nAdmin = {};
 
   I18nAdmin.init = function () {
@@ -102,7 +102,17 @@ define('admin/plugins/caiz-i18n', ['alerts'], function (alerts) {
           return alerts.error(err.message || 'Failed to start re-translation');
         }
         (result && result.items || []).forEach(item => {
-          setStatus(item.cid, item.ok ? '[[caiz:admin.i18n.done]]' : (item.error || '[[caiz:admin.i18n.failed]]'), !!item.ok);
+          if (item.ok) {
+            const token = `[[caiz:admin.i18n.done-subcats, ${item.subcats || 0}]]`;
+            translator.translate(token, function(translated) {
+              setStatus(item.cid, translated || token, true);
+            });
+          } else {
+            const text = item.error || '[[caiz:admin.i18n.failed]]';
+            translator.translate(text, function(translated) {
+              setStatus(item.cid, translated || text, false);
+            });
+          }
         });
         alerts.success('Completed');
       });

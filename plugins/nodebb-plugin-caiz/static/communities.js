@@ -30,7 +30,17 @@ const updateCommunities = async () => {
     return;
   }
   
-  socket.emit('plugins.caiz.getCommunities', {}, async function (err, communities) {
+  // URLのクエリからlocaleパラメータを拾ってサーバへ伝搬
+  let payload = {};
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const locale = params.get('locale');
+    if (locale && locale.trim()) {
+      payload.locale = locale.trim();
+    }
+  } catch {}
+
+  socket.emit('plugins.caiz.getCommunities', payload, async function (err, communities) {
     console.log('[caiz] getCommunities response - err:', err, 'communities:', communities);
     // フラグをリセット
     isUpdatingCommunities = false;
