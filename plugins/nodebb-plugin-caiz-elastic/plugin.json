@@ -1,0 +1,16 @@
+{
+  "id": "nodebb-plugin-caiz-elastic",
+  "name": "Caiz Elastic Search",
+  "description": "Elasticsearch search provider for NodeBB (Caiz)",
+  "version": "0.1.0",
+  "library": "./library.js",
+  "hooks": [
+    { "hook": "static:app.load", "method": "init" },
+    { "hook": "action:topic.save", "method": "onTopicSave" },
+    { "hook": "action:post.save", "method": "onPostSave" },
+    { "hook": "action:topic.purge", "method": "onTopicPurge" },
+    { "hook": "action:post.purge", "method": "onPostPurge" },
+    { "hook": "filter:search.query", "method": "onSearchQuery" }
+  ]
+}
+
