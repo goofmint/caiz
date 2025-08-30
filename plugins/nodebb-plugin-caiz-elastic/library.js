@@ -389,20 +389,36 @@ plugin.onSearchQuery = async function (data) {
   const c = getClient();
   const index = getIndexName();
 
-  // No fallback analyzers; rely on index-side config. Here we just query title/content fields
+  // Tokenize query across all supported languages (no fallbacks)
+  const qTokens = tokensFromTranslations(
+    LANG_KEYS.reduce((acc, lang) => {
+      acc[lang] = String(q);
+      return acc;
+    }, {})
+  );
+  if (!qTokens.length) {
+    throw new Error('[caiz-elastic] No tokens produced from query');
+  }
+
+  const useTitles = data.data && data.data.searchIn === 'titles';
+  const fields = useTitles ? ['title_tokens'] : ['content_tokens', 'title_tokens'];
+
+  // Build bool/should of term queries over token fields
+  const shouldClauses = [];
+  for (const field of fields) {
+    for (const tok of qTokens) {
+      shouldClauses.push({ term: { [field]: tok } });
+    }
+  }
   const es = await c.search({
     index,
     query: {
-      multi_match: {
-        query: String(q).trim(),
-        fields: ['title^2', 'content'],
-        type: 'best_fields'
-      }
+      bool: {
+        should: shouldClauses,
+        minimum_should_match: 1,
+      },
     },
-    highlight: {
-      fields: { title: {}, content: {} }
-    },
-    from: Number(data.data.searchIn === 'titles' ? 0 : (data.data.start || 0)) || 0,
+    from: Number(useTitles ? 0 : (data.data.start || 0)) || 0,
     size: Number(data.data.limit || 20) || 20,
   });
 
