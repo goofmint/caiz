@@ -70,11 +70,30 @@ async function ensureIndex() {
         body: {
           settings: {
             analysis: {
+              filter: {
+                caiz_synonyms: {
+                  type: 'synonym_graph',
+                  synonyms: [
+                    // Japanese common synonyms (expand as needed)
+                    'ログイン,サインイン,サインオン',
+                    'ログアウト,サインアウト',
+                    'ユーザー,ユーザ',
+                    // English simple synonyms
+                    'signin,login',
+                    'signout,logout'
+                  ]
+                }
+              },
               analyzer: {
-                latin_ws: {
+                latin_ws_syn: {
                   type: 'custom',
                   tokenizer: 'whitespace',
-                  filter: ['lowercase', 'asciifolding']
+                  filter: ['lowercase', 'asciifolding', 'caiz_synonyms']
+                },
+                ja_kuromoji_syn: {
+                  type: 'custom',
+                  tokenizer: 'kuromoji_tokenizer',
+                  filter: ['kuromoji_baseform', 'kuromoji_readingform', 'lowercase', 'caiz_synonyms']
                 }
               }
             }
@@ -92,14 +111,18 @@ async function ensureIndex() {
               content_tokens: { type: 'keyword' },
               title_tokens_norm: { type: 'keyword' },
               content_tokens_norm: { type: 'keyword' },
-              title_tokens_text: { type: 'text', analyzer: 'latin_ws' },
-              content_tokens_text: { type: 'text', analyzer: 'latin_ws' },
+              title_tokens_text: { type: 'text', analyzer: 'latin_ws_syn' },
+              content_tokens_text: { type: 'text', analyzer: 'latin_ws_syn' },
+              title_ja_text: { type: 'text', analyzer: 'ja_kuromoji_syn' },
+              content_ja_text: { type: 'text', analyzer: 'ja_kuromoji_syn' },
               name_tokens: { type: 'keyword' },
               description_tokens: { type: 'keyword' },
               name_tokens_norm: { type: 'keyword' },
               description_tokens_norm: { type: 'keyword' },
-              name_tokens_text: { type: 'text', analyzer: 'latin_ws' },
-              description_tokens_text: { type: 'text', analyzer: 'latin_ws' },
+              name_tokens_text: { type: 'text', analyzer: 'latin_ws_syn' },
+              description_tokens_text: { type: 'text', analyzer: 'latin_ws_syn' },
+              name_ja_text: { type: 'text', analyzer: 'ja_kuromoji_syn' },
+              description_ja_text: { type: 'text', analyzer: 'ja_kuromoji_syn' },
               tags: { type: 'keyword' },
               language: { type: 'keyword' },
               locale: { type: 'keyword' },
@@ -331,6 +354,7 @@ async function buildTopicDoc(topic) {
     title_tokens: titleTokens,
     title_tokens_norm: titleTokensNorm,
     title_tokens_text: titleTokensNorm.join(' '),
+    title_ja_text: String(translations['ja'] || ''),
     content: undefined,
     content_tokens: undefined,
     tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
@@ -359,6 +383,7 @@ async function buildPostDoc(post) {
     content_tokens: contentTokens,
     content_tokens_norm: contentTokensNorm,
     content_tokens_text: contentTokensNorm.join(' '),
+    content_ja_text: String(translations['ja'] || ''),
     tags: [],
     language: undefined,
     locale: undefined,
@@ -678,6 +703,14 @@ plugin.onSearchQuery = async function (payload) {
       shouldClauses.push({ match: { content_tokens_text: { query: String(q), fuzziness: 'AUTO', prefix_length: 1 } } });
     }
   }
+  const hasJapanese = /[\u3040-\u30FF\u4E00-\u9FFF]/.test(String(q));
+  if (hasJapanese) {
+    if (indexType === 'topic') {
+      shouldClauses.push({ match: { title_ja_text: { query: String(q) } } });
+    } else {
+      shouldClauses.push({ match: { content_ja_text: { query: String(q) } } });
+    }
+  }
   const es = await c.search({
     index,
     query: { bool: { must: mustClauses, should: shouldClauses, minimum_should_match: 1 } },
@@ -837,10 +870,12 @@ plugin.indexCommunity = async function ({ community, nameTranslations, descTrans
     name_tokens: nameTokens,
     name_tokens_norm: nameTokensNorm,
     name_tokens_text: nameTokensNorm ? nameTokensNorm.join(' ') : undefined,
+    name_ja_text: String(nameTranslations['ja'] || ''),
     content: String(community.description || ''),
     description_tokens: descriptionTokens,
     description_tokens_norm: descriptionTokensNorm,
     description_tokens_text: descriptionTokensNorm ? descriptionTokensNorm.join(' ') : undefined,
+    description_ja_text: descriptionTokensNorm ? String(descTranslations && descTranslations['ja'] || '') : undefined,
     tags: [],
     language: undefined,
     locale: undefined,
