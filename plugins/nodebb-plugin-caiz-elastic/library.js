@@ -621,7 +621,9 @@ plugin.onSearchQuery = async function (payload) {
     throw new Error('[caiz-elastic] No tokens produced from query');
   }
 
-  const fields = indexType === 'topic' ? ['title_tokens'] : ['content_tokens'];
+  const fields = indexType === 'topic'
+    ? ['title_tokens', 'title_tokens_norm']
+    : ['content_tokens', 'content_tokens_norm'];
   const shouldClauses = [];
   for (const field of fields) {
     for (const tok of qTokens) { shouldClauses.push({ term: { [field]: tok } }); }
