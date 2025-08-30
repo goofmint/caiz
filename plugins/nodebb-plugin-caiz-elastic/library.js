@@ -430,7 +430,7 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
   };
 
   const reindexTopics = async () => {
-    const all = await Categories.getAllCids();
+    const all = await Categories.getAllCidsFromSet('categories:cid');
     const seen = new Set();
     let total = 0;
     for (const cid of all) {
