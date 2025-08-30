@@ -378,18 +378,54 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
     const parents = (all || []).filter(c => c && c.parentCid === 0);
     emitProgress('communities:start', `total=${parents.length}`);
     for (const cat of parents) {
-      const nameTranslations = {};
-      const descTranslations = {};
-      for (const lang of LANG_KEYS) {
-        const name = await db.getObjectField(`category:${cat.cid}`, `i18n:name:${lang}`);
-        if (!name || !String(name).trim()) throw new Error(`[caiz-elastic] Missing community name i18n for ${lang}, cid=${cat.cid}`);
-        nameTranslations[lang] = String(name);
-        const desc = await db.getObjectField(`category:${cat.cid}`, `i18n:description:${lang}`);
-        if (desc && String(desc).trim()) descTranslations[lang] = String(desc);
+      try {
+        const nameTranslations = {};
+        const descTranslations = {};
+        let missing = [];
+        for (const lang of LANG_KEYS) {
+          const name = await db.getObjectField(`category:${cat.cid}`, `i18n:name:${lang}`);
+          if (!name || !String(name).trim()) {
+            missing.push(lang);
+          } else {
+            nameTranslations[lang] = String(name);
+          }
+          const desc = await db.getObjectField(`category:${cat.cid}`, `i18n:description:${lang}`);
+          if (desc && String(desc).trim()) descTranslations[lang] = String(desc);
+        }
+
+        if (missing.length) {
+          // Try to fetch translations now (no fallback masking — if it fails, skip)
+          try {
+            const communityI18n = require('../nodebb-plugin-caiz/libs/community-i18n');
+            const t = await communityI18n.translateOnCreate({ name: String(cat.name || ''), description: String(cat.description || '') });
+            await communityI18n.saveTranslations(cat.cid, t);
+            // Reload from DB to ensure we have persisted values
+            for (const lang of LANG_KEYS) {
+              const name = await db.getObjectField(`category:${cat.cid}`, `i18n:name:${lang}`);
+              if (!name || !String(name).trim()) {
+                throw new Error(`translation still missing for ${lang}`);
+              }
+              nameTranslations[lang] = String(name);
+              const desc = await db.getObjectField(`category:${cat.cid}`, `i18n:description:${lang}`);
+              if (desc && String(desc).trim()) descTranslations[lang] = String(desc);
+            }
+          } catch (e) {
+            emitProgress('communities:skip', `cid=${cat.cid} reason=${e.message || String(e)}`);
+            continue;
+          }
+        }
+
+        await plugin.indexCommunity({
+          community: { cid: cat.cid, name: cat.name, description: cat.description },
+          nameTranslations,
+          descTranslations: Object.keys(descTranslations).length ? descTranslations : undefined,
+        });
+        processed.communities++;
+        emitProgress('communities:progress', `cid=${cat.cid}`, { done: processed.communities, total: parents.length });
+      } catch (err) {
+        emitProgress('communities:error', `cid=${cat.cid} ${err.message || String(err)}`);
+        // continue with next
       }
-      await plugin.indexCommunity({ community: { cid: cat.cid, name: cat.name, description: cat.description }, nameTranslations, descTranslations: Object.keys(descTranslations).length ? descTranslations : undefined });
-      processed.communities++;
-      emitProgress('communities:progress', `cid=${cat.cid}`, { done: processed.communities, total: parents.length });
     }
   };
 
