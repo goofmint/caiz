@@ -513,74 +513,55 @@ plugin.onPostPurge = async function (hookData) {
   await deleteDocument(`post:${post.pid}`);
 };
 
-plugin.onSearchQuery = async function (data) {
+// NodeBB search adapter — replace core dbsearch by returning ids array
+plugin.onSearchQuery = async function (payload) {
   if (!ready) {
-    // If not ready, prevent takeover (leave core/dbsearch to handle). Do not return results.
-    return data;
+    return payload.ids || [];
   }
-  const q = data && data.data && data.data.query;
-  if (!q || !String(q).trim()) {
-    throw new Error('[caiz-elastic] Missing query');
+  const indexType = payload && payload.index;
+  const q = payload && payload.content;
+  if (!indexType || !q || !String(q).trim()) {
+    throw new Error('[caiz-elastic] Missing search parameters');
   }
   const c = getClient();
   const index = getIndexName();
 
-  // Tokenize query across all supported languages (no fallbacks)
   const qTokens = tokensFromTranslations(
-    LANG_KEYS.reduce((acc, lang) => {
-      acc[lang] = String(q);
-      return acc;
-    }, {})
+    LANG_KEYS.reduce((acc, lang) => { acc[lang] = String(q); return acc; }, {})
   );
   if (!qTokens.length) {
     throw new Error('[caiz-elastic] No tokens produced from query');
   }
 
-  const useTitles = data.data && data.data.searchIn === 'titles';
-  const fields = useTitles ? ['title_tokens'] : ['content_tokens', 'title_tokens'];
-
-  // Build bool/should of term queries over token fields
+  const fields = indexType === 'topic' ? ['title_tokens'] : ['content_tokens'];
   const shouldClauses = [];
   for (const field of fields) {
-    for (const tok of qTokens) {
-      shouldClauses.push({ term: { [field]: tok } });
-    }
+    for (const tok of qTokens) { shouldClauses.push({ term: { [field]: tok } }); }
   }
+  const mustClauses = [{ term: { type: indexType } }, { term: { visibility: 'public' } }];
+  if (Array.isArray(payload.cid) && payload.cid.length) {
+    mustClauses.push({ terms: { cid: payload.cid.map(Number).filter(n => Number.isInteger(n)) } });
+  }
+
   const es = await c.search({
     index,
-    query: {
-      bool: {
-        should: shouldClauses,
-        minimum_should_match: 1,
-      },
-    },
-    from: Number(useTitles ? 0 : (data.data.start || 0)) || 0,
-    size: Number(data.data.limit || 20) || 20,
+    query: { bool: { must: mustClauses, should: shouldClauses, minimum_should_match: 1 } },
+    _source: false,
+    from: 0,
+    size: Number(payload.searchData && payload.searchData.limit || 50) || 50,
   });
 
   const hits = (es.hits && es.hits.hits) || [];
-  const pids = [];
-  const tids = [];
-  hits.forEach(h => {
-    const id = h._id || (h._source && h._source.id);
-    if (!id) return;
-    if (String(id).startsWith('post:')) {
-      const pid = parseInt(String(id).slice(5), 10);
-      if (Number.isInteger(pid)) pids.push(pid);
-    } else if (String(id).startsWith('topic:')) {
-      const tid = parseInt(String(id).slice(6), 10);
-      if (Number.isInteger(tid)) tids.push(tid);
+  const ids = [];
+  for (const h of hits) {
+    const id = h._id || '';
+    if (indexType === 'post' && id.startsWith('post:')) {
+      const pid = parseInt(id.slice(5), 10); if (Number.isInteger(pid)) ids.push(pid);
+    } else if (indexType === 'topic' && id.startsWith('topic:')) {
+      const tid = parseInt(id.slice(6), 10); if (Number.isInteger(tid)) ids.push(tid);
     }
-  });
-
-  // Populate NodeBB search response shape
-  // Respect searchIn: titles => return tids; else return pids
-  if (data.data && data.data.searchIn === 'titles') {
-    data.tids = tids;
-  } else {
-    data.pids = pids;
   }
-  return data;
+  return ids;
 };
 
 // Additional hooks for index maintenance using visibility and edits
