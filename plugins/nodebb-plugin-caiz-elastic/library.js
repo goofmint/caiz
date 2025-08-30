@@ -79,8 +79,12 @@ async function ensureIndex() {
               content: { type: 'text' },
               title_tokens: { type: 'keyword' },
               content_tokens: { type: 'keyword' },
+              title_tokens_norm: { type: 'keyword' },
+              content_tokens_norm: { type: 'keyword' },
               name_tokens: { type: 'keyword' },
               description_tokens: { type: 'keyword' },
+              name_tokens_norm: { type: 'keyword' },
+              description_tokens_norm: { type: 'keyword' },
               tags: { type: 'keyword' },
               language: { type: 'keyword' },
               locale: { type: 'keyword' },
@@ -201,8 +205,48 @@ async function loadTranslations(type, id) {
   return translations;
 }
 
-function normalizeToken(t) {
-  return String(t).toLowerCase();
+function nfkcLower(s) { return String(s).normalize('NFKC').toLowerCase(); }
+function stripDiacritics(s) { return s.normalize('NFD').replace(/\p{M}+/gu, ''); }
+function toHiragana(s) {
+  let out = '';
+  for (const ch of s) {
+    const code = ch.codePointAt(0);
+    if (code >= 0x30A1 && code <= 0x30F6) {
+      out += String.fromCodePoint(code - 0x60);
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+function germanVariants(tok) {
+  const v = new Set([tok]);
+  v.add(tok.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss'));
+  v.add(stripDiacritics(tok));
+  return Array.from(v);
+}
+function englishSingularCandidates(tok) {
+  const arr = [tok];
+  if (tok.endsWith('ies') && tok.length > 4) arr.push(tok.slice(0, -3) + 'y');
+  if (tok.endsWith('es') && tok.length > 3) arr.push(tok.slice(0, -2));
+  if (tok.endsWith('s') && tok.length > 3) arr.push(tok.slice(0, -1));
+  return Array.from(new Set(arr));
+}
+function generateVariants(raw, lang) {
+  const set = new Set();
+  const base = nfkcLower(raw);
+  set.add(base);
+  // Japanese unify to hiragana and also variant without prolonged sound mark
+  const jp = toHiragana(base);
+  set.add(jp);
+  set.add(jp.replace(/\u30FC/g, ''));
+  // Diacritics removal
+  set.add(stripDiacritics(base));
+  // German expansions
+  germanVariants(base).forEach(t => set.add(t));
+  // English simple singulars
+  englishSingularCandidates(base).forEach(t => set.add(t));
+  return Array.from(set).filter(s => s && s.trim());
 }
 
 function assertFullTranslations(translations) {
@@ -217,7 +261,7 @@ function assertFullTranslations(translations) {
   }
 }
 
-function tokensFromTranslations(translations) {
+function tokensFromTranslations(translations, withNorm = false) {
   assertFullTranslations(translations);
   const set = new Set();
   for (const lang of LANG_KEYS) {
@@ -225,7 +269,11 @@ function tokensFromTranslations(translations) {
     const seg = new Intl.Segmenter(lang, { granularity: 'word' });
     for (const part of seg.segment(text)) {
       if (part && part.isWordLike && part.segment) {
-        set.add(normalizeToken(part.segment));
+        if (withNorm) {
+          generateVariants(part.segment, lang).forEach(v => set.add(v));
+        } else {
+          set.add(nfkcLower(part.segment));
+        }
       }
     }
   }
@@ -238,7 +286,8 @@ function tokensFromTranslations(translations) {
 async function buildTopicDoc(topic) {
   const translations = await loadTranslations('topic', topic.tid);
   const title = String(topic.title || '');
-  const titleTokens = tokensFromTranslations(translations);
+  const titleTokens = tokensFromTranslations(translations, false);
+  const titleTokensNorm = tokensFromTranslations(translations, true);
   return {
     id: `topic:${topic.tid}`,
     type: 'topic',
@@ -246,6 +295,7 @@ async function buildTopicDoc(topic) {
     tid: topic.tid,
     title,
     title_tokens: titleTokens,
+    title_tokens_norm: titleTokensNorm,
     content: undefined,
     content_tokens: undefined,
     tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
@@ -260,7 +310,8 @@ async function buildTopicDoc(topic) {
 async function buildPostDoc(post) {
   const translations = await loadTranslations('post', post.pid);
   const content = String(post.content || '');
-  const contentTokens = tokensFromTranslations(translations);
+  const contentTokens = tokensFromTranslations(translations, false);
+  const contentTokensNorm = tokensFromTranslations(translations, true);
   return {
     id: `post:${post.pid}`,
     type: 'post',
@@ -271,6 +322,7 @@ async function buildPostDoc(post) {
     title_tokens: undefined,
     content,
     content_tokens: contentTokens,
+    content_tokens_norm: contentTokensNorm,
     tags: [],
     language: undefined,
     locale: undefined,
@@ -721,11 +773,14 @@ plugin.indexCommunity = async function ({ community, nameTranslations, descTrans
   if (!ready) throw new Error('[caiz-elastic] Not configured');
   if (!community || !community.cid) throw new Error('[caiz-elastic] Missing community');
   assertFullTranslations(nameTranslations);
-  const nameTokens = tokensFromTranslations(nameTranslations);
+  const nameTokens = tokensFromTranslations(nameTranslations, false);
+  const nameTokensNorm = tokensFromTranslations(nameTranslations, true);
   let descriptionTokens = undefined;
+  let descriptionTokensNorm = undefined;
   if (descTranslations) {
     assertFullTranslations(descTranslations);
-    descriptionTokens = tokensFromTranslations(descTranslations);
+    descriptionTokens = tokensFromTranslations(descTranslations, false);
+    descriptionTokensNorm = tokensFromTranslations(descTranslations, true);
   }
   const doc = {
     id: `community:${community.cid}`,
@@ -733,8 +788,10 @@ plugin.indexCommunity = async function ({ community, nameTranslations, descTrans
     cid: community.cid,
     title: String(community.name || ''),
     name_tokens: nameTokens,
+    name_tokens_norm: nameTokensNorm,
     content: String(community.description || ''),
     description_tokens: descriptionTokens,
+    description_tokens_norm: descriptionTokensNorm,
     tags: [],
     language: undefined,
     locale: undefined,
