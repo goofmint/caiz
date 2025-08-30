@@ -234,6 +234,23 @@ function toHiragana(s) {
   }
   return out;
 }
+function isJapaneseChar(ch) {
+  const code = ch.codePointAt(0);
+  // Hiragana, Katakana, Kanji(Han)
+  return (
+    (code >= 0x3040 && code <= 0x309F) ||
+    (code >= 0x30A0 && code <= 0x30FF) ||
+    (code >= 0x4E00 && code <= 0x9FFF)
+  );
+}
+function makeBigrams(s) {
+  const arr = [];
+  const chars = Array.from(s).filter(isJapaneseChar);
+  for (let i = 0; i < chars.length - 1; i++) {
+    arr.push(chars[i] + chars[i + 1]);
+  }
+  return arr;
+}
 function germanVariants(tok) {
   const v = new Set([tok]);
   v.add(tok.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss'));
@@ -255,6 +272,8 @@ function generateVariants(raw, lang) {
   const jp = toHiragana(base);
   set.add(jp);
   set.add(jp.replace(/\u30FC/g, ''));
+  // Add simple bigrams for Japanese sequences
+  makeBigrams(jp).forEach(t => set.add(t));
   // Diacritics removal
   set.add(stripDiacritics(base));
   // German expansions
