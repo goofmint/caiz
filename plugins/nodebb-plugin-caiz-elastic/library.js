@@ -9,6 +9,7 @@ const meta = require.main.require('./src/meta');
 const routeHelpers = require.main.require('./src/routes/helpers');
 const privileges = require.main.require('./src/privileges');
 const Users = require.main.require('./src/user');
+const db = require.main.require('./src/database');
 
 // Required environment variables for operation
 // ELASTIC_NODE: e.g. http://elasticsearch:9200
@@ -17,6 +18,10 @@ const Users = require.main.require('./src/user');
 let client = null;
 let ready = false;
 let settingsCache = null; // { node: string, index: string }
+const LANG_KEYS = [
+  'en','zh-CN','hi','es','ar','fr','bn','ru','pt','ur',
+  'id','de','ja','fil','tr','ko','fa','sw','ha','it',
+];
 
 function getEnv(name) {
   const v = process.env[name];
@@ -176,9 +181,48 @@ function tokenize(input, locale) {
   return tokens;
 }
 
-function buildTopicDoc(topic, locale) {
+async function loadTranslations(type, id) {
+  const key = `auto-translate:${type}:${id}`;
+  const obj = await db.getObject(key);
+  if (!obj || !obj.translations || typeof obj.translations !== 'object') {
+    throw new Error(`[caiz-elastic] Missing translations for ${type}:${id}`);
+  }
+  const translations = obj.translations;
+  // Ensure all required languages exist and are non-empty strings
+  for (const lang of LANG_KEYS) {
+    const v = translations[lang];
+    if (!v || typeof v !== 'string' || !v.trim()) {
+      throw new Error(`[caiz-elastic] Incomplete translations for ${type}:${id}, missing ${lang}`);
+    }
+  }
+  return translations;
+}
+
+function normalizeToken(t) {
+  return String(t).toLowerCase();
+}
+
+function tokensFromTranslations(translations, field) {
+  const set = new Set();
+  for (const lang of LANG_KEYS) {
+    const text = String(translations[lang] || '');
+    const seg = new Intl.Segmenter(lang, { granularity: 'word' });
+    for (const part of seg.segment(text)) {
+      if (part && part.isWordLike && part.segment) {
+        set.add(normalizeToken(part.segment));
+      }
+    }
+  }
+  if (set.size === 0) {
+    throw new Error('[caiz-elastic] No tokens produced from translations');
+  }
+  return Array.from(set);
+}
+
+async function buildTopicDoc(topic) {
+  const translations = await loadTranslations('topic', topic.tid);
   const title = String(topic.title || '');
-  const titleTokens = tokenize(title, locale);
+  const titleTokens = tokensFromTranslations(translations, 'title');
   return {
     id: `topic:${topic.tid}`,
     type: 'topic',
@@ -189,17 +233,18 @@ function buildTopicDoc(topic, locale) {
     content: undefined,
     content_tokens: undefined,
     tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
-    language: locale,
-    locale,
+    language: undefined,
+    locale: undefined,
     createdAt: new Date(topic.timestamp || Date.now()).toISOString(),
     updatedAt: new Date().toISOString(),
     visibility: topic.deleted ? 'private' : 'public',
   };
 }
 
-function buildPostDoc(post, locale) {
+async function buildPostDoc(post) {
+  const translations = await loadTranslations('post', post.pid);
   const content = String(post.content || '');
-  const contentTokens = tokenize(content, locale);
+  const contentTokens = tokensFromTranslations(translations, 'content');
   return {
     id: `post:${post.pid}`,
     type: 'post',
@@ -211,8 +256,8 @@ function buildPostDoc(post, locale) {
     content,
     content_tokens: contentTokens,
     tags: [],
-    language: locale,
-    locale,
+    language: undefined,
+    locale: undefined,
     createdAt: new Date(post.timestamp || Date.now()).toISOString(),
     updatedAt: new Date().toISOString(),
     visibility: post.deleted ? 'private' : 'public',
@@ -293,8 +338,7 @@ plugin.onTopicSave = async function (hookData) {
   if (!ready) return;
   const topic = hookData && hookData.topic;
   if (!topic) return;
-  const locale = await resolveLocaleForTopic(topic);
-  const doc = buildTopicDoc(topic, locale);
+  const doc = await buildTopicDoc(topic);
   await indexDocument(doc);
 };
 
@@ -302,8 +346,7 @@ plugin.onPostSave = async function (hookData) {
   if (!ready) return;
   const post = hookData && hookData.post;
   if (!post) return;
-  const locale = await resolveLocaleForPost(post);
-  const doc = buildPostDoc(post, locale);
+  const doc = await buildPostDoc(post);
   await indexDocument(doc);
 };
 
@@ -394,8 +437,7 @@ plugin.onPostEdit = async function (hookData) {
   if (!ready) return;
   const post = hookData && hookData.post;
   if (!post) return;
-  const locale = await resolveLocaleForPost(post);
-  const doc = buildPostDoc(post, locale);
+  const doc = await buildPostDoc(post);
   await indexDocument(doc);
 };
 
@@ -403,8 +445,7 @@ plugin.onTopicPost = async function (hookData) {
   if (!ready) return;
   const topic = hookData && hookData.topic;
   if (!topic) return;
-  const locale = await resolveLocaleForTopic(topic);
-  const doc = buildTopicDoc(topic, locale);
+  const doc = await buildTopicDoc(topic);
   await indexDocument(doc);
 };
 
@@ -426,8 +467,7 @@ plugin.onTopicEdit = async function (hookData) {
   if (!ready) return;
   const topic = hookData && hookData.topic;
   if (!topic) return;
-  const locale = await resolveLocaleForTopic(topic);
-  const doc = buildTopicDoc(topic, locale);
+  const doc = await buildTopicDoc(topic);
   await indexDocument(doc);
 };
 
