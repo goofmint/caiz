@@ -4,6 +4,13 @@
   "description": "Elasticsearch search provider for NodeBB (Caiz)",
   "version": "0.1.0",
   "library": "./library.js",
+  "languages": "languages",
+  "modules": {
+    "../admin/plugins/caiz-elastic.js": "static/lib/admin/plugins/caiz-elastic.js"
+  },
+  "acpScripts": [
+    "static/lib/admin/plugins/caiz-elastic.js"
+  ],
   "hooks": [
     { "hook": "static:app.load", "method": "init" },
     { "hook": "action:topic.save", "method": "onTopicSave" },
@@ -13,4 +20,3 @@
     { "hook": "filter:search.query", "method": "onSearchQuery" }
   ]
 }
-

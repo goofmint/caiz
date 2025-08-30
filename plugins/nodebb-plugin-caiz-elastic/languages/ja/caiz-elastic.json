@@ -1,0 +1,7 @@
+{
+  "admin.title": "Elastic 検索設定",
+  "admin.node": "Elasticsearch ノードURL",
+  "admin.index": "インデックス名",
+  "admin.save": "保存"
+}
+

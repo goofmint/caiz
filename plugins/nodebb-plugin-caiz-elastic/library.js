@@ -6,6 +6,8 @@
 
 const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
+const routeHelpers = require.main.require('./src/routes/helpers');
+const privileges = require.main.require('./src/privileges');
 
 // Required environment variables for operation
 // ELASTIC_NODE: e.g. http://elasticsearch:9200
@@ -13,38 +15,46 @@ const meta = require.main.require('./src/meta');
 
 let client = null;
 let ready = false;
+let settingsCache = null; // { node: string, index: string }
 
-function getRequiredEnv(name) {
+function getEnv(name) {
   const v = process.env[name];
-  if (!v || !String(v).trim()) {
-    throw new Error(`[caiz-elastic] Missing required env: ${name}`);
+  return v && String(v).trim() ? String(v).trim() : null;
+}
+
+async function loadSettings() {
+  // Prefer admin settings; if not set, try env; if neither, return null (disabled)
+  const s = await meta.settings.get('nodebb-plugin-caiz-elastic');
+  const node = (s && s.node && String(s.node).trim()) || getEnv('ELASTIC_NODE');
+  const index = (s && s.index && String(s.index).trim()) || getEnv('ELASTIC_INDEX_PREFIX');
+  if (node && index) {
+    settingsCache = { node, index };
+    return settingsCache;
   }
-  return String(v).trim();
+  settingsCache = null;
+  return null;
 }
 
 function getClient() {
   if (client) return client;
-  const node = getRequiredEnv('ELASTIC_NODE');
-  // Don't provide any fallback config
-  // Allow optional basic auth via URL or ELASTIC_USERNAME/ELASTIC_PASSWORD in URL form
+  if (!settingsCache) {
+    throw new Error('[caiz-elastic] Not configured');
+  }
   const { Client } = require('@elastic/elasticsearch');
-  client = new Client({ node });
+  client = new Client({ node: settingsCache.node });
   return client;
 }
 
-function indexNameFor(language) {
-  if (!language || !String(language).trim()) {
-    // No fallback language — explicit error
-    throw new Error('[caiz-elastic] Missing language for index name');
+function getIndexName() {
+  if (!settingsCache || !settingsCache.index) {
+    throw new Error('[caiz-elastic] Missing index name');
   }
-  const prefix = getRequiredEnv('ELASTIC_INDEX_PREFIX');
-  const lang = String(language).trim().toLowerCase();
-  return `${prefix}-${lang}`;
+  return settingsCache.index;
 }
 
-async function ensureIndex(language) {
+async function ensureIndex() {
   const c = getClient();
-  const name = indexNameFor(language);
+  const name = getIndexName();
   try {
     const exists = await c.indices.exists({ index: name });
     if (!exists) {
@@ -93,14 +103,14 @@ function getUserLangFromReq(req) {
 
 async function indexDocument(doc) {
   const c = getClient();
-  const index = indexNameFor(doc.language);
-  await ensureIndex(doc.language);
+  const index = getIndexName();
+  await ensureIndex();
   await c.index({ index, id: doc.id, document: doc, refresh: 'true' });
 }
 
-async function deleteDocument(language, id) {
+async function deleteDocument(id) {
   const c = getClient();
-  const index = indexNameFor(language);
+  const index = getIndexName();
   try {
     await c.delete({ index, id, refresh: 'true' });
   } catch (err) {
@@ -116,18 +126,70 @@ const plugin = {};
 
 plugin.init = async function (params) {
   try {
-    // Validate required environment early; do not enable if missing
-    getRequiredEnv('ELASTIC_NODE');
-    getRequiredEnv('ELASTIC_INDEX_PREFIX');
-    // Ping cluster synchronously on boot to fail fast
-    const c = getClient();
-    await c.ping();
-    ready = true;
-    winston.info('[caiz-elastic] Initialized');
+    const { router, middleware } = params;
+    // Admin page
+    routeHelpers.setupAdminPageRoute(router, '/admin/plugins/caiz-elastic', [], (req, res) => {
+      res.render('admin/plugins/caiz-elastic');
+    });
+
+    // Load settings; if missing, stay disabled (do not throw)
+    await loadSettings();
+    if (settingsCache) {
+      const c = getClient();
+      await c.ping();
+      ready = true;
+      winston.info('[caiz-elastic] Initialized');
+    } else {
+      ready = false;
+      winston.warn('[caiz-elastic] Not configured; plugin is disabled until settings are saved');
+    }
   } catch (err) {
     ready = false;
     winston.error(`[caiz-elastic] Initialization failed: ${err.message}`);
   }
+};
+
+// Admin sockets
+const adminSockets = require.main.require('./src/socket.io/admin');
+adminSockets.plugins = adminSockets.plugins || {};
+adminSockets.plugins['caiz-elastic'] = adminSockets.plugins['caiz-elastic'] || {};
+
+adminSockets.plugins['caiz-elastic'].getSettings = async function (socket) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  const s = await meta.settings.get('nodebb-plugin-caiz-elastic');
+  const node = s && s.node;
+  const index = s && s.index;
+  return { node: node || '', index: index || '', ready };
+};
+
+adminSockets.plugins['caiz-elastic'].saveSettings = async function (socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!data || !data.node || !data.index) {
+    throw new Error('Invalid parameters');
+  }
+  await meta.settings.set('nodebb-plugin-caiz-elastic', { node: String(data.node).trim(), index: String(data.index).trim() });
+  // Reload settings and try to connect immediately
+  client = null;
+  await loadSettings();
+  if (settingsCache) {
+    try {
+      const c = getClient();
+      await c.ping();
+      ready = true;
+    } catch (e) {
+      ready = false;
+      throw new Error('Failed to connect to Elasticsearch');
+    }
+  } else {
+    ready = false;
+  }
+  return { success: true, ready };
 };
 
 plugin.onTopicSave = async function (hookData) {
@@ -142,14 +204,11 @@ plugin.onTopicSave = async function (hookData) {
     title: String(topic.title || ''),
     content: undefined,
     tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
-    language: String(topic.language || '').trim(),
+    language: String(topic.language || '').trim() || undefined,
     createdAt: new Date(topic.timestamp || Date.now()).toISOString(),
     updatedAt: new Date().toISOString(),
     visibility: topic.deleted ? 'private' : 'public',
   };
-  if (!doc.language) {
-    throw new Error('[caiz-elastic] Missing language on topic for indexing');
-  }
   await indexDocument(doc);
 };
 
@@ -166,14 +225,11 @@ plugin.onPostSave = async function (hookData) {
     title: undefined,
     content: String(post.content || ''),
     tags: [],
-    language: String(post.language || '').trim(),
+    language: String(post.language || '').trim() || undefined,
     createdAt: new Date(post.timestamp || Date.now()).toISOString(),
     updatedAt: new Date().toISOString(),
     visibility: post.deleted ? 'private' : 'public',
   };
-  if (!doc.language) {
-    throw new Error('[caiz-elastic] Missing language on post for indexing');
-  }
   await indexDocument(doc);
 };
 
@@ -181,22 +237,14 @@ plugin.onTopicPurge = async function (hookData) {
   if (!ready) return;
   const topic = hookData && hookData.topic;
   if (!topic) return;
-  const language = String(topic.language || '').trim();
-  if (!language) {
-    throw new Error('[caiz-elastic] Missing language on topic for delete');
-  }
-  await deleteDocument(language, `topic:${topic.tid}`);
+  await deleteDocument(`topic:${topic.tid}`);
 };
 
 plugin.onPostPurge = async function (hookData) {
   if (!ready) return;
   const post = hookData && hookData.post;
   if (!post) return;
-  const language = String(post.language || '').trim();
-  if (!language) {
-    throw new Error('[caiz-elastic] Missing language on post for delete');
-  }
-  await deleteDocument(language, `post:${post.pid}`);
+  await deleteDocument(`post:${post.pid}`);
 };
 
 plugin.onSearchQuery = async function (data) {
@@ -204,14 +252,12 @@ plugin.onSearchQuery = async function (data) {
     // If not ready, prevent takeover (leave core/dbsearch to handle). Do not return results.
     return data;
   }
-  const req = data && data.req;
   const q = data && data.data && data.data.query;
   if (!q || !String(q).trim()) {
     throw new Error('[caiz-elastic] Missing query');
   }
-  const userLang = await getUserLangFromReq(req);
   const c = getClient();
-  const index = indexNameFor(userLang);
+  const index = getIndexName();
 
   // No fallback analyzers; rely on index-side config. Here we just query title/content fields
   const es = await c.search({
@@ -256,4 +302,3 @@ plugin.onSearchQuery = async function (data) {
 };
 
 module.exports = plugin;
-
