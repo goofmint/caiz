@@ -68,6 +68,17 @@ async function ensureIndex() {
       await c.indices.create({
         index: name,
         body: {
+          settings: {
+            analysis: {
+              analyzer: {
+                latin_ws: {
+                  type: 'custom',
+                  tokenizer: 'whitespace',
+                  filter: ['lowercase', 'asciifolding']
+                }
+              }
+            }
+          },
           mappings: {
             properties: {
               id: { type: 'keyword' },
@@ -81,10 +92,14 @@ async function ensureIndex() {
               content_tokens: { type: 'keyword' },
               title_tokens_norm: { type: 'keyword' },
               content_tokens_norm: { type: 'keyword' },
+              title_tokens_text: { type: 'text', analyzer: 'latin_ws' },
+              content_tokens_text: { type: 'text', analyzer: 'latin_ws' },
               name_tokens: { type: 'keyword' },
               description_tokens: { type: 'keyword' },
               name_tokens_norm: { type: 'keyword' },
               description_tokens_norm: { type: 'keyword' },
+              name_tokens_text: { type: 'text', analyzer: 'latin_ws' },
+              description_tokens_text: { type: 'text', analyzer: 'latin_ws' },
               tags: { type: 'keyword' },
               language: { type: 'keyword' },
               locale: { type: 'keyword' },
@@ -296,6 +311,7 @@ async function buildTopicDoc(topic) {
     title,
     title_tokens: titleTokens,
     title_tokens_norm: titleTokensNorm,
+    title_tokens_text: titleTokensNorm.join(' '),
     content: undefined,
     content_tokens: undefined,
     tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
@@ -323,6 +339,7 @@ async function buildPostDoc(post) {
     content,
     content_tokens: contentTokens,
     content_tokens_norm: contentTokensNorm,
+    content_tokens_text: contentTokensNorm.join(' '),
     tags: [],
     language: undefined,
     locale: undefined,
@@ -624,6 +641,7 @@ plugin.onSearchQuery = async function (payload) {
   const fields = indexType === 'topic'
     ? ['title_tokens', 'title_tokens_norm']
     : ['content_tokens', 'content_tokens_norm'];
+  const isLatin = /\p{Script=Latin}/u.test(String(q));
   const shouldClauses = [];
   for (const field of fields) {
     for (const tok of qTokens) { shouldClauses.push({ term: { [field]: tok } }); }
@@ -633,6 +651,13 @@ plugin.onSearchQuery = async function (payload) {
     mustClauses.push({ terms: { cid: payload.cid.map(Number).filter(n => Number.isInteger(n)) } });
   }
 
+  if (isLatin) {
+    if (indexType === 'topic') {
+      shouldClauses.push({ match: { title_tokens_text: { query: String(q), fuzziness: 'AUTO', prefix_length: 1 } } });
+    } else {
+      shouldClauses.push({ match: { content_tokens_text: { query: String(q), fuzziness: 'AUTO', prefix_length: 1 } } });
+    }
+  }
   const es = await c.search({
     index,
     query: { bool: { must: mustClauses, should: shouldClauses, minimum_should_match: 1 } },
@@ -791,9 +816,11 @@ plugin.indexCommunity = async function ({ community, nameTranslations, descTrans
     title: String(community.name || ''),
     name_tokens: nameTokens,
     name_tokens_norm: nameTokensNorm,
+    name_tokens_text: nameTokensNorm ? nameTokensNorm.join(' ') : undefined,
     content: String(community.description || ''),
     description_tokens: descriptionTokens,
     description_tokens_norm: descriptionTokensNorm,
+    description_tokens_text: descriptionTokensNorm ? descriptionTokensNorm.join(' ') : undefined,
     tags: [],
     language: undefined,
     locale: undefined,
