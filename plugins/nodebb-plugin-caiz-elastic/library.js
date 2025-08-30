@@ -8,6 +8,7 @@ const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
 const routeHelpers = require.main.require('./src/routes/helpers');
 const privileges = require.main.require('./src/privileges');
+const Users = require.main.require('./src/user');
 
 // Required environment variables for operation
 // ELASTIC_NODE: e.g. http://elasticsearch:9200
@@ -71,8 +72,11 @@ async function ensureIndex() {
               pid: { type: 'integer' },
               title: { type: 'text' },
               content: { type: 'text' },
+              title_tokens: { type: 'keyword' },
+              content_tokens: { type: 'keyword' },
               tags: { type: 'keyword' },
               language: { type: 'keyword' },
+              locale: { type: 'keyword' },
               createdAt: { type: 'date' },
               updatedAt: { type: 'date' },
               visibility: { type: 'keyword' }
@@ -120,6 +124,99 @@ async function deleteDocument(id) {
     }
     throw err;
   }
+}
+
+async function updateVisibility(id, visibility) {
+  const c = getClient();
+  const index = getIndexName();
+  await c.update({ index, id, doc: { visibility, updatedAt: new Date().toISOString() }, refresh: 'true' });
+}
+
+function getRequiredLocale(raw) {
+  const v = raw && String(raw).trim();
+  if (!v) throw new Error('[caiz-elastic] Missing locale');
+  return v;
+}
+
+async function resolveLocaleFromUid(uid) {
+  if (!uid) throw new Error('[caiz-elastic] Missing uid for locale resolution');
+  const settings = await Users.getSettings(uid);
+  const lang = settings && settings.userLang;
+  if (!lang) throw new Error('[caiz-elastic] Missing userLang in settings');
+  return String(lang).trim();
+}
+
+async function resolveLocaleForPost(post) {
+  if (!post) throw new Error('[caiz-elastic] Missing post payload');
+  if (post.userLang) return getRequiredLocale(post.userLang);
+  if (post.language) return getRequiredLocale(post.language);
+  if (post.uid) return resolveLocaleFromUid(post.uid);
+  throw new Error('[caiz-elastic] Cannot resolve locale for post');
+}
+
+async function resolveLocaleForTopic(topic) {
+  if (!topic) throw new Error('[caiz-elastic] Missing topic payload');
+  if (topic.userLang) return getRequiredLocale(topic.userLang);
+  if (topic.language) return getRequiredLocale(topic.language);
+  if (topic.uid) return resolveLocaleFromUid(topic.uid);
+  throw new Error('[caiz-elastic] Cannot resolve locale for topic');
+}
+
+function tokenize(input, locale) {
+  if (typeof input !== 'string') throw new Error('[caiz-elastic] Tokenize input must be string');
+  const seg = new Intl.Segmenter(locale, { granularity: 'word' });
+  const iter = seg.segment(input);
+  const tokens = [];
+  for (const part of iter) {
+    if (part && part.isWordLike && part.segment) {
+      tokens.push(part.segment);
+    }
+  }
+  if (!tokens.length) throw new Error('[caiz-elastic] No tokens produced');
+  return tokens;
+}
+
+function buildTopicDoc(topic, locale) {
+  const title = String(topic.title || '');
+  const titleTokens = tokenize(title, locale);
+  return {
+    id: `topic:${topic.tid}`,
+    type: 'topic',
+    cid: topic.cid,
+    tid: topic.tid,
+    title,
+    title_tokens: titleTokens,
+    content: undefined,
+    content_tokens: undefined,
+    tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
+    language: locale,
+    locale,
+    createdAt: new Date(topic.timestamp || Date.now()).toISOString(),
+    updatedAt: new Date().toISOString(),
+    visibility: topic.deleted ? 'private' : 'public',
+  };
+}
+
+function buildPostDoc(post, locale) {
+  const content = String(post.content || '');
+  const contentTokens = tokenize(content, locale);
+  return {
+    id: `post:${post.pid}`,
+    type: 'post',
+    cid: post.cid,
+    tid: post.tid,
+    pid: post.pid,
+    title: undefined,
+    title_tokens: undefined,
+    content,
+    content_tokens: contentTokens,
+    tags: [],
+    language: locale,
+    locale,
+    createdAt: new Date(post.timestamp || Date.now()).toISOString(),
+    updatedAt: new Date().toISOString(),
+    visibility: post.deleted ? 'private' : 'public',
+  };
 }
 
 const plugin = {};
@@ -196,19 +293,8 @@ plugin.onTopicSave = async function (hookData) {
   if (!ready) return;
   const topic = hookData && hookData.topic;
   if (!topic) return;
-  const doc = {
-    id: `topic:${topic.tid}`,
-    type: 'topic',
-    cid: topic.cid,
-    tid: topic.tid,
-    title: String(topic.title || ''),
-    content: undefined,
-    tags: Array.isArray(topic.tags) ? topic.tags.map(t => String(t.value || t)) : [],
-    language: String(topic.language || '').trim() || undefined,
-    createdAt: new Date(topic.timestamp || Date.now()).toISOString(),
-    updatedAt: new Date().toISOString(),
-    visibility: topic.deleted ? 'private' : 'public',
-  };
+  const locale = await resolveLocaleForTopic(topic);
+  const doc = buildTopicDoc(topic, locale);
   await indexDocument(doc);
 };
 
@@ -216,20 +302,8 @@ plugin.onPostSave = async function (hookData) {
   if (!ready) return;
   const post = hookData && hookData.post;
   if (!post) return;
-  const doc = {
-    id: `post:${post.pid}`,
-    type: 'post',
-    cid: post.cid,
-    tid: post.tid,
-    pid: post.pid,
-    title: undefined,
-    content: String(post.content || ''),
-    tags: [],
-    language: String(post.language || '').trim() || undefined,
-    createdAt: new Date(post.timestamp || Date.now()).toISOString(),
-    updatedAt: new Date().toISOString(),
-    visibility: post.deleted ? 'private' : 'public',
-  };
+  const locale = await resolveLocaleForPost(post);
+  const doc = buildPostDoc(post, locale);
   await indexDocument(doc);
 };
 
@@ -299,6 +373,62 @@ plugin.onSearchQuery = async function (data) {
     data.pids = pids;
   }
   return data;
+};
+
+// Additional hooks for index maintenance using visibility and edits
+plugin.onPostDelete = async function (hookData) {
+  if (!ready) return;
+  const post = hookData && hookData.post;
+  if (!post || !post.pid) return;
+  await updateVisibility(`post:${post.pid}`, 'private');
+};
+
+plugin.onPostRestore = async function (hookData) {
+  if (!ready) return;
+  const post = hookData && hookData.post;
+  if (!post || !post.pid) return;
+  await updateVisibility(`post:${post.pid}`, 'public');
+};
+
+plugin.onPostEdit = async function (hookData) {
+  if (!ready) return;
+  const post = hookData && hookData.post;
+  if (!post) return;
+  const locale = await resolveLocaleForPost(post);
+  const doc = buildPostDoc(post, locale);
+  await indexDocument(doc);
+};
+
+plugin.onTopicPost = async function (hookData) {
+  if (!ready) return;
+  const topic = hookData && hookData.topic;
+  if (!topic) return;
+  const locale = await resolveLocaleForTopic(topic);
+  const doc = buildTopicDoc(topic, locale);
+  await indexDocument(doc);
+};
+
+plugin.onTopicDelete = async function (hookData) {
+  if (!ready) return;
+  const topic = hookData && hookData.topic;
+  if (!topic || !topic.tid) return;
+  await updateVisibility(`topic:${topic.tid}`, 'private');
+};
+
+plugin.onTopicRestore = async function (hookData) {
+  if (!ready) return;
+  const topic = hookData && hookData.topic;
+  if (!topic || !topic.tid) return;
+  await updateVisibility(`topic:${topic.tid}`, 'public');
+};
+
+plugin.onTopicEdit = async function (hookData) {
+  if (!ready) return;
+  const topic = hookData && hookData.topic;
+  if (!topic) return;
+  const locale = await resolveLocaleForTopic(topic);
+  const doc = buildTopicDoc(topic, locale);
+  await indexDocument(doc);
 };
 
 module.exports = plugin;
