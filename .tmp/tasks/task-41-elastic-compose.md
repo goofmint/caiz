@@ -21,73 +21,6 @@ NodeBB プラグイン群から利用する検索バックエンドとして Ela
 - クエリの実行（言語別トークナイズ、ハイライトを含む）
 - ヘルスチェック（NodeBB 側からの疎通確認）
 
-## インタフェース設計（アプリ側からの利用想定）
-
-以下は「コードはインタフェースのみ。中身は説明のみ」の方針に従った、英語の型定義例です。実装は行いません。
-
-```ts
-// Core connection settings for Elasticsearch client
-export interface ElasticConnection {
-  node: string;              // e.g. http://elasticsearch:9200
-  username?: string;         // optional for secured clusters
-  password?: string;         // optional for secured clusters
-  ssl?: {
-    rejectUnauthorized: boolean; // dev: false when self-signed
-  };
-}
-
-// Index settings used by the application layer
-export interface SearchIndexConfig {
-  indexName: string;         // e.g. "nodebb-posts"
-  language: string;          // e.g. "ja", "en", "de"
-  shards?: number;           // defaults depend on env
-  replicas?: number;         // 0 for dev
-}
-
-// Domain object to be indexed
-export interface SearchDocument {
-  id: string;                // unique id (topic/post)
-  type: 'topic' | 'post';
-  cid: number;               // category id
-  tid?: number;              // topic id
-  pid?: number;              // post id
-  title?: string;            // for topics
-  content?: string;          // for posts
-  tags?: string[];
-  language: string;          // ISO code used for analyzers
-  createdAt: string;         // ISO8601
-  updatedAt: string;         // ISO8601
-  visibility: 'public' | 'private';
-}
-
-// Query options for search requests
-export interface SearchQueryOptions {
-  q: string;                 // raw query string
-  language?: string;         // analyzer selection
-  offset?: number;           // pagination offset
-  limit?: number;            // pagination limit
-  cid?: number;              // filter by category
-  types?: Array<'topic' | 'post'>; // filter types
-}
-
-// Normalized search result item
-export interface SearchHit {
-  id: string;
-  type: 'topic' | 'post';
-  score: number;
-  highlight?: { title?: string; content?: string };
-}
-
-// Client interface used by NodeBB plugins
-export interface SearchClient {
-  ensureIndex(config: SearchIndexConfig): Promise<void>;         // create index + mappings if missing
-  index(doc: SearchDocument): Promise<void>;                     // upsert document
-  remove(id: string, type: 'topic' | 'post'): Promise<void>;     // delete document
-  search(opts: SearchQueryOptions): Promise<{ hits: SearchHit[]; total: number }>; // run query
-  ping(): Promise<boolean>;                                      // health check
-}
-```
-
 ## コンテナ構成（設計方針）
 
 - サービス名: `elasticsearch`
@@ -95,7 +28,7 @@ export interface SearchClient {
 - 環境変数: 開発用の最小セット（`discovery.type=single-node` など）
 - ボリューム: `esdata:/usr/share/elasticsearch/data`
 
-上記は compose での宣言を前提にしているが、本タスクでは compose の「具体的な YAML」は記述しない（設計のみ）。
+docker-compose.yml（本番用）と docker-compose.dev.yml（開発用）にサービスを定義する。本番用設定、開発時の設定で違いがあれば、それを各設定ファイルに反映する。
 
 ## 注意事項
 
