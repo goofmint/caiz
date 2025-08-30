@@ -365,10 +365,17 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
 
   let processed = { topics: 0, posts: 0, communities: 0 };
 
+  function emitProgress(stage, message, progress) {
+    try {
+      socket.emit('admin.plugins.caiz-elastic.reindex.progress', { stage, message, progress });
+    } catch {}
+  }
+
   // helper: ensure community translations via category fields
   const reindexCommunities = async () => {
     const all = await Categories.getAllCategoryFields(['cid', 'name', 'description', 'parentCid']);
     const parents = (all || []).filter(c => c && c.parentCid === 0);
+    emitProgress('communities:start', `total=${parents.length}`);
     for (const cat of parents) {
       const nameTranslations = {};
       const descTranslations = {};
@@ -381,12 +388,18 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
       }
       await plugin.indexCommunity({ community: { cid: cat.cid, name: cat.name, description: cat.description }, nameTranslations, descTranslations: Object.keys(descTranslations).length ? descTranslations : undefined });
       processed.communities++;
+      emitProgress('communities:progress', `cid=${cat.cid}`, { done: processed.communities, total: parents.length });
     }
   };
 
   const reindexTopics = async () => {
     const all = await Categories.getAllCids();
     const seen = new Set();
+    let total = 0;
+    for (const cid of all) {
+      total += await db.sortedSetCard(`cid:${cid}:tids`);
+    }
+    emitProgress('topics:start', `total≈${total}`);
     for (const cid of all) {
       const tids = await db.getSortedSetRange(`cid:${cid}:tids`, 0, -1);
       for (const tid of tids) {
@@ -416,12 +429,14 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
         }
         await plugin.indexTopic({ topic: t, translations });
         processed.topics++;
+        emitProgress('topics:progress', `tid=${t.tid}`, { done: processed.topics, total });
       }
     }
   };
 
   const reindexPosts = async () => {
     const pids = await db.getSortedSetRange('posts:pid', 0, -1);
+    emitProgress('posts:start', `total=${pids.length}`);
     for (const pid of pids) {
       const p = await Posts.getPostData(pid);
       if (!p || !p.pid) continue;
@@ -447,12 +462,15 @@ adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
       }
       await plugin.indexPost({ post: p, translations });
       processed.posts++;
+      emitProgress('posts:progress', `pid=${p.pid}`, { done: processed.posts, total: pids.length });
     }
   };
 
+  emitProgress('start', `scope=${scope}`);
   if (scope === 'all' || scope === 'communities') await reindexCommunities();
   if (scope === 'all' || scope === 'topics') await reindexTopics();
   if (scope === 'all' || scope === 'posts') await reindexPosts();
+  emitProgress('done', 'completed', processed);
 
   return { ok: true, processed };
 };

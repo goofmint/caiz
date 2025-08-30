@@ -49,6 +49,14 @@ define('admin/plugins/caiz-elastic', ['alerts'], function (alerts) {
           alerts.success('Reindex completed');
         });
       });
+
+      // Live progress log
+      socket.on('admin.plugins.caiz-elastic.reindex.progress', function (payload) {
+        if (!logEl) return;
+        const line = `[${payload.stage}] ${payload.message || ''} ${payload.progress ? JSON.stringify(payload.progress) : ''}`.trim();
+        logEl.textContent += (logEl.textContent ? '\n' : '') + line;
+        logEl.scrollTop = logEl.scrollHeight;
+      });
     }
   };
 
