@@ -18,6 +18,13 @@
     { "hook": "action:post.save", "method": "onPostSave" },
     { "hook": "action:topic.purge", "method": "onTopicPurge" },
     { "hook": "action:post.purge", "method": "onPostPurge" },
+    { "hook": "action:post.delete", "method": "onPostDelete" },
+    { "hook": "action:post.restore", "method": "onPostRestore" },
+    { "hook": "action:post.edit", "method": "onPostEdit" },
+    { "hook": "action:topic.post", "method": "onTopicPost" },
+    { "hook": "action:topic.delete", "method": "onTopicDelete" },
+    { "hook": "action:topic.restore", "method": "onTopicRestore" },
+    { "hook": "action:topic.edit", "method": "onTopicEdit" },
     { "hook": "filter:search.query", "method": "onSearchQuery" }
   ]
 }

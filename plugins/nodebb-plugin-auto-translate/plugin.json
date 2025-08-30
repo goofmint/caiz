@@ -52,6 +52,11 @@
       "hook": "filter:homepage.build",
       "method": "filterHomepageBuild"
     }
+    ,
+    {
+      "hook": "filter:search.contentGetResult",
+      "method": "filterSearchContentGetResult"
+    }
   ],
   "templates": "./templates",
   "modules": {

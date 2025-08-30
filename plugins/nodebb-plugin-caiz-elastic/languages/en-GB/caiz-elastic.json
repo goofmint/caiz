@@ -2,6 +2,8 @@
   "admin.title": "Elastic Search Settings",
   "admin.node": "Elasticsearch Node URL",
   "admin.index": "Index Name",
-  "admin.save": "Save"
+  "admin.save": "Save",
+  "admin.reindex-title": "Reindex",
+  "admin.scope": "Scope",
+  "admin.reindex": "Reindex"
 }
-

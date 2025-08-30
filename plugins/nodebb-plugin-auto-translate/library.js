@@ -312,7 +312,16 @@ plugin.onPostSave = async function(data) {
         winston.info('[auto-translate] Translating post:', { pid: post.pid });
         
         // Perform translation
-        await translateAndSaveContent('post', post.pid, post.content, settings);
+        const translations = await translateAndSaveContent('post', post.pid, post.content, settings);
+
+        // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
+        try {
+            const elastic = require('../nodebb-plugin-caiz-elastic/library');
+            await elastic.indexPost({ post, translations });
+            winston.info('[auto-translate] Indexed post into Elasticsearch', { pid: post.pid });
+        } catch (e) {
+            winston.error('[auto-translate] Failed to index post into Elasticsearch', { pid: post.pid, error: e.message });
+        }
         
     } catch (err) {
         winston.error('[auto-translate] Failed to translate post:', err);
@@ -353,7 +362,16 @@ plugin.onTopicSave = async function(data) {
         const markdownTitle = `# ${topic.title}`;
         
         // Perform translation
-        await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+        const translations = await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+
+        // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
+        try {
+            const elastic = require('../nodebb-plugin-caiz-elastic/library');
+            await elastic.indexTopic({ topic, translations });
+            winston.info('[auto-translate] Indexed topic into Elasticsearch', { tid: topic.tid });
+        } catch (e) {
+            winston.error('[auto-translate] Failed to index topic into Elasticsearch', { tid: topic.tid, error: e.message });
+        }
         
     } catch (err) {
         winston.error('[auto-translate] Failed to translate topic:', err);
@@ -407,6 +425,7 @@ async function translateAndSaveContent(type, id, content, settings) {
             key: translationKey
         });
         
+        return result.translations;
     } catch (err) {
         winston.error('[auto-translate] Translation and save failed:', {
             type,
@@ -984,6 +1003,55 @@ function parseBrowserLanguage(acceptLang) {
         return null;
     }
 }
+
+/**
+ * Hook: Filter search results to apply i18n (title/content)
+ */
+plugin.filterSearchContentGetResult = async function(payload) {
+    try {
+        if (!payload || !payload.result || !Array.isArray(payload.result.posts)) {
+            return payload;
+        }
+        const uid = payload && payload.data && payload.data.uid;
+        if (!uid) {
+            // No user context; do not alter
+            return payload;
+        }
+        const User = require.main.require('./src/user');
+        const userSettings = await User.getSettings(uid);
+        const userLang = userSettings && (userSettings.userLang || userSettings.language);
+        const targetLang = normalizeBrowserLanguage(userLang);
+        if (!targetLang || !isSupportedLanguage(targetLang)) {
+            return payload;
+        }
+
+        // Apply translation per post summary
+        for (const post of payload.result.posts) {
+            // Topic title translation
+            if (post && post.topic && post.topic.tid) {
+                const t = await getTranslations('topic', post.topic.tid);
+                const translatedTitle = t && t.translations && t.translations[targetLang];
+                if (translatedTitle) {
+                    const clean = cleanMarkdownTitle(translatedTitle);
+                    post.topic.title = clean;
+                }
+            }
+            // Post content translation
+            if (post && post.pid) {
+                const t = await getTranslations('post', post.pid);
+                const translatedContent = t && t.translations && t.translations[targetLang];
+                if (translatedContent) {
+                    // Keep it simple: wrap as paragraph (search summaries are HTML snippets)
+                    post.content = `<p>${translatedContent}</p>`;
+                }
+            }
+        }
+    } catch (err) {
+        winston.error('[auto-translate] Failed to apply i18n to search results:', err);
+        // Do not block search rendering
+    }
+    return payload;
+};
 
 /**
  * Normalize browser language code
