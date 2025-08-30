@@ -25,7 +25,7 @@ services:
       - ./app:/usr/src/app
     command: bash -lc " ./nodebb build && node loader.js --no-daemon"
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    build: ./elasticsearch
     restart: unless-stopped
     environment:
       - discovery.type=single-node
