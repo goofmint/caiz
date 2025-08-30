@@ -632,7 +632,8 @@ plugin.onSearchQuery = async function (payload) {
   const index = getIndexName();
 
   const qTokens = tokensFromTranslations(
-    LANG_KEYS.reduce((acc, lang) => { acc[lang] = String(q); return acc; }, {})
+    LANG_KEYS.reduce((acc, lang) => { acc[lang] = String(q); return acc; }, {}),
+    true
   );
   if (!qTokens.length) {
     throw new Error('[caiz-elastic] No tokens produced from query');
