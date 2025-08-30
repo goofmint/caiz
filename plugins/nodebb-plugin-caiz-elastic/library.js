@@ -348,6 +348,114 @@ adminSockets.plugins['caiz-elastic'].saveSettings = async function (socket, data
   }
   return { success: true, ready };
 };
+// Admin: reindex topics/posts/communities
+adminSockets.plugins['caiz-elastic'].reindex = async function (socket, data) {
+  const isAdmin = await privileges.admin.can('admin:settings', socket.uid);
+  if (!isAdmin) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  if (!ready) {
+    throw new Error('[caiz-elastic] Not configured');
+  }
+  const scope = data && data.scope ? String(data.scope) : 'all';
+
+  const Categories = require.main.require('./src/categories');
+  const Topics = require.main.require('./src/topics');
+  const Posts = require.main.require('./src/posts');
+
+  let processed = { topics: 0, posts: 0, communities: 0 };
+
+  // helper: ensure community translations via category fields
+  const reindexCommunities = async () => {
+    const all = await Categories.getAllCategoryFields(['cid', 'name', 'description', 'parentCid']);
+    const parents = (all || []).filter(c => c && c.parentCid === 0);
+    for (const cat of parents) {
+      const nameTranslations = {};
+      const descTranslations = {};
+      for (const lang of LANG_KEYS) {
+        const name = await db.getObjectField(`category:${cat.cid}`, `i18n:name:${lang}`);
+        if (!name || !String(name).trim()) throw new Error(`[caiz-elastic] Missing community name i18n for ${lang}, cid=${cat.cid}`);
+        nameTranslations[lang] = String(name);
+        const desc = await db.getObjectField(`category:${cat.cid}`, `i18n:description:${lang}`);
+        if (desc && String(desc).trim()) descTranslations[lang] = String(desc);
+      }
+      await plugin.indexCommunity({ community: { cid: cat.cid, name: cat.name, description: cat.description }, nameTranslations, descTranslations: Object.keys(descTranslations).length ? descTranslations : undefined });
+      processed.communities++;
+    }
+  };
+
+  const reindexTopics = async () => {
+    const all = await Categories.getAllCids();
+    const seen = new Set();
+    for (const cid of all) {
+      const tids = await db.getSortedSetRange(`cid:${cid}:tids`, 0, -1);
+      for (const tid of tids) {
+        if (seen.has(tid)) continue;
+        seen.add(tid);
+        const t = await Topics.getTopicData(tid);
+        if (!t || !t.tid) continue;
+        let translations;
+        try {
+          translations = await loadTranslations('topic', t.tid);
+        } catch {
+          const SettingsManager = require('../nodebb-plugin-auto-translate/lib/config/settings');
+          const PromptManager = require('../nodebb-plugin-auto-translate/lib/translation/prompt-manager');
+          const GeminiApiClient = require('../nodebb-plugin-auto-translate/lib/translation/api-client');
+          const settingsManager = new SettingsManager();
+          await settingsManager.init();
+          const settings = await settingsManager.getRawSettings();
+          if (!settings.api || !settings.api.geminiApiKey) throw new Error('Missing translation API key');
+          const pm = new PromptManager();
+          const api = new GeminiApiClient();
+          api.initialize(settings);
+          const prompt = pm.buildTranslationPrompt(`# ${String(t.title || '')}`, settings);
+          const res = await api.translateContent(prompt, settings);
+          if (!res || !res.success || !res.translations) throw new Error('Translation failed');
+          translations = res.translations;
+          await db.setObject(`auto-translate:topic:${t.tid}`, { original: `# ${t.title}`, translations, created: Date.now() });
+        }
+        await plugin.indexTopic({ topic: t, translations });
+        processed.topics++;
+      }
+    }
+  };
+
+  const reindexPosts = async () => {
+    const pids = await db.getSortedSetRange('posts:pid', 0, -1);
+    for (const pid of pids) {
+      const p = await Posts.getPostData(pid);
+      if (!p || !p.pid) continue;
+      let translations;
+      try {
+        translations = await loadTranslations('post', p.pid);
+      } catch {
+        const SettingsManager = require('../nodebb-plugin-auto-translate/lib/config/settings');
+        const PromptManager = require('../nodebb-plugin-auto-translate/lib/translation/prompt-manager');
+        const GeminiApiClient = require('../nodebb-plugin-auto-translate/lib/translation/api-client');
+        const settingsManager = new SettingsManager();
+        await settingsManager.init();
+        const settings = await settingsManager.getRawSettings();
+        if (!settings.api || !settings.api.geminiApiKey) throw new Error('Missing translation API key');
+        const pm = new PromptManager();
+        const api = new GeminiApiClient();
+        api.initialize(settings);
+        const prompt = pm.buildTranslationPrompt(String(p.content || ''), settings);
+        const res = await api.translateContent(prompt, settings);
+        if (!res || !res.success || !res.translations) throw new Error('Translation failed');
+        translations = res.translations;
+        await db.setObject(`auto-translate:post:${p.pid}`, { original: p.content, translations, created: Date.now() });
+      }
+      await plugin.indexPost({ post: p, translations });
+      processed.posts++;
+    }
+  };
+
+  if (scope === 'all' || scope === 'communities') await reindexCommunities();
+  if (scope === 'all' || scope === 'topics') await reindexTopics();
+  if (scope === 'all' || scope === 'posts') await reindexPosts();
+
+  return { ok: true, processed };
+};
 
 plugin.onTopicSave = async function (hookData) {
   if (!ready) return;

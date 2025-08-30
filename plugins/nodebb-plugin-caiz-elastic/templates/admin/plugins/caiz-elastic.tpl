@@ -20,7 +20,25 @@
           </form>
         </div>
       </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <i class="fa fa-refresh"></i> [[caiz-elastic:admin.reindex-title]]
+        </div>
+        <div class="panel-body">
+          <div class="form-inline mb-2">
+            <label class="me-2">[[caiz-elastic:admin.scope]]</label>
+            <select id="caiz-elastic-reindex-scope" class="form-control">
+              <option value="all">all</option>
+              <option value="topics">topics</option>
+              <option value="posts">posts</option>
+              <option value="communities">communities</option>
+            </select>
+            <button id="caiz-elastic-reindex" class="btn btn-warning ms-3">[[caiz-elastic:admin.reindex]]</button>
+          </div>
+          <pre id="caiz-elastic-reindex-log" style="max-height: 220px; overflow: auto;"></pre>
+        </div>
+      </div>
     </div>
   </div>
 </div>
-

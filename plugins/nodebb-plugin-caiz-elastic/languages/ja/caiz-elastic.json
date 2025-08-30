@@ -2,6 +2,8 @@
   "admin.title": "Elastic 検索設定",
   "admin.node": "Elasticsearch ノードURL",
   "admin.index": "インデックス名",
-  "admin.save": "保存"
+  "admin.save": "保存",
+  "admin.reindex-title": "再インデックス",
+  "admin.scope": "対象",
+  "admin.reindex": "再インデックス"
 }
-
