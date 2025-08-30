@@ -312,7 +312,16 @@ plugin.onPostSave = async function(data) {
         winston.info('[auto-translate] Translating post:', { pid: post.pid });
         
         // Perform translation
-        await translateAndSaveContent('post', post.pid, post.content, settings);
+        const translations = await translateAndSaveContent('post', post.pid, post.content, settings);
+
+        // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
+        try {
+            const elastic = require('../nodebb-plugin-caiz-elastic/library');
+            await elastic.indexPost({ post, translations });
+            winston.info('[auto-translate] Indexed post into Elasticsearch', { pid: post.pid });
+        } catch (e) {
+            winston.error('[auto-translate] Failed to index post into Elasticsearch', { pid: post.pid, error: e.message });
+        }
         
     } catch (err) {
         winston.error('[auto-translate] Failed to translate post:', err);
@@ -353,7 +362,16 @@ plugin.onTopicSave = async function(data) {
         const markdownTitle = `# ${topic.title}`;
         
         // Perform translation
-        await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+        const translations = await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+
+        // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
+        try {
+            const elastic = require('../nodebb-plugin-caiz-elastic/library');
+            await elastic.indexTopic({ topic, translations });
+            winston.info('[auto-translate] Indexed topic into Elasticsearch', { tid: topic.tid });
+        } catch (e) {
+            winston.error('[auto-translate] Failed to index topic into Elasticsearch', { tid: topic.tid, error: e.message });
+        }
         
     } catch (err) {
         winston.error('[auto-translate] Failed to translate topic:', err);
@@ -407,6 +425,7 @@ async function translateAndSaveContent(type, id, content, settings) {
             key: translationKey
         });
         
+        return result.translations;
     } catch (err) {
         winston.error('[auto-translate] Translation and save failed:', {
             type,
