@@ -37,8 +37,6 @@ services:
       - cluster.routing.allocation.disk.watermark.low=5gb
       - cluster.routing.allocation.disk.watermark.high=2gb
       - cluster.routing.allocation.disk.watermark.flood_stage=1gb
-    ports:
-      - '9200:9200'
     volumes:
       - esdata:/usr/share/elasticsearch/data
 
