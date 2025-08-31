@@ -10,7 +10,9 @@ services:
     depends_on:
       - nodebb
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docs:/var/www/docs:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf.template:ro
+      - ./nginx/10-render-conf.sh:/docker-entrypoint.d/10-render-conf.sh:ro
       - ./nginx/selfsigned.crt:/etc/nginx/caiz.crt:ro
       - ./nginx/selfsigned.key:/etc/nginx/caiz.key:ro
   nodebb:

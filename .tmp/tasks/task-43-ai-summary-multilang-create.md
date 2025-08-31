@@ -8,6 +8,7 @@
 
 ### 要件
 
+- サマリー生成部分はすでに `nodebb-plugin-ai-topic-summary` にて実装済。これを拡張する。
 - 生成対象言語は既存の共通20言語セット（`en, zh-CN, hi, es, ar, fr, bn, ru, pt, ur, id, de, ja, fil, tr, ko, fa, sw, ha, it`）
 - フォールバック禁止（欠落言語がある場合は保存エラーとして扱い、明示ログ＋再試行ポリシーを別途定義）
 - 保存構造は「原文＋translations（言語→要約テキスト）」のフラットキー
@@ -57,7 +58,7 @@ export interface TopicSaveEvent { topic: { tid: number; title: string; }; posts?
 
 ### 生成フロー（概要）
 
-1. 対象トピックの要約対象本文を集約（最新投稿N件または一定期間）
+1. 対象トピックの要約対象本文を集約（最新投稿10件または一定期間） ※ すでに実装済
 2. SummarizerClient.summarizeMultiLang へ投入（20言語）
 3. 返却オブジェクトの完全性検証（全言語が非空）
 4. SummaryStore.save(tid, translations) へ保存（原文＋translations）

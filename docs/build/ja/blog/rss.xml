@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><?xml-stylesheet type="text/xsl" href="rss.xsl"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>Caiz.dev documents Blog</title>
+        <link>https://docs.caiz.dev/ja/blog</link>
+        <description>Caiz.dev documents Blog</description>
+        <lastBuildDate>Sun, 31 Aug 2025 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>ja</language>
+        <item>
+            <title><![CDATA[Caiz.dev Alpha Release Announcement]]></title>
+            <link>https://docs.caiz.dev/ja/blog/new-release</link>
+            <guid>https://docs.caiz.dev/ja/blog/new-release</guid>
+            <pubDate>Sun, 31 Aug 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Caiz.dev has launched its initial release. Caiz.dev is building a new developer community focused on the AI era.]]></description>
+            <content:encoded><![CDATA[<p><a href="https://caiz.dev/" target="_blank" rel="noopener noreferrer">Caiz.dev</a> has launched its initial release. Caiz.dev is building a new developer community focused on the AI era.</p>
+<!-- -->
+<p>Caiz.dev is based on <a href="https://nodebb.org/" target="_blank" rel="noopener noreferrer">NodeBB</a>. The core system remains untouched, with customization achieved solely through plugins and themes. Plugins and themes are primarily developed using vibecoding. Vibe-coding utilizes Claude Code and Codex.</p>
+<p>Caiz means “nautical chart(Kaizu)” in Japanese. We want Caiz.dev to be a presence that supports developers setting sail and propels their growth.</p>]]></content:encoded>
+            <category>Release</category>
+        </item>
+    </channel>
+</rss>

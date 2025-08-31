@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?><?xml-stylesheet type="text/xsl" href="atom.xsl"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://docs.caiz.dev/ja/blog</id>
+    <title>Caiz.dev documents Blog</title>
+    <updated>2025-08-31T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://docs.caiz.dev/ja/blog"/>
+    <subtitle>Caiz.dev documents Blog</subtitle>
+    <icon>https://docs.caiz.dev/ja/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Caiz.dev Alpha Release Announcement]]></title>
+        <id>https://docs.caiz.dev/ja/blog/new-release</id>
+        <link href="https://docs.caiz.dev/ja/blog/new-release"/>
+        <updated>2025-08-31T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Caiz.dev has launched its initial release. Caiz.dev is building a new developer community focused on the AI era.]]></summary>
+        <content type="html"><![CDATA[<p><a href="https://caiz.dev/" target="_blank" rel="noopener noreferrer">Caiz.dev</a> has launched its initial release. Caiz.dev is building a new developer community focused on the AI era.</p>
+<!-- -->
+<p>Caiz.dev is based on <a href="https://nodebb.org/" target="_blank" rel="noopener noreferrer">NodeBB</a>. The core system remains untouched, with customization achieved solely through plugins and themes. Plugins and themes are primarily developed using vibecoding. Vibe-coding utilizes Claude Code and Codex.</p>
+<p>Caiz means “nautical chart(Kaizu)” in Japanese. We want Caiz.dev to be a presence that supports developers setting sail and propels their growth.</p>]]></content>
+        <author>
+            <name>Atsushi Nakatsugawa</name>
+            <uri>https://caiz.dev/user/goofmint</uri>
+        </author>
+        <category label="Release" term="Release"/>
+    </entry>
+</feed>
