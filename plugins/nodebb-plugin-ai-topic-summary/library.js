@@ -207,7 +207,13 @@ plugin.onTopicGet = async function (data) {
   }
 };
 
-// Generate AI summary for a topic
+// Target languages (20)
+const LANG_KEYS = [
+  'en','zh-CN','hi','es','ar','fr','bn','ru','pt','ur',
+  'id','de','ja','fil','tr','ko','fa','sw','ha','it',
+];
+
+// Generate AI summary for a topic (multi-language, strict — no fallbacks)
 async function generateSummary(tid) {
   winston.info(`[plugin/ai-topic-summary] generateSummary called for topic ${tid}`);
   try {
@@ -230,8 +236,8 @@ async function generateSummary(tid) {
       return null;
     }
 
-    // Generate summary prompt
-    const prompt = createSummaryPrompt(content);
+    // Generate summary prompt (expects strict JSON)
+    const prompt = createMultiLangSummaryPrompt(content, LANG_KEYS);
 
     const settings = await meta.settings.get('ai-topic-summary');
     if (!settings || !settings.aiModel) {
@@ -239,27 +245,42 @@ async function generateSummary(tid) {
       return null;
     }
     const modelName = settings.aiModel;
-    const result = await genAI.models.generateContent({
-      model: modelName,
-      contents: prompt
-    });
-    const summaryText = result.text;
-
-    if (!summaryText) {
-      winston.warn(`[plugin/ai-topic-summary] Empty summary generated for topic ${tid}`);
-      return null;
+    const result = await genAI.models.generateContent({ model: modelName, contents: prompt });
+    const raw = result && result.text;
+    if (!raw || typeof raw !== 'string' || !raw.trim()) {
+      throw new Error('Empty summary response');
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      winston.error('[plugin/ai-topic-summary] Failed to parse JSON summary', { raw: raw.substring(0, 300) });
+      throw new Error('Invalid JSON from summarizer');
+    }
+    // Validate structure: { original: string, translations: Record<lang,string> }
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.original !== 'string' || !parsed.translations || typeof parsed.translations !== 'object') {
+      throw new Error('Invalid summary object shape');
+    }
+    // Validate all languages present and non-empty
+    for (const lang of LANG_KEYS) {
+      const v = parsed.translations[lang];
+      if (typeof v !== 'string' || !v.trim()) {
+        throw new Error(`Missing or empty summary for ${lang}`);
+      }
     }
 
-    // Save summary to database
+    // Persist: original + translations (+ legacy summaryText for backward compatibility)
     const summary = {
       topicId: tid,
-      summaryText: summaryText,
+      summaryText: parsed.original, // legacy field (used by current UI)
+      original: parsed.original,
+      translations: parsed.translations,
       postCount: posts.length,
       generatedAt: Date.now(),
-      aiModel: modelName
+      aiModel: modelName,
     };
 
-    await saveSummaryToDB(summary);
+    await saveSummaryToDBStrict(summary);
     
     winston.info(`[plugin/ai-topic-summary] *** SUMMARY SAVED *** Topic ${tid} (${posts.length} posts) - Summary: ${summaryText.substring(0, 100)}...`);
     return summary;
@@ -286,32 +307,53 @@ async function getTopicPosts(tid) {
   }
 }
 
-// Create summary prompt
-function createSummaryPrompt(content) {
-  return `Please provide a concise summary of the following discussion in the same language as the content. Include important points and conclusions if any. Exclude personal names or usernames. Keep the summary brief and focused on the main topics.
-
-Content:
-${content}
-
-Summary:`;
+// Create strict JSON prompt for multi-language summary
+function createMultiLangSummaryPrompt(content, langs) {
+  const keys = JSON.stringify(langs);
+  return [
+    'You are a professional summarizer. Summarize the following discussion and return STRICT JSON only.',
+    'JSON shape: { "original": string, "translations": { <lang>: string } }',
+    `Languages (exact keys): ${keys}`,
+    '- No commentary, no markdown, no code fences. JSON only.',
+    '- The "original" must be a high-quality summary in the content\'s language.',
+    '- Each translations[lang] must be a high-quality summary in that language. No empty values.',
+    '- Keep each summary concise (3-6 sentences).',
+    '',
+    'Content:',
+    content,
+  ].join('\n');
 }
 
 // Database operations
-async function saveSummaryToDB(summary) {
+async function saveSummaryToDBStrict(summary) {
   const key = 'aiTopicSummary:' + summary.topicId;
-  await database.setObject(key, {
-    summaryText: summary.summaryText,
+  const payload = {
+    summaryText: summary.summaryText, // legacy
+    original: summary.original,
+    translations: summary.translations,
     postCount: summary.postCount,
     generatedAt: summary.generatedAt,
-    aiModel: summary.aiModel
-  });
+    aiModel: summary.aiModel,
+  };
+  // Ensure all translations persisted
+  await database.setObject(key, payload);
+  const saved = await database.getObject(key);
+  if (!saved || !saved.translations) {
+    throw new Error('Failed to persist summary translations');
+  }
+  for (const lang of LANG_KEYS) {
+    const v = saved.translations[lang];
+    if (typeof v !== 'string' || !v.trim()) {
+      throw new Error(`Translation not persisted for ${lang}`);
+    }
+  }
 }
 
 async function getSummaryFromDB(tid) {
   try {
     const key = 'aiTopicSummary:' + tid;
     const summary = await database.getObject(key);
-    return summary && summary.summaryText ? summary : null;
+    return summary && (summary.summaryText || summary.original) ? summary : null;
   } catch (err) {
     winston.error(`[plugin/ai-topic-summary] Error getting summary for topic ${tid}:`, err);
     return null;
@@ -326,4 +368,3 @@ async function renderAdminPage(req, res) {
     settings: settings || {}
   });
 }
-
