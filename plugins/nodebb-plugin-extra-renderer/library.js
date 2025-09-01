@@ -11,8 +11,11 @@ const SETTINGS = Object.freeze({
   securityLevel: 'strict',
 });
 
-// Regex to detect fenced code blocks ```mermaid ... ``` (extendable)
-const RE_MERMAID = /```\s*mermaid\s*\n([\s\S]*?)```/g;
+// Regex to detect fenced code blocks ```mermaid ... ``` (CRLF/whitespace tolerant)
+// - header: ``` mermaid [spaces] CR?LF
+// - body: any chars (non-greedy)
+// - footer: optional CR?LF then optional spaces then ``` then optional spaces
+const RE_MERMAID = /```[ \t]*mermaid[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?[ \t]*```[ \t]*/g;
 
 function toBase64(str) { return Buffer.from(str, 'utf8').toString('base64'); }
 function escapeHtml(s) {
