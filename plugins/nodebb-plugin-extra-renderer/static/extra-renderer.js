@@ -92,15 +92,42 @@
     try {
       console.log('[extra-renderer] Rendering PlantUML with code:', code.substring(0, 50));
       
-      const proxyUrl = 'https://kroki.io/plantuml/svg';
+      // Get configured endpoint from plugin settings, with validation
+      const getKrokiEndpoint = () => {
+        // Check for plugin settings
+        if (window.config && window.config.extraRenderer && window.config.extraRenderer.krokiEndpoint) {
+          const endpoint = window.config.extraRenderer.krokiEndpoint;
+          // Validate URL
+          try {
+            const url = new URL(endpoint);
+            if (url.protocol === 'https:' || url.protocol === 'http:') {
+              return endpoint;
+            }
+          } catch (e) {
+            console.error('[extra-renderer] Invalid Kroki endpoint URL:', endpoint);
+          }
+        }
+        // Default to official Kroki service if not configured or invalid
+        return 'https://kroki.io/plantuml/svg';
+      };
+      
+      const proxyUrl = getKrokiEndpoint();
+      console.log('[extra-renderer] Using Kroki endpoint:', proxyUrl);
+      
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain'
         },
-        body: code
+        body: code,
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -113,22 +140,40 @@
 
       if (contentType && contentType.includes('image/svg+xml')) {
         const svgText = await response.text();
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-        const svgElement = svgDoc.documentElement;
         
-        if (isDarkMode) {
-          svgElement.style.filter = 'invert(1) hue-rotate(180deg)';
+        // Convert SVG to safe data URL to prevent XSS
+        try {
+          // Encode the SVG text as a data URL
+          const encodedSvg = encodeURIComponent(svgText);
+          const img = document.createElement('img');
+          img.src = 'data:image/svg+xml;utf8,' + encodedSvg;
+          img.alt = 'PlantUML Diagram';
+          img.style.cssText = 'max-width: 100%; height: auto;';
+          
+          if (isDarkMode) {
+            img.style.filter = 'invert(1) hue-rotate(180deg)';
+          }
+          
+          container.appendChild(img);
+        } catch (encodeErr) {
+          console.error('[extra-renderer] SVG encoding failed:', encodeErr);
+          container.innerHTML = '<pre>PlantUML SVG rendering failed</pre>';
         }
-        
-        svgElement.style.cssText += 'max-width: 100%; height: auto;';
-        container.appendChild(svgElement);
       } else {
         const blob = await response.blob();
         const img = document.createElement('img');
-        img.src = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
+        img.src = blobUrl;
         img.alt = 'PlantUML Diagram';
         img.style.cssText = 'max-width: 100%; height: auto;';
+        
+        // Revoke blob URL after load or error to prevent memory leak
+        img.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+        };
         
         if (isDarkMode) {
           img.style.filter = 'invert(1) hue-rotate(180deg)';
@@ -140,8 +185,16 @@
       console.log('[extra-renderer] PlantUML rendered successfully');
       
     } catch (err) {
-      console.error('[extra-renderer] PlantUML render error:', err);
-      container.innerHTML = `<pre>PlantUML error: ${err?.message || 'Unknown error'}</pre>`;
+      // Handle timeout and other errors gracefully
+      if (err.name === 'AbortError') {
+        console.error('[extra-renderer] PlantUML request timeout');
+        container.innerHTML = '<pre>PlantUML error: Request timeout</pre>';
+      } else {
+        console.error('[extra-renderer] PlantUML render error:', err);
+        // Don't expose stack traces or sensitive error details
+        const safeErrorMessage = err?.message?.includes('HTTP') ? err.message : 'Rendering failed';
+        container.innerHTML = `<pre>PlantUML error: ${safeErrorMessage}</pre>`;
+      }
     }
   };
   
