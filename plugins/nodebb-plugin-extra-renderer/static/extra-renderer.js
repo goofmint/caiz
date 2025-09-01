@@ -256,6 +256,32 @@
       });
     });
 
+    // Find all Math code blocks
+    const mathBlocks = document.querySelectorAll('code.language-math');
+    console.log('[extra-renderer] Found math blocks:', mathBlocks.length);
+    
+    mathBlocks.forEach((codeEl) => {
+      if (codeEl.dataset.mathProcessed) return;
+      codeEl.dataset.mathProcessed = '1';
+      
+      console.log('[extra-renderer] Processing math block');
+      const code = codeEl.textContent || codeEl.innerText;
+      const preEl = codeEl.parentElement;
+      
+      // Replace the pre/code block with math container
+      const container = document.createElement('div');
+      container.className = 'math-container';
+      container.style.cssText = 'margin: 1em 0; text-align: center;';
+      
+      preEl.parentNode.insertBefore(container, preEl);
+      preEl.remove();
+      
+      renderMathCode(code, container).catch(err => {
+        console.error('[extra-renderer] Math async render error:', err);
+        container.innerHTML = `<pre>Math async error: ${err?.message || 'Unknown error'}</pre>`;
+      });
+    });
+
     // Find all paragraphs and check for special content
     const allParagraphs = document.querySelectorAll('p');
     console.log('[extra-renderer] Found paragraphs:', allParagraphs.length);
