@@ -1,0 +1,12 @@
+{
+  "name": "nodebb-plugin-extra-renderer",
+  "version": "0.1.0",
+  "description": "Extra content renderers for NodeBB (includes Mermaid via safe placeholders + client hydration)",
+  "main": "library.js",
+  "license": "MIT",
+  "dependencies": {
+    "mathjax": "^3.2.2",
+    "mermaid": "^10.9.0",
+    "plantuml-encoder": "^1.4.0"
+  }
+}

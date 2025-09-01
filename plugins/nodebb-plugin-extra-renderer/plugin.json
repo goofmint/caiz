@@ -1,0 +1,30 @@
+{
+  "id": "nodebb-plugin-extra-renderer",
+  "name": "Extra Renderer",
+  "description": "Render extra syntaxes (e.g., Mermaid) safely via server placeholders + client hydration",
+  "library": "./library.js",
+  "staticDirs": {
+    "static": "./static",
+    "vendor": "./node_modules"
+  },
+  "scripts": [
+    "vendor/mermaid/dist/mermaid.min.js",
+    "vendor/mathjax/es5/tex-mml-chtml.js",
+    "static/extra-renderer.js"
+  ],
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "init"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminNavigation"
+    },
+    {
+      "hook": "filter:config.get",
+      "method": "appendConfig"
+    }
+  ],
+  "templates": "static/templates"
+}
