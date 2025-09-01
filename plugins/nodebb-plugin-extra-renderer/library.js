@@ -12,8 +12,7 @@ const SETTINGS = Object.freeze({
 });
 
 // Regex to detect fenced code blocks ```mermaid ... ``` (extendable)
-const RE_MERMAID = /```\s*mermaid\s*
-([\s\S]*?)```/g;
+const RE_MERMAID = /```\s*mermaid\s*\n([\s\S]*?)```/g;
 
 function toBase64(str) { return Buffer.from(str, 'utf8').toString('base64'); }
 function escapeHtml(s) {
