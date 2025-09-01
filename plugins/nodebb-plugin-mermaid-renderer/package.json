@@ -1,0 +1,11 @@
+{
+  "name": "nodebb-plugin-mermaid-renderer",
+  "version": "0.1.0",
+  "description": "Mermaid diagram renderer for NodeBB (server-parse + client-hydrate)",
+  "main": "library.js",
+  "license": "MIT",
+  "dependencies": {
+    "mermaid": "^10.9.0"
+  }
+}
+

@@ -1,0 +1,17 @@
+{
+  "id": "nodebb-plugin-mermaid-renderer",
+  "name": "Mermaid Renderer",
+  "description": "Render Mermaid diagrams in posts via safe placeholders + client hydration",
+  "library": "./library.js",
+  "staticDirs": {
+    "static": "./static",
+    "vendor": "./node_modules/mermaid/dist"
+  },
+  "scripts": [
+    "vendor/mermaid.min.js",
+    "static/mermaid-init.js"
+  ],
+  "hooks": [
+    { "hook": "filter:parse.post", "method": "onFilterParsePost" }
+  ]
+}
