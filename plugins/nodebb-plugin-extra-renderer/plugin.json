@@ -5,13 +5,12 @@
   "library": "./library.js",
   "staticDirs": {
     "static": "./static",
-    "vendor": "./node_modules/mermaid/dist"
+    "vendor": "./node_modules"
   },
   "scripts": [
-    "vendor/mermaid.min.js",
-    "static/mermaid-init.js"
+    "vendor/mermaid/dist/mermaid.min.js",
+    "vendor/mathjax/es5/tex-mml-chtml.js",
+    "static/extra-renderer.js"
   ],
-  "hooks": [
-    { "hook": "filter:parse.post", "method": "onFilterParsePost" }
-  ]
+  "hooks": []
 }
