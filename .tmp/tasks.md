@@ -188,7 +188,11 @@
   - [x] 41: パンくずリスト i18n 設計ドキュメント作成（.tmp/tasks/41-breadcrumb-i18n.md）
 - コミュニティ編集
   - [ ] 参加ルール設定。独自の規約に同意したり、アンケートに答えてもらうなど
+  - [x] 42: 参加ルール同意フロー 設計ドキュメント作成（.tmp/tasks/42-community-consent.md）
   - [ ] Xへの通知機能
+- OGP
+  - shift_jisのときに文字化け
+  - 再取得機能（管理画面）
 - MCP機能 ver2
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
