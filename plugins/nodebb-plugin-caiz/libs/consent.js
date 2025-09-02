@@ -81,11 +81,21 @@ async function getConsentRule(cid) {
 async function getConsentRuleForLocale(cid, locale) {
   const header = await getRuleHeader(cid);
   if (!header) return null;
-  const content = await getRuleContent(cid, locale);
+  
+  // Try the exact locale first
+  let content = await getRuleContent(cid, locale);
+  
+  // Fallback logic for English variants
+  if (!content && locale.startsWith('en-')) {
+    // Try generic English as fallback for en-GB, en-US, etc.
+    content = await getRuleContent(cid, 'en');
+  }
+  
   if (!content) {
     // no fallback
     throw new Error(`[[caiz:error.consent.locale-not-found, ${locale}]]`);
   }
+  
   return {
     cid: header.cid,
     version: header.version,
