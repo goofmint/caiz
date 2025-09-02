@@ -182,9 +182,10 @@
 - 追加レンダリング
   - [x] Mermaid
   - [x] MathJax
-  - [ ] PlantUML
+  - [x] PlantUML
 - 表示編集
   - [ ] パンくずリストが多言語対応していない
+  - [x] 41: パンくずリスト i18n 設計ドキュメント作成（.tmp/tasks/41-breadcrumb-i18n.md）
 - コミュニティ編集
   - [ ] 参加ルール設定。独自の規約に同意したり、アンケートに答えてもらうなど
   - [ ] Xへの通知機能
@@ -199,4 +200,6 @@
 - 投稿を編集した場合に再翻訳
 - 投稿を編集した場合に、再モデレーション
 - コミュニティごとの未読表示
+- プロフィールの多言語化 https://caiz.dev/user/goofmint/posts
+- トピックの多言語化 https://caiz.dev/user/goofmint/topics
 - Sentry対応
