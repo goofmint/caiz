@@ -6,18 +6,29 @@ async function applyBreadcrumbI18n(breadcrumbs, locale) {
   if (!Array.isArray(breadcrumbs)) return breadcrumbs;
   if (!locale) return breadcrumbs;
 
-  for (const crumb of breadcrumbs) {
-    if (!crumb || typeof crumb !== 'object') {
-      throw new Error('[[caiz:error.invalid-breadcrumb-item]]');
+  // Filter to valid object crumbs with a cid; ignore malformed items
+  const items = breadcrumbs
+    .map((crumb, index) => ({ crumb, index }))
+    .filter(({ crumb }) => crumb && typeof crumb === 'object' && crumb.cid);
+
+  // Run all lookups in parallel; catch per-item to avoid failing the whole batch
+  const lookups = items.map(({ crumb }) =>
+    displayI18n
+      .getCategoryDisplayText(crumb.cid, locale)
+      .catch(() => null)
+  );
+
+  const results = await Promise.all(lookups);
+
+  // Apply translated name when present; otherwise leave original text
+  results.forEach((t, i) => {
+    const { crumb } = items[i];
+    const name = t && t.name;
+    const trimmed = typeof name === 'string' ? String(name).trim() : '';
+    if (trimmed) {
+      crumb.text = trimmed;
     }
-    if (crumb.cid) {
-      const t = await displayI18n.getCategoryDisplayText(crumb.cid, locale);
-      if (t && t.name && String(t.name).trim()) {
-        crumb.text = String(t.name);
-      }
-      // If missing translation, keep original text as-is (no silent defaults)
-    }
-  }
+  });
   return breadcrumbs;
 }
 
