@@ -34,6 +34,8 @@
   "error.consent.rule-not-found": "同意ルールが見つかりません",
   "error.consent.version-mismatch": "同意バージョンが最新ではありません",
   "error.consent.invalid-params": "不正なパラメータです",
+  "error.consent.required-link": "コミュニティ参加ルールへの同意が必要です。<a href=\"%1\">コミュニティトップ</a>で同意してください。",
+  "error.consent.banned": "BANされているため、このコミュニティでは同意できません",
   "error.generic": "エラーが発生しました",
   "error.members-only-posting": "このカテゴリへの投稿はコミュニティメンバーのみ可能です",
   "error.community-not-found": "コミュニティが見つかりません",
@@ -42,19 +44,13 @@
   "login": "ログイン",
   "join-community": "メンバーになる",
   "join-community-confirm": "コミュニティ「%1」のページに移動してメンバーになりますか？",
-  "consent": {
-    "title": "コミュニティ参加ルールへの同意",
-    "description": "参加前に以下の規約をご確認のうえ、同意してください。規約の改訂後は再同意が必要です。",
-    "checkbox": "上記の規約に同意します",
-    "agree": "同意して参加する"
-  },
-  "community": {
-    "consent": {
-      "title": "参加ルール（Markdown）",
-      "version": "バージョン（SemVer または単調増加文字列）",
-      "markdown": "規約本文（Markdown）"
-    }
-  },
+  "consent.title": "コミュニティ参加ルールへの同意",
+  "consent.description": "参加前に以下の規約をご確認のうえ、同意してください。規約の改訂後は再同意が必要です。",
+  "consent.checkbox": "上記の規約に同意します",
+  "consent.agree": "同意して参加する",
+  "community.consent.title": "参加ルール（Markdown）",
+  "community.consent.markdown": "規約本文（Markdown）",
+  "error.consent.locale-not-found": "このロケールの参加ルールが未設定です（{locale}）",
   "community": {
     "edit-info": "コミュニティ情報を編集",
     "edit-description": "コミュニティの基本情報（名前、スラッグ、説明、ロゴ）を編集します。",

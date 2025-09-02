@@ -376,12 +376,17 @@ async function Follow(socket, { cid }) {
   // Consent check (if rule exists, must be accepted before joining)
   {
     const consent = require('../consent');
+    const Users = require.main.require('./src/user');
     const [rule, userConsent] = await Promise.all([
       consent.getConsentRule(targetCid),
       consent.getUserConsent(uid, targetCid),
     ]);
-    if (consent.needsConsent({ uid, cid: targetCid, current: rule, user: userConsent })) {
-      throw new Error('[[caiz:error.consent.required]]');
+    const isAdmin = await Users.isAdministrator(uid);
+    const role = await getUserRole(uid, targetCid);
+    if (!isAdmin && role !== 'owner') {
+      if (consent.needsConsent({ uid, cid: targetCid, current: rule, user: userConsent })) {
+        throw new Error('[[caiz:error.consent.required]]');
+      }
     }
   }
 
@@ -942,6 +947,7 @@ async function filterTopicsBuild(hookData) {
 
 module.exports = {
   createCommunity,
+  getParentCategory,
   getUserCommunities,
   Follow,
   Unfollow,

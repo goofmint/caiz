@@ -125,14 +125,16 @@ function initializeCommunityEditForm(cid) {
         })));
         
         if (nameField) {
-          nameField.value = data.name || '';
+          const decodedName = (window.CommunityEditUtils && CommunityEditUtils.decodeHTMLEntities) ? CommunityEditUtils.decodeHTMLEntities(data.name || '') : (data.name || '');
+          nameField.value = decodedName;
           console.log('[caiz] Set community name:', data.name, 'Field value:', nameField.value);
           // Force a change event to make sure it's visible
           nameField.dispatchEvent(new Event('input', { bubbles: true }));
         }
         
         if (descField) {
-          descField.value = data.description || '';
+          const decodedDesc = (window.CommunityEditUtils && CommunityEditUtils.decodeHTMLEntities) ? CommunityEditUtils.decodeHTMLEntities(data.description || '') : (data.description || '');
+          descField.value = decodedDesc;
           console.log('[caiz] Set community description:', data.description, 'Field value:', descField.value);
           // Force a change event to make sure it's visible
           descField.dispatchEvent(new Event('input', { bubbles: true }));
@@ -140,17 +142,24 @@ function initializeCommunityEditForm(cid) {
 
         // Load consent rule into form if exists
         try {
-          const vField = modal.querySelector('#community-consent-version');
           const mField = modal.querySelector('#community-consent-markdown');
-          if (window.socket && vField && mField) {
-            window.socket.emit('plugins.caiz.getConsentRule', { cid }, function (err, rule) {
+          if (window.socket && mField) {
+            const determineLocale = () => {
+              const htmlLang = (document.documentElement && document.documentElement.getAttribute('lang')) || '';
+              if (htmlLang && htmlLang.trim()) return htmlLang.trim();
+              if (window.config && window.config.userLang) return window.config.userLang;
+              if (window.app && app.user && app.user.userLang) return app.user.userLang;
+              throw new Error('[[caiz:error.consent.invalid-params]]');
+            };
+            const locale = determineLocale();
+            window.socket.emit('plugins.caiz.getConsentRule', { cid, locale }, function (err, rule) {
               if (err) {
                 console.warn('[caiz] getConsentRule error:', err);
                 return;
               }
-              if (rule) {
-                vField.value = rule.version || '';
-                mField.value = rule.markdown || '';
+              if (rule && typeof rule.markdown === 'string') {
+                mField.value = rule.markdown;
+                mField.dispatchEvent(new Event('input', { bubbles: true }));
               }
             });
           }
@@ -340,27 +349,16 @@ function initializeCommunityEditForm(cid) {
               console.log('[caiz] Icon colors - color:', data.color, 'bgColor:', data.bgColor);
             }
             
-            // Save consent rule if provided (both fields required)
-            try {
-              const vField = modal.querySelector('#community-consent-version');
-              const mField = modal.querySelector('#community-consent-markdown');
-              const v = vField && vField.value ? vField.value.trim() : '';
-              const m = mField && mField.value ? mField.value.trim() : '';
-              if ((v && !m) || (!v && m)) {
-                throw new Error('[[caiz:error.consent.invalid-rule]]');
-              }
-              if (v && m) {
-                await new Promise((resolve, reject) => {
-                  if (!window.socket) return reject(new Error('[[error:socket-not-enabled]]'));
-                  window.socket.emit('plugins.caiz.setConsentRule', { cid, version: v, markdown: m }, function (err) {
-                    if (err) return reject(err);
-                    resolve();
-                  });
-                });
-              }
-            } catch (e) {
-              throw e;
-            }
+            // Save consent rule (auto-version and auto-translate to all locales)
+            const mField = modal.querySelector('#community-consent-markdown');
+            const m = mField ? mField.value : '';
+            await new Promise((resolve, reject) => {
+              if (!window.socket) return reject(new Error('[[error:socket-not-enabled]]'));
+              window.socket.emit('plugins.caiz.setConsentRule', { cid, markdown: m }, function (err) {
+                if (err) return reject(err);
+                resolve();
+              });
+            });
 
             console.log('[caiz] Saving community data:', data);
             await saveCommunityData(cid, data);

@@ -2,6 +2,7 @@
 {{{ if config.theme.enableBreadcrumbs }}}
 <!-- IMPORT partials/breadcrumbs.tpl -->
 {{{ end }}}
+<!-- IMPORT partials/consent-modal.tpl -->
 {{{ if widgets.header.length }}}
 <div data-widget-area="header">
 {{{each widgets.header}}}

@@ -12,12 +12,7 @@
 
   function openModal() {
     let modal = document.getElementById('community-consent-modal');
-    if (!modal && window.templates && window.templates.consentModal) {
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = window.templates.consentModal;
-      document.body.appendChild(wrapper.firstElementChild);
-      modal = document.getElementById('community-consent-modal');
-    }
+    // modal markup is provided by theme partial (no HTML strings in JS)
     if (!modal) {
       throw new Error('[[caiz:error.generic]]');
     }
@@ -26,7 +21,8 @@
 
   CaizConsent.requestConsentThen = function (cid, next) {
     const socket = getSocket();
-    socket.emit('plugins.caiz.getConsentRule', { cid }, function (err, rule) {
+    const locale = (window.config && window.config.userLang) || (window.app && app.user && app.user.userLang) || '';
+    socket.emit('plugins.caiz.getConsentRule', { cid, locale }, function (err, rule) {
       if (err) {
         console.error('[caiz] getConsentRule error:', err);
         if (app && app.alertError) app.alertError(err.message || 'Error');
@@ -73,6 +69,15 @@
         });
       };
 
+      // Translate modal text content
+      try {
+        require(['translator'], function (translator) {
+          translator.translate(modal);
+        });
+      } catch (e) {
+        // ignore translation errors
+      }
+
       if (typeof $ !== 'undefined' && $.fn.modal) {
         $('#community-consent-modal').modal('show');
       } else {
@@ -85,4 +90,3 @@
 
   window.CaizConsent = CaizConsent;
 })();
-
