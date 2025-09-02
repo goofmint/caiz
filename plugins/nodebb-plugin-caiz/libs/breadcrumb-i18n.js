@@ -12,10 +12,10 @@ async function applyBreadcrumbI18n(breadcrumbs, locale) {
     }
     if (crumb.cid) {
       const t = await displayI18n.getCategoryDisplayText(crumb.cid, locale);
-      if (!t || !t.name || !String(t.name).trim()) {
-        throw new Error(`[[caiz:error.missing-breadcrumb-i18n, ${crumb.cid}, ${locale}]]`);
+      if (t && t.name && String(t.name).trim()) {
+        crumb.text = String(t.name);
       }
-      crumb.text = String(t.name);
+      // If missing translation, keep original text as-is (no silent defaults)
     }
   }
   return breadcrumbs;
@@ -24,4 +24,3 @@ async function applyBreadcrumbI18n(breadcrumbs, locale) {
 module.exports = {
   applyBreadcrumbI18n,
 };
-
