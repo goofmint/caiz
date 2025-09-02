@@ -42,6 +42,19 @@
   "login": "ログイン",
   "join-community": "メンバーになる",
   "join-community-confirm": "コミュニティ「%1」のページに移動してメンバーになりますか？",
+  "consent": {
+    "title": "コミュニティ参加ルールへの同意",
+    "description": "参加前に以下の規約をご確認のうえ、同意してください。規約の改訂後は再同意が必要です。",
+    "checkbox": "上記の規約に同意します",
+    "agree": "同意して参加する"
+  },
+  "community": {
+    "consent": {
+      "title": "参加ルール（Markdown）",
+      "version": "バージョン（SemVer または単調増加文字列）",
+      "markdown": "規約本文（Markdown）"
+    }
+  },
   "community": {
     "edit-info": "コミュニティ情報を編集",
     "edit-description": "コミュニティの基本情報（名前、スラッグ、説明、ロゴ）を編集します。",

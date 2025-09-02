@@ -397,6 +397,25 @@ sockets.caiz.setUserConsent = async function (socket, data) {
   return { ok: true };
 };
 
+sockets.caiz.setConsentRule = async function (socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  const { cid, version, markdown } = data || {};
+  if (!cid || !version || !markdown) throw new Error('[[caiz:error.consent.invalid-rule]]');
+  // Only owner can update rule
+  const isOwner = await Community.IsCommunityOwner(socket, { cid });
+  if (!isOwner || !isOwner.isOwner) throw new Error('[[error:no-privileges]]');
+  await consent.setConsentRule({
+    cid: Number(cid),
+    version: String(version),
+    markdown: String(markdown),
+    updatedAt: Date.now(),
+    updatedBy: socket.uid,
+  });
+  return { ok: true };
+};
+
 // Slack OAuth socket handlers
 const slackOAuth = require('./libs/slack-oauth');
 const communitySlackSettings = require('./libs/community-slack-settings');

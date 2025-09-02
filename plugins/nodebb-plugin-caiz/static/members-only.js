@@ -172,6 +172,23 @@ console.log('[caiz] members-only.js loaded');
     window.socket.emit('plugins.caiz.followCommunity', { cid: cid }, function (err, response) {
       if (err) {
         console.error('[caiz] Follow action error:', err);
+        const msg = (err && err.message) || String(err || '');
+        if (msg && msg.indexOf('[[caiz:error.consent.required]]') !== -1) {
+          try {
+            window.CaizConsent.requestConsentThen(cid, function () {
+              window.socket.emit('plugins.caiz.followCommunity', { cid: cid }, function (err2, resp2) {
+                if (err2) {
+                  if (typeof app !== 'undefined' && app.alertError) app.alertError(err2.message || 'Error');
+                  return;
+                }
+                window.location.reload();
+              });
+            });
+            return;
+          } catch (e) {
+            console.error('[caiz] Consent UI error:', e);
+          }
+        }
         if (typeof app !== 'undefined' && app.alertError) {
           app.alertError('エラーが発生しました');
         } else {

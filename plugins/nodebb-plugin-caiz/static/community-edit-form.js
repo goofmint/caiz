@@ -137,6 +137,26 @@ function initializeCommunityEditForm(cid) {
           // Force a change event to make sure it's visible
           descField.dispatchEvent(new Event('input', { bubbles: true }));
         }
+
+        // Load consent rule into form if exists
+        try {
+          const vField = modal.querySelector('#community-consent-version');
+          const mField = modal.querySelector('#community-consent-markdown');
+          if (window.socket && vField && mField) {
+            window.socket.emit('plugins.caiz.getConsentRule', { cid }, function (err, rule) {
+              if (err) {
+                console.warn('[caiz] getConsentRule error:', err);
+                return;
+              }
+              if (rule) {
+                vField.value = rule.version || '';
+                mField.value = rule.markdown || '';
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[caiz] consent rule load failed:', e);
+        }
         
         // Determine whether to show icon or image
         if (data.backgroundImage) {
@@ -320,6 +340,28 @@ function initializeCommunityEditForm(cid) {
               console.log('[caiz] Icon colors - color:', data.color, 'bgColor:', data.bgColor);
             }
             
+            // Save consent rule if provided (both fields required)
+            try {
+              const vField = modal.querySelector('#community-consent-version');
+              const mField = modal.querySelector('#community-consent-markdown');
+              const v = vField && vField.value ? vField.value.trim() : '';
+              const m = mField && mField.value ? mField.value.trim() : '';
+              if ((v && !m) || (!v && m)) {
+                throw new Error('[[caiz:error.consent.invalid-rule]]');
+              }
+              if (v && m) {
+                await new Promise((resolve, reject) => {
+                  if (!window.socket) return reject(new Error('[[error:socket-not-enabled]]'));
+                  window.socket.emit('plugins.caiz.setConsentRule', { cid, version: v, markdown: m }, function (err) {
+                    if (err) return reject(err);
+                    resolve();
+                  });
+                });
+              }
+            } catch (e) {
+              throw e;
+            }
+
             console.log('[caiz] Saving community data:', data);
             await saveCommunityData(cid, data);
             

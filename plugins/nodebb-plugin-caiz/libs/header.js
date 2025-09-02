@@ -15,6 +15,8 @@ class Header extends Base {
     try {
       const templatePath = path.join(__dirname, '../templates/partials/community-edit-modal.tpl');
       const modalTemplate = await fs.readFile(templatePath, 'utf8');
+      const consentPath = path.join(__dirname, '../templates/partials/consent-modal.tpl');
+      const consentTemplate = await fs.readFile(consentPath, 'utf8');
       
       // テンプレートをクライアントで利用可能にする
       if (!data.templateData) {
@@ -22,6 +24,7 @@ class Header extends Base {
       }
       
       data.templateData.communityEditModal = modalTemplate;
+      data.templateData.consentModal = consentTemplate;
       winston.info('[plugin/caiz] Community edit modal template loaded successfully');
       
     } catch (error) {

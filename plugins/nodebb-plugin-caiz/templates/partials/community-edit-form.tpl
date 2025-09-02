@@ -83,6 +83,19 @@
   </div>
 
   <!-- Submit Button -->
+  <hr class="my-4" />
+
+  <!-- Participation Consent Rule -->
+  <h6 class="mb-2">[[caiz:community.consent.title]]</h6>
+  <div class="mb-3">
+    <label for="community-consent-version" class="form-label">[[caiz:community.consent.version]]</label>
+    <input type="text" class="form-control" id="community-consent-version" name="consent_version" placeholder="1.0.0">
+  </div>
+  <div class="mb-3">
+    <label for="community-consent-markdown" class="form-label">[[caiz:community.consent.markdown]]</label>
+    <textarea class="form-control" id="community-consent-markdown" name="consent_markdown" rows="6" placeholder="# Rules\n..."></textarea>
+  </div>
+
   <div class="d-flex justify-content-end">
     <button type="submit" class="btn btn-primary">
       <span class="btn-text">[[caiz:community.save-changes]]</span>

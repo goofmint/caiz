@@ -42,6 +42,19 @@
   "login": "Login",
   "join-community": "Become Member",
   "join-community-confirm": "Would you like to go to the \"%1\" community page to become a member?",
+  "consent": {
+    "title": "Consent to Community Participation Rules",
+    "description": "Please review and consent to the rules below before joining. Re-consent is required after updates.",
+    "checkbox": "I agree to the above rules",
+    "agree": "Agree and Join"
+  },
+  "community": {
+    "consent": {
+      "title": "Participation Rules (Markdown)",
+      "version": "Version (SemVer or strictly monotonic string)",
+      "markdown": "Rule Content (Markdown)"
+    }
+  },
   "community": {
     "edit-info": "Edit Community Information",
     "edit-description": "Edit basic community information including name, slug, description, and logo.",
