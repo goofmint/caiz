@@ -373,6 +373,18 @@ async function Follow(socket, { cid }) {
     return { role: currentRole };
   }
   
+  // Consent check (if rule exists, must be accepted before joining)
+  {
+    const consent = require('../consent');
+    const [rule, userConsent] = await Promise.all([
+      consent.getConsentRule(targetCid),
+      consent.getUserConsent(uid, targetCid),
+    ]);
+    if (consent.needsConsent({ uid, cid: targetCid, current: rule, user: userConsent })) {
+      throw new Error('[[caiz:error.consent.required]]');
+    }
+  }
+
   // Add to members group (use parent category)
   const memberGroupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
   if (await Groups.exists(memberGroupName)) {
