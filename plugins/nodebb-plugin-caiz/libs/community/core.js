@@ -658,6 +658,19 @@ async function UpdateCommunityData(socket, dataToUpdate) {
     const modifiedData = { [cid]: updateData };
     await data.updateCategory(modifiedData);
     winston.info(`[plugin/caiz] Categories.update completed for cid: ${cid}`);
+    // If name/description changed, update i18n translations so UI reflects immediately
+    if (('name' in updateData) || ('description' in updateData)) {
+      try {
+        const i18n = require('../community-i18n');
+        const sourceName = updateData.name !== undefined ? updateData.name : (await data.getCategoryData(cid)).name;
+        const sourceDesc = updateData.description !== undefined ? updateData.description : (await data.getCategoryData(cid)).description || '';
+        const translations = await i18n.translateOnCreate({ name: sourceName, description: sourceDesc });
+        await i18n.saveTranslations(cid, translations);
+        winston.info(`[plugin/caiz] Updated i18n for community ${cid} after edit`);
+      } catch (i18nErr) {
+        winston.warn(`[plugin/caiz] Skipped i18n update for community ${cid}: ${i18nErr.message}`);
+      }
+    }
   } catch (updateError) {
     winston.error(`[plugin/caiz] Categories.update failed:`, updateError);
     throw updateError;
