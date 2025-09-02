@@ -403,14 +403,15 @@ sockets.caiz.deleteCommunity = Community.DeleteCommunity;
 const consent = require('./libs/consent');
 
 sockets.caiz.getConsentRule = async function (socket, data) {
-  if (!socket.uid) {
-    throw new Error('[[error:not-logged-in]]');
-  }
+  // Allow anonymous reads for pre-login UI (do not enforce socket.uid)
   const { cid, locale } = data || {};
-  if (!cid) throw new Error('Invalid parameters');
+  if (!cid) throw new Error('[[error:invalid-parameters]]');
   const header = await consent.getConsentRule(cid);
   if (!header) return null;
-  if (!locale) throw new Error('[[caiz:error.consent.invalid-params]]');
+  if (!locale) {
+    // Return only header when locale not provided
+    return header;
+  }
   const combined = await consent.getConsentRuleForLocale(cid, locale);
   return combined;
 };
