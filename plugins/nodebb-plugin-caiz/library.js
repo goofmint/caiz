@@ -263,6 +263,33 @@ plugin.filterTopicCreate = async function (hookData) {
     winston.info('[plugin/caiz] Anonymous user cannot create topics in communities');
     throw new Error('[[error:not-logged-in]]');
   }
+  // Enforce consent if rule exists and user not current (use parent community cid)
+  try {
+    const consent = require('./libs/consent');
+    const { getParentCategory } = require('./libs/community/core');
+    const Users = require.main.require('./src/user');
+    const parentCid = await getParentCategory(cid);
+    // Skip consent for global admins and community owners
+    const isAdmin = await Users.isAdministrator(uid);
+    const { getUserRole } = require('./libs/community/core');
+    const role = await getUserRole(uid, parentCid);
+    if (isAdmin || role === 'owner') {
+      return hookData;
+    }
+    const [rule, userState] = await Promise.all([
+      consent.getConsentRule(parentCid),
+      consent.getUserConsent(uid, parentCid),
+    ]);
+    if (consent.needsConsent({ uid, cid: parentCid, current: rule, user: userState })) {
+      const db = require.main.require('./src/database');
+      const handle = await db.getObjectField(`category:${parentCid}`, 'handle');
+      const link = handle ? `/${handle}` : '/';
+      throw new Error(`[[caiz:error.consent.required-link, ${link}]]`);
+    }
+  } catch (err) {
+    if (String(err && err.message).startsWith('[[caiz:error.consent.')) throw err;
+    winston.warn(`[plugin/caiz] consent check (topic) failed: ${err && err.message}`);
+  }
   
   // Check if user is a member of the community
   const memberResult = await GetMemberRole({ uid }, { cid });
@@ -295,6 +322,33 @@ plugin.filterPostCreate = async function (hookData) {
   if (!topic || !topic.cid) {
     winston.warn(`[plugin/caiz] Topic ${tid} not found or missing category`);
     return hookData;
+  }
+  // Enforce consent if rule exists and user not current (use parent community cid)
+  try {
+    const consent = require('./libs/consent');
+    const { getParentCategory } = require('./libs/community/core');
+    const Users = require.main.require('./src/user');
+    const parentCid = await getParentCategory(topic.cid);
+    // Skip consent for global admins and community owners
+    const isAdmin = await Users.isAdministrator(uid);
+    const { getUserRole } = require('./libs/community/core');
+    const role = await getUserRole(uid, parentCid);
+    if (isAdmin || role === 'owner') {
+      return hookData;
+    }
+    const [rule, userState] = await Promise.all([
+      consent.getConsentRule(parentCid),
+      consent.getUserConsent(uid, parentCid),
+    ]);
+    if (consent.needsConsent({ uid, cid: parentCid, current: rule, user: userState })) {
+      const db = require.main.require('./src/database');
+      const handle = await db.getObjectField(`category:${parentCid}`, 'handle');
+      const link = handle ? `/${handle}` : '/';
+      throw new Error(`[[caiz:error.consent.required-link, ${link}]]`);
+    }
+  } catch (err) {
+    if (String(err && err.message).startsWith('[[caiz:error.consent.')) throw err;
+    winston.warn(`[plugin/caiz] consent check (post) failed: ${err && err.message}`);
   }
   
   // Check if user is a member of the community
@@ -344,6 +398,76 @@ sockets.caiz.addMember = Community.AddMember;
 sockets.caiz.changeMemberRole = Community.ChangeMemberRole;
 sockets.caiz.removeMember = Community.RemoveMember;
 sockets.caiz.deleteCommunity = Community.DeleteCommunity;
+
+// Consent socket handlers
+const consent = require('./libs/consent');
+
+sockets.caiz.getConsentRule = async function (socket, data) {
+  // Allow anonymous reads for pre-login UI (do not enforce socket.uid)
+  const { cid, locale } = data || {};
+  if (!cid) throw new Error('[[error:invalid-parameters]]');
+  const header = await consent.getConsentRule(cid);
+  if (!header) return null;
+  if (!locale) {
+    // Return only header when locale not provided
+    return header;
+  }
+  const combined = await consent.getConsentRuleForLocale(cid, locale);
+  return combined;
+};
+
+sockets.caiz.setUserConsent = async function (socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  const { cid, version } = data || {};
+  if (!cid || !version) throw new Error('Invalid parameters');
+  const { getParentCategory, getUserRole } = require('./libs/community/core');
+  const parentCid = await getParentCategory(cid);
+  const role = await getUserRole(socket.uid, parentCid);
+  if (role === 'banned') {
+    throw new Error('[[caiz:error.consent.banned]]');
+  }
+  await consent.setUserConsent({ uid: socket.uid, cid: parentCid, version, consentedAt: Date.now() });
+  return { ok: true };
+};
+
+sockets.caiz.checkConsent = async function (socket, data) {
+  if (!socket.uid) {
+    return { required: false };
+  }
+  const { cid } = data || {};
+  if (!cid) throw new Error('Invalid parameters');
+  const { getParentCategory } = require('./libs/community/core');
+  const parentCid = await getParentCategory(cid);
+  const [rule, userState] = await Promise.all([
+    consent.getConsentRule(parentCid),
+    consent.getUserConsent(socket.uid, parentCid),
+  ]);
+  const required = consent.needsConsent({ uid: socket.uid, cid: parentCid, current: rule, user: userState });
+  return { required };
+};
+
+sockets.caiz.setConsentRule = async function (socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  const { cid, markdown } = data || {};
+  if (!cid || typeof markdown !== 'string') throw new Error('[[caiz:error.consent.invalid-rule]]');
+  // Only owner can update rule
+  const isOwner = await Community.IsCommunityOwner(socket, { cid });
+  if (!isOwner || !isOwner.isOwner) throw new Error('[[error:no-privileges]]');
+  const started = Date.now();
+  await consent.setConsentRule({
+    cid: Number(cid),
+    markdown: String(markdown),
+    updatedAt: Date.now(),
+    updatedBy: socket.uid,
+  });
+  const took = Date.now() - started;
+  winston.info(`[plugin/caiz] Consent rule updated for cid=${cid} by uid=${socket.uid} (took ${took}ms)`);
+  return { ok: true };
+};
 
 // Slack OAuth socket handlers
 const slackOAuth = require('./libs/slack-oauth');

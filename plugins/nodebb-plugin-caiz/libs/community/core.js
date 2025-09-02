@@ -373,6 +373,23 @@ async function Follow(socket, { cid }) {
     return { role: currentRole };
   }
   
+  // Consent check (if rule exists, must be accepted before joining)
+  {
+    const consent = require('../consent');
+    const Users = require.main.require('./src/user');
+    const [rule, userConsent] = await Promise.all([
+      consent.getConsentRule(targetCid),
+      consent.getUserConsent(uid, targetCid),
+    ]);
+    const isAdmin = await Users.isAdministrator(uid);
+    const role = await getUserRole(uid, targetCid);
+    if (!isAdmin && role !== 'owner') {
+      if (consent.needsConsent({ uid, cid: targetCid, current: rule, user: userConsent })) {
+        throw new Error('[[caiz:error.consent.required]]');
+      }
+    }
+  }
+
   // Add to members group (use parent category)
   const memberGroupName = getGroupName(targetCid, GROUP_SUFFIXES.MEMBERS);
   if (await Groups.exists(memberGroupName)) {
@@ -641,6 +658,19 @@ async function UpdateCommunityData(socket, dataToUpdate) {
     const modifiedData = { [cid]: updateData };
     await data.updateCategory(modifiedData);
     winston.info(`[plugin/caiz] Categories.update completed for cid: ${cid}`);
+    // If name/description changed, update i18n translations so UI reflects immediately
+    if (('name' in updateData) || ('description' in updateData)) {
+      try {
+        const i18n = require('../community-i18n');
+        const sourceName = updateData.name !== undefined ? updateData.name : (await data.getCategoryData(cid)).name;
+        const sourceDesc = updateData.description !== undefined ? updateData.description : (await data.getCategoryData(cid)).description || '';
+        const translations = await i18n.translateOnCreate({ name: sourceName, description: sourceDesc });
+        await i18n.saveTranslations(cid, translations);
+        winston.info(`[plugin/caiz] Updated i18n for community ${cid} after edit`);
+      } catch (i18nErr) {
+        winston.warn(`[plugin/caiz] Skipped i18n update for community ${cid}: ${i18nErr.message}`);
+      }
+    }
   } catch (updateError) {
     winston.error(`[plugin/caiz] Categories.update failed:`, updateError);
     throw updateError;
@@ -930,6 +960,7 @@ async function filterTopicsBuild(hookData) {
 
 module.exports = {
   createCommunity,
+  getParentCategory,
   getUserCommunities,
   Follow,
   Unfollow,

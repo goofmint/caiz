@@ -38,6 +38,15 @@ console.log('[caiz] members-only.js loaded');
 
     console.log('[caiz] Checking follow status for cid:', cid, 'user uid:', app.user?.uid);
 
+    // If logged in, prompt for consent on view if required
+    if (app && app.user && app.user.uid && window.socket && window.CaizConsent) {
+      window.socket.emit('plugins.caiz.checkConsent', { cid: cid }, function (err, res) {
+        if (!err && res && res.required) {
+          window.CaizConsent.requestConsentThen(cid, function () { window.location.reload(); });
+        }
+      });
+    }
+
     // ゲストユーザーは投稿フォーム非表示
     if (!app.user || !app.user.uid) {
       console.log('[caiz] Guest user - hiding posting elements');
@@ -172,6 +181,23 @@ console.log('[caiz] members-only.js loaded');
     window.socket.emit('plugins.caiz.followCommunity', { cid: cid }, function (err, response) {
       if (err) {
         console.error('[caiz] Follow action error:', err);
+        const msg = (err && err.message) || String(err || '');
+        if (msg && msg.indexOf('[[caiz:error.consent.required]]') !== -1) {
+          try {
+            window.CaizConsent.requestConsentThen(cid, function () {
+              window.socket.emit('plugins.caiz.followCommunity', { cid: cid }, function (err2, resp2) {
+                if (err2) {
+                  if (typeof app !== 'undefined' && app.alertError) app.alertError(err2.message || 'Error');
+                  return;
+                }
+                window.location.reload();
+              });
+            });
+            return;
+          } catch (e) {
+            console.error('[caiz] Consent UI error:', e);
+          }
+        }
         if (typeof app !== 'undefined' && app.alertError) {
           app.alertError('エラーが発生しました');
         } else {

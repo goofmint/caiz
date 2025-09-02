@@ -275,6 +275,25 @@ const initializeFollowButton = async (cid) => {
     socket.emit(action, { cid }, function (err, response) {
       if (err) {
         console.error('[caiz] Membership action error:', err);
+        const msg = (err && err.message) || String(err || '');
+        if (msg && msg.indexOf('[[caiz:error.consent.required]]') !== -1) {
+          try {
+            window.CaizConsent.requestConsentThen(cid, function () {
+              socket.emit('plugins.caiz.followCommunity', { cid }, function (err2, resp2) {
+                if (err2) {
+                  if (typeof alerts !== 'undefined') alerts.error(err2.message || getText('caiz:error.generic'));
+                  return;
+                }
+                userRole = resp2.role || 'guest';
+                followStatus = (userRole !== 'guest' && userRole !== 'banned');
+                changeButtonLabel();
+              });
+            });
+            return;
+          } catch (e) {
+            console.error('[caiz] Consent UI error:', e);
+          }
+        }
         if (typeof alerts !== 'undefined') {
           alerts.error(err.message || getText('caiz:error.generic'));
         }
@@ -311,9 +330,28 @@ const initializeCommunityPage = async () => {
   // Set global community ID
   currentCommunityId = cid;
   console.log('[caiz] Set currentCommunityId to:', currentCommunityId);
-  
+
   // Re-trigger OAuth result checker now that we have community ID
   initializeOAuthResultChecker();
+
+  // Prompt for consent on view if required (logged-in users)
+  try {
+    if (app && app.user && app.user.uid && window.socket && window.CaizConsent) {
+      window.socket.emit('plugins.caiz.checkConsent', { cid }, function (err, res) {
+        if (err) {
+          console.warn('[caiz] checkConsent error:', err);
+          return;
+        }
+        if (res && res.required) {
+          window.CaizConsent.requestConsentThen(cid, function () {
+            window.location.reload();
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[caiz] consent view check failed:', e);
+  }
   
   // Initialize follow button for all users
   if (app.user && app.user.uid) {

@@ -22,6 +22,7 @@ class Header extends Base {
       }
       
       data.templateData.communityEditModal = modalTemplate;
+      // Consent modal is provided by theme partials; no injection needed here
       winston.info('[plugin/caiz] Community edit modal template loaded successfully');
       
     } catch (error) {

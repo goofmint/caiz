@@ -2,6 +2,7 @@
 {{{ if config.theme.enableBreadcrumbs }}}
 <!-- IMPORT partials/breadcrumbs.tpl -->
 {{{ end }}}
+<!-- IMPORT partials/consent-modal.tpl -->
 
 <div class="category-header d-flex flex-column gap-2">
 	<div class="d-flex justify-content-between">

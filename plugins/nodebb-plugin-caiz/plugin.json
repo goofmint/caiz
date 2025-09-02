@@ -8,6 +8,8 @@
   "scripts": [
     "static/modal.js",
     "static/follow.js",
+    "static/consent-interceptor.js",
+    "static/consent.js",
     "static/communities.js",
     "static/community-edit-utils.js",
     "static/community-edit-danger.js",
