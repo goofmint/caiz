@@ -60,10 +60,11 @@ function initializeCommunityEditForm(cid) {
   console.log('[caiz] Initializing community edit form for cid:', cid);
   
   // Wait for form to be available in DOM
+  // Track initial consent markdown across handlers to prevent unnecessary updates
+  let initialConsentMarkdown = null;
+
   const waitForForm = (callback, attempts = 0) => {
     const form = document.getElementById('community-edit-form');
-    // Track initial consent markdown across handlers to prevent unnecessary updates
-    let initialConsentMarkdown = null;
     if (form) {
       callback();
     } else if (attempts < 20) {
