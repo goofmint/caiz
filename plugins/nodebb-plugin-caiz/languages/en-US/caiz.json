@@ -25,6 +25,8 @@
   "admin.i18n.done": "Done",
   "admin.i18n.failed": "Failed",
   "admin.i18n.done-subcats": "Done (%1 subcats)",
+  "error.missing-breadcrumb-i18n": "Breadcrumb translation missing (cid={cid}, locale={locale})",
+  "error.invalid-breadcrumb-item": "Invalid breadcrumb item",
   "error.generic": "An error occurred",
   "error.members-only-posting": "Only community members can post in this category",
   "error.community-not-found": "Community not found",

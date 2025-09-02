@@ -237,6 +237,12 @@ plugin.filterCategoryBuild = async function (hookData) {
         }
       }
     }
+
+    // パンくずのラベルにi18nを適用（フォールバック禁止）
+    if (Array.isArray(templateData.breadcrumbs)) {
+      const { applyBreadcrumbI18n } = require('./libs/breadcrumb-i18n');
+      await applyBreadcrumbI18n(templateData.breadcrumbs, locale);
+    }
   } catch (err) {
     winston.error(`[plugin/caiz] Error in filterCategoryBuild for category ${templateData.cid}: ${err.message}`);
   }

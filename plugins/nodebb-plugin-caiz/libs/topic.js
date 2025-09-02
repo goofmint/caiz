@@ -51,6 +51,17 @@ class Topic extends Base {
         breadcrumb.url = `${host}${handle}/${breadcrumb.cid}-${categoryHandle}`;
       }
     });
+
+    // Apply i18n to breadcrumb labels (no fallback)
+    try {
+      const req = data && data.req;
+      const displayI18n = require('./community-i18n-display');
+      const { applyBreadcrumbI18n } = require('./breadcrumb-i18n');
+      const locale = await displayI18n.resolveLocale(req || {});
+      await applyBreadcrumbI18n(breadcrumbs, locale);
+    } catch (err) {
+      return Promise.reject(err);
+    }
     return data;
   }
 }
