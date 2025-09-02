@@ -25,6 +25,8 @@
   "admin.i18n.done": "完了",
   "admin.i18n.failed": "失敗",
   "admin.i18n.done-subcats": "完了（サブカテゴリ%1件）",
+  "error.missing-breadcrumb-i18n": "パンくずリストの翻訳が未設定です (cid={cid}, locale={locale})",
+  "error.invalid-breadcrumb-item": "不正なパンくず項目です",
   "error.generic": "エラーが発生しました",
   "error.members-only-posting": "このカテゴリへの投稿はコミュニティメンバーのみ可能です",
   "error.community-not-found": "コミュニティが見つかりません",
