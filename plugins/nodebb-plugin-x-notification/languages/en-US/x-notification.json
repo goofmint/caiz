@@ -1,0 +1,58 @@
+{
+  "title": "X Notifications",
+  "error": "Error",
+  "success": "Success",
+  
+  "admin.settings": "X API Settings",
+  "admin.description": "Configure X API credentials for OAuth authentication",
+  "admin.client-key": "Client Key",
+  "admin.client-key-placeholder": "Enter your X API Client Key",
+  "admin.client-key-help": "Get your Client Key from the X Developer Portal",
+  "admin.client-secret": "Client Secret",
+  "admin.client-secret-placeholder": "Enter your X API Client Secret",
+  "admin.client-secret-help": "Get your Client Secret from the X Developer Portal",
+  "admin.callback-url": "OAuth Callback URL",
+  "admin.callback-url-help": "Add this URL to your X App settings in the Developer Portal",
+  "admin.keys-required": "Both Client Key and Client Secret are required",
+  "admin.settings-saved": "Settings have been saved successfully",
+  
+  "settings.title": "X Notification Settings",
+  "settings.connected-accounts": "Connected X Accounts",
+  "settings.loading": "Loading...",
+  "settings.no-accounts": "No X accounts connected yet",
+  "settings.connect-account": "Connect X Account",
+  "settings.select-account": "Select an account",
+  "settings.disconnect-confirm": "Are you sure you want to disconnect this X account?",
+  "settings.disconnected": "Account disconnected successfully",
+  "settings.connected-success": "Successfully connected @%1",
+  
+  "settings.events": "Notification Events",
+  "settings.event.new-topic": "New Topic",
+  "settings.event.new-post": "New Comment",
+  "settings.event.member-join": "Member Joined",
+  "settings.event.member-leave": "Member Left",
+  
+  "settings.templates": "Message Templates",
+  "settings.template.new-topic": "New Topic Template",
+  "settings.template.new-post": "New Comment Template",
+  "settings.template.member-join": "Member Join Template",
+  "settings.template.member-leave": "Member Leave Template",
+  "settings.template-help": "Available variables: {community}, {title}, {url}, {username}",
+  
+  "settings.test": "Test Post",
+  "settings.test-placeholder": "Enter test message",
+  "settings.test-button": "Send Test",
+  "settings.test-message-required": "Please enter a test message",
+  "settings.test-success": "Test post sent successfully",
+  
+  "settings.save": "Save Settings",
+  "settings.saved": "Settings saved successfully",
+  
+  "error.missing-api-keys": "API keys are missing",
+  "error.no-client-key": "Client Key is not configured",
+  "error.invalid-state": "Invalid OAuth state",
+  "error.no-account-selected": "No X account selected",
+  "error.token-refresh-failed": "Failed to refresh access token",
+  "error.unauthorized": "Unauthorized - please reconnect your X account",
+  "error.test-failed": "Test post failed"
+}

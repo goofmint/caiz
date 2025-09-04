@@ -1,0 +1,47 @@
+{
+  "id": "nodebb-plugin-x-notification",
+  "name": "X Notification",
+  "description": "Send notifications to X (Twitter) for community activities",
+  "url": "",
+  "library": "./library.js",
+  "hooks": [
+    {
+      "hook": "static:app.load",
+      "method": "init"
+    },
+    {
+      "hook": "filter:admin.header.build",
+      "method": "addAdminNavigation"
+    },
+    {
+      "hook": "action:topic.save",
+      "method": "handleTopicCreate"
+    },
+    {
+      "hook": "action:post.save",
+      "method": "handlePostCreate"
+    },
+    {
+      "hook": "action:group.join",
+      "method": "handleMemberJoin"
+    },
+    {
+      "hook": "action:group.leave",
+      "method": "handleMemberLeave"
+    }
+  ],
+  "staticDirs": {
+    "static": "./static"
+  },
+  "less": [
+    "static/style.less"
+  ],
+  "acpScripts": [
+    "static/lib/admin.js"
+  ],
+  "scripts": [
+    "static/lib/x-settings.js"
+  ],
+  "templates": "./static/templates",
+  "languages": "./languages"
+}
