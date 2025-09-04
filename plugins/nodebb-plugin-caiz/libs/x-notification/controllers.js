@@ -1,23 +1,11 @@
 'use strict';
 
-const settings = require('./settings');
+const xSettings = require('./settings');
 const xAuth = require('./x-auth');
 const xConfig = require('./x-config');
 const nconf = require.main.require('nconf');
 
 const controllers = {};
-
-controllers.renderAdminPage = async (req, res) => {
-  const config = await settings.get();
-  const baseUrl = nconf.get('url');
-  
-  res.render('admin/plugins/x-notification', {
-    clientKey: config.clientKey,
-    clientSecret: config.clientSecret ? '********' : '',
-    callbackUrl: `${baseUrl}/x-notification/callback`,
-    title: 'X Notification Settings'
-  });
-};
 
 controllers.handleOAuthCallback = async (req, res) => {
   const { code, state } = req.query;
@@ -59,7 +47,7 @@ controllers.handleOAuthCallback = async (req, res) => {
       </html>
     `);
   } catch (err) {
-    console.error('[x-notification] OAuth callback error:', err);
+    console.error('[caiz] X OAuth callback error:', err);
     res.status(500).json({ error: err.message });
   }
 };

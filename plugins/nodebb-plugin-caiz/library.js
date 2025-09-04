@@ -44,7 +44,8 @@ plugin.init = async function (params) {
     const url = nconf.get('url');
     res.render('admin/plugins/caiz-oauth', {
       slackRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/slack/callback`,
-      discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`
+      discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`,
+      xRedirectUrl: `${url}/caiz/oauth/x/callback`
     });
   });
 
@@ -57,6 +58,68 @@ plugin.init = async function (params) {
   router.post('/api/v3/plugins/caiz/oauth/discord/callback', (req, res) => {
     // Discord OAuth callback - return type 1 (pong) for verification
     res.status(200).json({ type: 1 });
+  });
+
+  // X OAuth routes
+  router.get('/caiz/oauth/x/callback', async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.handleOAuthCallback(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X OAuth callback error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  // X settings API routes
+  router.get('/api/community/:cid/x-settings', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.getXSettings(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X settings get error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-settings', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.saveXSettings(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X settings save error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-connect', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.startXConnect(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X connect error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.delete('/api/community/:cid/x-account/:accountId', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.deleteXAccount(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X account delete error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-test', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.sendTestPost(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X test post error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   });
   
   // Slack OAuth routes
@@ -928,6 +991,16 @@ plugin.actionTopicSave = async function(hookData) {
       }
     });
 
+    // Send X notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const xNotification = require('./libs/x-notification/x-notification');
+        await xNotification.handleEvent('newTopic', { topic: topicData });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in X topic notification: ${err.message}`);
+      }
+    });
+
   } catch (err) {
     winston.error(`[plugin/caiz] Error in actionTopicSave hook: ${err.message}`);
   }
@@ -963,6 +1036,16 @@ plugin.actionPostSave = async function(hookData) {
         await discordNotifier.notifyNewComment(post);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in Discord comment notification: ${err.message}`);
+      }
+    });
+
+    // Send X notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const xNotification = require('./libs/x-notification/x-notification');
+        await xNotification.handleEvent('newPost', { post });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in X comment notification: ${err.message}`);
       }
     });
 

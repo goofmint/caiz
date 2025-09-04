@@ -2,14 +2,14 @@
 
 const crypto = require('crypto');
 const axios = require('axios');
-const settings = require('./settings');
+const xSettings = require('./settings');
 const nconf = require.main.require('nconf');
 
 const xAuth = {};
 
 // OAuth 2.0 PKCE implementation for X API v2
 xAuth.getAuthorizationUrl = async (cid, uid) => {
-  const config = await settings.getDecrypted();
+  const config = await xSettings.getDecrypted();
   
   if (!config.clientKey) {
     throw new Error('[[x-notification:error.no-client-key]]');
@@ -45,7 +45,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
 };
 
 xAuth.exchangeCodeForTokens = async (code) => {
-  const config = await settings.getDecrypted();
+  const config = await xSettings.getDecrypted();
   const baseUrl = nconf.get('url');
   
   // Retrieve code verifier from state
@@ -78,7 +78,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
 };
 
 xAuth.refreshAccessToken = async (refreshToken) => {
-  const config = await settings.getDecrypted();
+  const config = await xSettings.getDecrypted();
   
   const response = await axios.post('https://api.twitter.com/2/oauth2/token',
     new URLSearchParams({

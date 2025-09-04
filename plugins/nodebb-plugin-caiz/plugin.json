@@ -25,7 +25,8 @@
     "static/community-edit-core.js",
     "static/members-only.js",
     "static/slack-oauth-handler.js",
-    "static/api-tokens.js"
+    "static/api-tokens.js",
+    "static/lib/x-settings.js"
   ],
   "scss": [
     "static/style.scss"
