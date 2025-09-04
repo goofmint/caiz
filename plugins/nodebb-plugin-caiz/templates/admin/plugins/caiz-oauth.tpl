@@ -106,7 +106,6 @@
               <p class="help-block">[[caiz:admin.add-url-to-x]]</p>
             </div>
             <button type="submit" class="btn btn-primary">[[caiz:admin.save]]</button>
-            <button type="button" class="btn btn-default" id="test-x">[[caiz:admin.test-connection]]</button>
           </form>
         </div>
       </div>
