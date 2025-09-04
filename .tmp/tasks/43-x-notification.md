@@ -6,6 +6,7 @@
 ## 機能要件
 
 ### 1. 通知対象イベント
+
 - 新規トピック作成
 - 新規コメント投稿
 - 新規メンバー参加
@@ -18,11 +19,14 @@
 - ユーザー名（メンバー参加/退出の場合）
 - トピックへのリンク
 
-### 3. 設定項目
-- X APIキー（Bearer Token）
+### 3. 管理画面設定項目
+- X APIキー
+- X シークレットキー
+
+### 4. コミュニティ編集画面の設定項目
+
+- Xアカウントの連結（コールバック受け取り）
 - 通知の有効/無効切り替え（イベントタイプごと）
-- 投稿テンプレートのカスタマイズ
-- 投稿先アカウントの選択（複数アカウント対応）
 
 ## 技術設計
 
@@ -34,7 +38,18 @@
   cid: Number,              // Community ID
   xConfig: {
     enabled: Boolean,       // 通知機能の有効/無効
-    bearerToken: String,    // X API Bearer Token (暗号化)
+    accounts: [             // 接続済みXアカウント群
+      {
+        accountId: String,      // XのユーザーID
+        screenName: String,     // 表示用(@username)
+        accessToken: String,    // 暗号化保存
+        refreshToken: String,   // 暗号化保存
+        expiresAt: Number,      // epoch(ms)
+        scopes: [String],       // 付与スコープ(tweet.write等)
+        default: Boolean        // 既定アカウント
+      }
+    ],
+    selectedAccountId: String,  // 投稿に用いる既定アカウント
     events: {
       newTopic: Boolean,    // 新規トピック通知
       newPost: Boolean,     // 新規コメント通知  
@@ -57,25 +72,54 @@
 // X通知設定の取得
 async function getXNotificationConfig(cid) {
   // コミュニティのX通知設定を取得
-  // 暗号化されたトークンは復号化して返す
+  // トークン値そのものは返さない（マスク/有無のみ）
 }
 
 // X通知設定の保存
 async function setXNotificationConfig(cid, config) {
-  // Bearer Tokenを暗号化して保存
+  // 接続済みアカウント/選択状態/テンプレート/イベント設定を検証して保存
   // 設定を検証してから保存
 }
 
+// X アカウント接続開始（OAuth 2.0 PKCE フロー）
+async function startXOAuth(cid) {
+  // 認証URLを生成し、state/code_verifierを保存
+  // リダイレクトURIを含む認証URLを返す
+}
+
+// 認可コールバック処理（トークン保存）
+async function completeXOAuth(cid, params) {
+  // authorization codeをトークンに交換
+  // アカウント情報取得とトークン暗号化保存
+}
+
+// アクセストークンのリフレッシュ
+async function refreshXToken(accountId) {
+  // refresh_tokenを使用してaccess_tokenを更新
+  // 新しいトークンと有効期限を保存
+}
+
+// 接続済みアカウント一覧/選択
+async function listXAccounts(cid) {
+  // cidに紐づく全アカウント情報を返す（トークンはマスク）
+}
+
+async function selectXAccount(cid, accountId) {
+  // デフォルトアカウントを設定
+}
+
 // X APIへの投稿
-async function postToX(bearerToken, message) {
-  // X API v2を使用してツイートを投稿
+async function postToX(accountId, message) {
+  // アカウントIDからトークンを取得（必要に応じてリフレッシュ）
+  // X API v2でポストを作成（ユーザーコンテキスト）
   // エラーハンドリングとリトライ機能を含む
 }
 
 // 通知イベントハンドラ
 async function handleXNotification(event) {
   // イベントタイプに応じた通知処理
-  // テンプレートの適用と投稿の実行
+  // 可視性チェック（非公開コミュニティは投稿しない）
+  // 文字数・URL整形 → テンプレート適用 → 投稿
 }
 ```
 
@@ -111,31 +155,28 @@ plugin.hooks = {
 ```javascript
 // templates/admin/x-notification.tpl
 // X通知設定画面のテンプレート
-// - Bearer Token入力フィールド（マスク表示）
+// - 「Xアカウントを接続」ボタン（OAuth 2.0）
+// - 接続済みアカウント一覧（選択/削除/再接続）
 // - イベントタイプごとの有効/無効チェックボックス
 // - テンプレートカスタマイズテキストエリア
 // - テスト投稿ボタン
 
 // static/admin-x-notification.js
 // 管理画面のクライアントサイドロジック
-// - 設定の保存/読み込み
-// - テスト投稿機能
-// - トークンの検証
+// - 設定の保存/読み込み（選択アカウント・テンプレート・イベント）
+// - アカウント接続フロー開始/完了処理
+// - テスト投稿（選択アカウントで実行）
+// - トークン有効期限の表示と再接続導線
 ```
 
 ## セキュリティ考慮事項
 
-1. **トークン管理**
-   - Bearer Tokenは暗号化して保存
-   - 管理画面では表示時にマスク処理
-   - トークンの有効期限管理
-
-2. **レート制限**
+1. **レート制限**
    - X APIのレート制限に対応
    - 投稿間隔の制御（最小1分間隔）
    - エラー時の再試行制限
 
-3. **権限管理**
+2. **権限管理**
    - コミュニティオーナーのみ設定変更可能
    - システム管理者による監査ログ
 
