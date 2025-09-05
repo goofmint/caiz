@@ -1,7 +1,6 @@
 'use strict';
 
 const crypto = require('crypto');
-const axios = require('axios');
 const xSettings = require('./settings');
 const nconf = require.main.require('nconf');
 
@@ -59,25 +58,32 @@ xAuth.exchangeCodeForTokens = async (code) => {
     throw new Error('Invalid state');
   }
   
-  const response = await axios.post('https://api.twitter.com/2/oauth2/token', 
-    new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: `${baseUrl}/x-notification/callback`,
-      code_verifier: stateData
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
-      }
-    }
-  );
+  const params = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: `${baseUrl}/x-notification/callback`,
+    code_verifier: stateData
+  });
+  
+  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
+    },
+    body: params.toString()
+  });
+  
+  if (!response.ok) {
+    throw new Error(`X OAuth token exchange failed: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
   
   // Clean up state
   await db.delete(`x-auth:state:${code}`);
   
-  return response.data;
+  return data;
 };
 
 xAuth.refreshAccessToken = async (refreshToken) => {
@@ -85,30 +91,41 @@ xAuth.refreshAccessToken = async (refreshToken) => {
   const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
   const clientSecret = await meta.settings.getOne('caiz', 'oauth:x:clientSecret');
   
-  const response = await axios.post('https://api.twitter.com/2/oauth2/token',
-    new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
-      }
-    }
-  );
+  const params = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken
+  });
   
-  return response.data;
+  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
+    },
+    body: params.toString()
+  });
+  
+  if (!response.ok) {
+    throw new Error(`X OAuth token refresh failed: ${response.statusText}`);
+  }
+  
+  return await response.json();
 };
 
 xAuth.getUserInfo = async (accessToken) => {
-  const response = await axios.get('https://api.twitter.com/2/users/me', {
+  const response = await fetch('https://api.twitter.com/2/users/me', {
+    method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`
     }
   });
   
-  return response.data.data;
+  if (!response.ok) {
+    throw new Error(`X API user info failed: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  return data.data;
 };
 
 module.exports = xAuth;

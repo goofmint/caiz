@@ -1,6 +1,5 @@
 'use strict';
 
-const axios = require('axios');
 const xConfig = require('./x-config');
 const xAuth = require('./x-auth');
 
@@ -38,26 +37,26 @@ xClient.postToX = async (cid, message) => {
   // Truncate message if too long (X has 280 character limit)
   const truncatedMessage = message.length > 280 ? message.substring(0, 277) + '...' : message;
   
-  try {
-    const response = await axios.post('https://api.twitter.com/2/tweets',
-      {
-        text: truncatedMessage
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    return response.data.data;
-  } catch (err) {
-    if (err.response && err.response.status === 401) {
+  const response = await fetch('https://api.twitter.com/2/tweets', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      text: truncatedMessage
+    })
+  });
+  
+  if (!response.ok) {
+    if (response.status === 401) {
       throw new Error('[[x-notification:error.unauthorized]]');
     }
-    throw err;
+    throw new Error(`X API tweet failed: ${response.statusText}`);
   }
+  
+  const data = await response.json();
+  return data.data;
 };
 
 xClient.formatMessage = (template, data) => {
