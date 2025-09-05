@@ -21,12 +21,12 @@
     "static/community-edit-form.js",
     "static/community-edit-slack.js",
     "static/community-edit-discord.js",
+    "static/community-edit-x.js",
     "static/community-edit-notifications.js",
     "static/community-edit-core.js",
     "static/members-only.js",
     "static/slack-oauth-handler.js",
-    "static/api-tokens.js",
-    "static/lib/x-settings.js"
+    "static/api-tokens.js"
   ],
   "scss": [
     "static/style.scss"

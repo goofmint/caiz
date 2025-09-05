@@ -11,8 +11,8 @@ class NotificationSettingsManager {
     
     async loadNotificationSettings() {
         try {
-            // Load both Slack and Discord settings
-            const [slackSettings, discordSettings] = await Promise.all([
+            // Load Slack, Discord and X settings
+            const [slackSettings, discordSettings, xSettings] = await Promise.all([
                 new Promise((resolve, reject) => {
                     window.socket.emit('plugins.caiz.getSlackNotificationSettings', { cid: this.cid }, (err, data) => {
                         if (err) return reject(err);
@@ -24,15 +24,23 @@ class NotificationSettingsManager {
                         if (err) return reject(err);
                         resolve(data || {});
                     });
+                }),
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.getXNotificationSettings', { cid: this.cid }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data || {});
+                    });
                 })
             ]);
             
             // Update platform enable checkboxes
             const slackEnabledCheckbox = document.getElementById('slack-enabled');
             const discordEnabledCheckbox = document.getElementById('discord-enabled');
+            const xEnabledCheckbox = document.getElementById('x-enabled');
             
             if (slackEnabledCheckbox) slackEnabledCheckbox.checked = slackSettings.enabled !== false;
             if (discordEnabledCheckbox) discordEnabledCheckbox.checked = discordSettings.enabled !== false;
+            if (xEnabledCheckbox) xEnabledCheckbox.checked = xSettings.enabled !== false;
             
             // Update notification type checkboxes (use Slack settings as primary)
             const newTopicCheckbox = document.getElementById('notify-new-topic');
@@ -62,6 +70,7 @@ class NotificationSettingsManager {
             // Get platform enable checkboxes
             const slackEnabledCheckbox = document.getElementById('slack-enabled');
             const discordEnabledCheckbox = document.getElementById('discord-enabled');
+            const xEnabledCheckbox = document.getElementById('x-enabled');
             
             // Get notification type checkboxes
             const newTopicCheckbox = document.getElementById('notify-new-topic');
@@ -86,7 +95,17 @@ class NotificationSettingsManager {
                 ...notificationSettings
             };
             
-            // Save both Slack and Discord settings
+            const xSettings = {
+                enabled: xEnabledCheckbox ? xEnabledCheckbox.checked : true,
+                events: {
+                    newTopic: notificationSettings.newTopic,
+                    newPost: notificationSettings.newPost,
+                    memberJoin: notificationSettings.memberJoin,
+                    memberLeave: notificationSettings.memberLeave
+                }
+            };
+            
+            // Save Slack, Discord and X settings
             await Promise.all([
                 new Promise((resolve, reject) => {
                     window.socket.emit('plugins.caiz.saveSlackNotificationSettings', { 
@@ -101,6 +120,15 @@ class NotificationSettingsManager {
                     window.socket.emit('plugins.caiz.saveDiscordNotificationSettings', { 
                         cid: this.cid, 
                         settings: discordSettings 
+                    }, (err, data) => {
+                        if (err) return reject(err);
+                        resolve(data);
+                    });
+                }),
+                new Promise((resolve, reject) => {
+                    window.socket.emit('plugins.caiz.saveXNotificationSettings', { 
+                        cid: this.cid, 
+                        settings: xSettings 
                     }, (err, data) => {
                         if (err) return reject(err);
                         resolve(data);

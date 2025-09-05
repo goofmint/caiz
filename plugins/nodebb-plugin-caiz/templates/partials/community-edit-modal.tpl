@@ -250,6 +250,49 @@
                   </div>
                 </div>
                 
+                <!-- X Notifications -->
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <i class="fab fa-x-twitter me-2"></i>[[caiz:x-notifications]]
+                    </h5>
+                    
+                    <!-- 未接続状態 -->
+                    <div id="x-disconnected" style="display: block;">
+                      <p class="text-muted">[[caiz:x-not-connected]]</p>
+                      <button type="button" class="btn btn-dark" id="connect-x">
+                        <i class="fab fa-x-twitter me-1"></i>[[caiz:connect-to-x]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続済み状態 -->
+                    <div id="x-connected" style="display: none;">
+                      <p>[[caiz:x-connected-to]] <strong><span id="x-account-name"></span></strong></p>
+                      <p class="text-muted">[[caiz:connected-at]] <span id="x-connected-at"></span></p>
+                      
+                      <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="x-enabled" checked>
+                        <label class="form-check-label" for="x-enabled">
+                          [[caiz:enable-x-notifications]]
+                        </label>
+                      </div>
+                      
+                      <hr class="my-3">
+                      
+                      <button type="button" class="btn btn-outline-danger" id="disconnect-x">
+                        <i class="fa fa-unlink me-1"></i>[[caiz:disconnect-x]]
+                      </button>
+                    </div>
+                    
+                    <!-- 接続中状態 -->
+                    <div id="x-connecting" style="display: none;">
+                      <div class="text-center">
+                        <i class="fa fa-spinner fa-spin me-2"></i>[[caiz:connecting-to-x]]
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <!-- Common Notification Events -->
                 <div class="card mb-3">
                   <div class="card-body">
