@@ -105,36 +105,43 @@ class NotificationSettingsManager {
                 }
             };
             
-            // Save Slack, Discord and X settings
-            await Promise.all([
-                new Promise((resolve, reject) => {
-                    window.socket.emit('plugins.caiz.saveSlackNotificationSettings', { 
-                        cid: this.cid, 
-                        settings: slackSettings 
-                    }, (err, data) => {
-                        if (err) return reject(err);
-                        resolve(data);
-                    });
-                }),
-                new Promise((resolve, reject) => {
-                    window.socket.emit('plugins.caiz.saveDiscordNotificationSettings', { 
-                        cid: this.cid, 
-                        settings: discordSettings 
-                    }, (err, data) => {
-                        if (err) return reject(err);
-                        resolve(data);
-                    });
-                }),
-                new Promise((resolve, reject) => {
-                    window.socket.emit('plugins.caiz.saveXNotificationSettings', { 
-                        cid: this.cid, 
-                        settings: xSettings 
-                    }, (err, data) => {
-                        if (err) return reject(err);
-                        resolve(data);
-                    });
-                })
-            ]);
+            // Save all platform settings regardless of enabled status
+            const savePromises = [];
+            
+            // Always save Slack settings
+            savePromises.push(new Promise((resolve, reject) => {
+                window.socket.emit('plugins.caiz.saveSlackNotificationSettings', { 
+                    cid: this.cid, 
+                    settings: slackSettings 
+                }, (err, data) => {
+                    if (err && err.message !== 'Slack not connected') return reject(err);
+                    resolve(data);
+                });
+            }));
+            
+            // Always save Discord settings
+            savePromises.push(new Promise((resolve, reject) => {
+                window.socket.emit('plugins.caiz.saveDiscordNotificationSettings', { 
+                    cid: this.cid, 
+                    settings: discordSettings 
+                }, (err, data) => {
+                    if (err && err.message !== 'Discord not connected') return reject(err);
+                    resolve(data);
+                });
+            }));
+            
+            // Always save X settings
+            savePromises.push(new Promise((resolve, reject) => {
+                window.socket.emit('plugins.caiz.saveXNotificationSettings', { 
+                    cid: this.cid, 
+                    settings: xSettings 
+                }, (err, data) => {
+                    if (err && err.message !== 'X not connected') return reject(err);
+                    resolve(data);
+                });
+            }));
+            
+            await Promise.all(savePromises);
             
             require(['alerts'], function(alerts) {
                 alerts.success('[[caiz:notification-settings-saved]]');
