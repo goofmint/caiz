@@ -67,12 +67,7 @@ xAuth.exchangeCodeForTokens = async (code, state) => {
     code_verifier: stateData
   });
   
-  console.log('[x-auth] Token exchange request:', {
-    url: 'https://api.x.com/2/oauth2/token',
-    hasClientKey: !!clientKey,
-    hasClientSecret: !!clientSecret,
-    bodyParams: params.toString()
-  });
+  // reduced logging
 
   const response = await fetch('https://api.x.com/2/oauth2/token', {
     method: 'POST',
@@ -83,25 +78,16 @@ xAuth.exchangeCodeForTokens = async (code, state) => {
     body: params.toString()
   });
   
-  console.log('[x-auth] Token exchange response:', {
-    status: response.status,
-    statusText: response.statusText
-  });
+  // reduced logging
   
   if (!response.ok) {
     const errorBody = await response.text();
-    console.log('[x-auth] Token exchange error:', errorBody);
+    // reduced logging of error body
     throw new Error(`X OAuth token exchange failed: ${response.statusText}`);
   }
   
   const data = await response.json();
-  console.log('[x-auth] Token exchange success:', {
-    hasAccessToken: !!data.access_token,
-    hasRefreshToken: !!data.refresh_token,
-    expiresIn: data.expires_in,
-    tokenType: data.token_type,
-    scope: data.scope
-  });
+  // reduced logging
   
   // Clean up state
   await db.delete(`x-auth:state:${state}`);

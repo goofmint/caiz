@@ -20,27 +20,29 @@ controllers.handleOAuthCallback = async (req, res) => {
     const { cid, uid } = stateData;
     
     // Exchange code for tokens
-    const tokens = await xAuth.exchangeCodeForTokens(code);
-    
-    // Get user info from X
-    const userInfo = await xAuth.getUserInfo(tokens.access_token);
+    const tokens = await xAuth.exchangeCodeForTokens(code, state);
     
     // Save account to community config
-    await xConfig.addAccount(cid, {
-      accountId: userInfo.id,
-      screenName: userInfo.username,
+    const accountData = {
+      accountId: `x_${Date.now()}_${cid}`,
+      screenName: 'Connected Account',
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresAt: Date.now() + (tokens.expires_in * 1000),
-      scopes: tokens.scope ? tokens.scope.split(' ') : ['tweet.read', 'tweet.write', 'users.read']
-    });
+      scopes: tokens.scope ? tokens.scope.split(' ') : ['tweet.write']
+    };
+    
+    // reduced logging
+    
+    await xConfig.addAccount(cid, accountData);
+    // reduced logging
     
     // Return success page that closes the window
     res.send(`
       <html>
         <body>
           <script>
-            window.opener.postMessage({ type: 'x-auth-success', accountId: '${userInfo.id}', screenName: '${userInfo.username}' }, '*');
+            window.opener.postMessage({ type: 'x-auth-success', accountId: 'x_${Date.now()}_${cid}', screenName: 'Connected Account' }, '*');
             window.close();
           </script>
         </body>

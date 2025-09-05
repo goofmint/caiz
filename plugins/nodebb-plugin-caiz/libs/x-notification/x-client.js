@@ -7,10 +7,13 @@ const xClient = {};
 
 xClient.postToX = async (cid, message) => {
   const account = await xConfig.getSelectedAccount(cid);
+  // reduced logging
   
   if (!account) {
     throw new Error('[[x-notification:error.no-account-selected]]');
   }
+  
+  // reduced logging
   
   // Check if token needs refresh
   let accessToken = account.accessToken;
@@ -29,13 +32,15 @@ xClient.postToX = async (cid, message) => {
       
       accessToken = newTokens.access_token;
     } catch (err) {
-      console.error('[x-notification] Token refresh failed:', err);
+      console.error('[x-notification] Token refresh failed');
       throw new Error('[[x-notification:error.token-refresh-failed]]');
     }
   }
   
   // Truncate message if too long (X has 280 character limit)
   const truncatedMessage = message.length > 280 ? message.substring(0, 277) + '...' : message;
+  
+  // reduced logging
   
   const response = await fetch('https://api.x.com/2/tweets', {
     method: 'POST',
@@ -48,7 +53,12 @@ xClient.postToX = async (cid, message) => {
     })
   });
   
+  // reduced logging
+  
   if (!response.ok) {
+    const errorBody = await response.text();
+    // reduced logging of error body
+    
     if (response.status === 401) {
       throw new Error('[[x-notification:error.unauthorized]]');
     }
