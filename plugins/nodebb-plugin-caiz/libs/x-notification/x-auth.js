@@ -53,24 +53,29 @@ xAuth.getStateClaims = async (state) => {
     throw new Error('Invalid state');
   }
   const db = require.main.require('./src/database');
-  const [codeVerifier, cid, uid] = await Promise.all([
+  const [codeVerifierDb, cidDb, uidDb] = await Promise.all([
     db.getObjectField(`x-auth:state:${state}`, 'codeVerifier'),
     db.getObjectField(`x-auth:state:${state}`, 'cid'),
     db.getObjectField(`x-auth:state:${state}`, 'uid'),
   ]);
+  // Backward-compat: parse from state payload (legacy) if missing in DB
+  let parsed = null;
+  try {
+    parsed = JSON.parse(Buffer.from(state, 'base64').toString());
+  } catch(e) {}
+
+  const codeVerifier = codeVerifierDb || (parsed && parsed.codeVerifier) || null;
   if (!codeVerifier) {
     throw new Error('Invalid state');
   }
 
-  // Backward-compat: if cid/uid not stored in DB (legacy state), parse from state payload
-  let parsedCid = cid;
-  let parsedUid = uid;
+  let parsedCid = cidDb;
+  let parsedUid = uidDb;
   if (!parsedCid || !parsedUid) {
     try {
-      const json = JSON.parse(Buffer.from(state, 'base64').toString());
-      if (json && (json.cid !== undefined) && (json.uid !== undefined)) {
-        parsedCid = String(json.cid);
-        parsedUid = String(json.uid);
+      if (parsed && (parsed.cid !== undefined) && (parsed.uid !== undefined)) {
+        parsedCid = String(parsed.cid);
+        parsedUid = String(parsed.uid);
       }
     } catch (e) {
       // ignore, will validate below
