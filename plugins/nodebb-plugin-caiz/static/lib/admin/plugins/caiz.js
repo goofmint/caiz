@@ -8,6 +8,7 @@ define('admin/plugins/caiz-oauth', ['settings', 'alerts'], function (Settings, a
         // Set up event listeners
         $('#slack-oauth-form').on('submit', handleSlackSubmit);
         $('#discord-oauth-form').on('submit', handleDiscordSubmit);
+        $('#x-oauth-form').on('submit', handleXSubmit);
         $('#test-slack').on('click', testSlackConnection);
         $('#test-discord').on('click', testDiscordConnection);
     };
@@ -27,6 +28,12 @@ define('admin/plugins/caiz-oauth', ['settings', 'alerts'], function (Settings, a
             // Load Discord settings
             if (data.discord) {
                 $('#discord-client-id').val(data.discord.clientId || '');
+                // Don't load secrets - they should only be entered when changing
+            }
+            
+            // Load X settings
+            if (data.x) {
+                $('#x-client-key').val(data.x.clientKey || '');
                 // Don't load secrets - they should only be entered when changing
             }
         });
@@ -93,6 +100,33 @@ define('admin/plugins/caiz-oauth', ['settings', 'alerts'], function (Settings, a
             // Clear password fields after save
             $('#discord-client-secret').val('');
             $('#discord-bot-token').val('');
+        });
+    }
+    
+    function handleXSubmit(e) {
+        e.preventDefault();
+        
+        const settings = {
+            clientKey: $('#x-client-key').val(),
+            clientSecret: $('#x-client-secret').val()
+        };
+        
+        // Only send secret if it was entered
+        if (!settings.clientSecret) {
+            delete settings.clientSecret;
+        }
+        
+        socket.emit('admin.plugins.caiz.saveOAuthSettings', {
+            platform: 'x',
+            settings: settings
+        }, function(err) {
+            if (err) {
+                return alerts.error(err.message);
+            }
+            
+            alerts.success('X settings saved successfully');
+            // Clear password field after save
+            $('#x-client-secret').val('');
         });
     }
     

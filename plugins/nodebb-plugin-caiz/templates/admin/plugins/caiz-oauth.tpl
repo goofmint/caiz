@@ -76,6 +76,39 @@
           </form>
         </div>
       </div>
+      
+      <!-- X Settings -->
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <i class="fab fa-x-twitter"></i> X (Twitter) [[caiz:admin.oauth-settings]]
+        </div>
+        <div class="panel-body">
+          <form id="x-oauth-form">
+            <div class="form-group">
+              <label for="x-client-key">[[caiz:admin.client-key]]</label>
+              <input type="text" id="x-client-key" name="x-client-key" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label for="x-client-secret">[[caiz:admin.client-secret]]</label>
+              <input type="password" id="x-client-secret" name="x-client-secret" class="form-control" placeholder="[[caiz:admin.enter-to-change]]" />
+              <p class="help-block">[[caiz:admin.only-enter-to-change]]</p>
+            </div>
+            <div class="form-group">
+              <label>[[caiz:admin.redirect-url]]</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="x-redirect-url" readonly />
+                <span class="input-group-btn">
+                  <button class="btn btn-default" type="button" onclick="copyToClipboard('x-redirect-url')">
+                    <i class="fa fa-copy"></i>
+                  </button>
+                </span>
+              </div>
+              <p class="help-block">[[caiz:admin.add-url-to-x]]</p>
+            </div>
+            <button type="submit" class="btn btn-primary">[[caiz:admin.save]]</button>
+          </form>
+        </div>
+      </div>
     </div>
     
     <div class="col-lg-3">
@@ -96,6 +129,15 @@
             <li>[[caiz:admin.click-new-application]]</li>
             <li>[[caiz:admin.get-bot-token]]</li>
             <li>[[caiz:admin.set-oauth2-redirect]]</li>
+          </ol>
+          
+          <h5>[[caiz:admin.x-app-setup]]</h5>
+          <ol>
+            <li><a href="https://developer.twitter.com/en/portal/dashboard" target="_blank">X Developer Portal</a> [[caiz:admin.access]]</li>
+            <li>[[caiz:admin.create-app-x]]</li>
+            <li>[[caiz:admin.enable-oauth2-x]]</li>
+            <li>[[caiz:admin.set-redirect-url-x]]</li>
+            <li>[[caiz:admin.save-keys-x]]</li>
           </ol>
         </div>
       </div>
@@ -119,5 +161,6 @@ function copyToClipboard(elementId) {
 $(document).ready(function() {
     $('#slack-redirect-url').val('{slackRedirectUrl}');
     $('#discord-redirect-url').val('{discordRedirectUrl}');
+    $('#x-redirect-url').val('{xRedirectUrl}');
 });
 </script>

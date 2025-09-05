@@ -44,7 +44,8 @@ plugin.init = async function (params) {
     const url = nconf.get('url');
     res.render('admin/plugins/caiz-oauth', {
       slackRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/slack/callback`,
-      discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`
+      discordRedirectUrl: `${url}/api/v3/plugins/caiz/oauth/discord/callback`,
+      xRedirectUrl: `${url}/caiz/oauth/x/callback`
     });
   });
 
@@ -57,6 +58,68 @@ plugin.init = async function (params) {
   router.post('/api/v3/plugins/caiz/oauth/discord/callback', (req, res) => {
     // Discord OAuth callback - return type 1 (pong) for verification
     res.status(200).json({ type: 1 });
+  });
+
+  // X OAuth routes
+  router.get('/caiz/oauth/x/callback', async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.handleOAuthCallback(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X OAuth callback error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+  // X settings API routes
+  router.get('/api/community/:cid/x-settings', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.getXSettings(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X settings get error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-settings', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.saveXSettings(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X settings save error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-connect', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.startXConnect(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X connect error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.delete('/api/community/:cid/x-account/:accountId', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.deleteXAccount(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X account delete error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  router.post('/api/community/:cid/x-test', middleware.ensureLoggedIn, async (req, res) => {
+    try {
+      const xControllers = require('./libs/x-notification/controllers');
+      await xControllers.sendTestPost(req, res);
+    } catch (err) {
+      winston.error(`[plugin/caiz] X test post error: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   });
   
   // Slack OAuth routes
@@ -844,6 +907,115 @@ sockets.apiTokens.delete = async function(socket, data) {
   return { success: true };
 };
 
+// X notification settings socket handlers  
+sockets.caiz.getXNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  // Check if user is community owner/manager
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const config = await xConfig.getConfig(cid);
+  
+  // Mask tokens for security
+  if (config.accounts) {
+    config.accounts = config.accounts.map(account => ({
+      ...account,
+      accessToken: '********',
+      refreshToken: '********'
+    }));
+  }
+  
+  return config;
+};
+
+sockets.caiz.saveXNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, settings } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const { selectedAccountId, events, templates } = settings;
+  await xConfig.updateConfig(cid, {
+    selectedAccountId,
+    events,
+    templates
+  });
+  
+  return { success: true };
+};
+
+sockets.caiz.getXAuthUrl = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  const xAuth = require('./libs/x-notification/x-auth');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const authUrl = await xAuth.getAuthorizationUrl(cid, socket.uid);
+  return { authUrl };
+};
+
+sockets.caiz.disconnectXAccount = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, accountId } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await xConfig.removeAccount(cid, accountId);
+  return { success: true };
+};
+
+sockets.caiz.testXPost = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, message } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  const xClient = require('./libs/x-notification/x-client');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  try {
+    const result = await xClient.postToX(cid, message || 'Test post from NodeBB');
+    return { success: true, postId: result.id };
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
+
 // Discord notification settings socket handlers
 sockets.caiz.getDiscordNotificationSettings = async function(socket, data) {
   if (!socket.uid) {
@@ -928,6 +1100,16 @@ plugin.actionTopicSave = async function(hookData) {
       }
     });
 
+    // Send X notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const xNotification = require('./libs/x-notification/x-notification');
+        await xNotification.handleEvent('newTopic', { topic: topicData });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in X topic notification: ${err.message}`);
+      }
+    });
+
   } catch (err) {
     winston.error(`[plugin/caiz] Error in actionTopicSave hook: ${err.message}`);
   }
@@ -963,6 +1145,16 @@ plugin.actionPostSave = async function(hookData) {
         await discordNotifier.notifyNewComment(post);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in Discord comment notification: ${err.message}`);
+      }
+    });
+
+    // Send X notification (non-blocking)
+    setImmediate(async () => {
+      try {
+        const xNotification = require('./libs/x-notification/x-notification');
+        await xNotification.handleEvent('newPost', { post });
+      } catch (err) {
+        winston.error(`[plugin/caiz] Error in X comment notification: ${err.message}`);
       }
     });
 
