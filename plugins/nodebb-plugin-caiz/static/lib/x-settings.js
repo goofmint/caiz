@@ -11,103 +11,24 @@
     // Add tab button
     tabNav.append(`
       <li><a href="#x-notification-settings" data-toggle="tab">
-        <i class="fa fa-twitter"></i> [[x-notification:title]]
+        <i class="fa fa-twitter"></i> [[caiz:x-notifications]]
       </a></li>
     `);
     
-    // Add tab content
-    tabContent.append(`
-      <div class="tab-pane" id="x-notification-settings">
-        <div class="x-notification-container" data-cid="${cid}">
-          <div class="row">
-            <div class="col-md-12">
-              <h4>[[x-notification:settings.title]]</h4>
-              
-              <div class="form-group">
-                <label>[[x-notification:settings.connected-accounts]]</label>
-                <div class="x-accounts-list">
-                  <p class="text-muted">[[x-notification:settings.loading]]</p>
-                </div>
-                <button class="btn btn-primary btn-connect-x" style="margin-top: 10px;">
-                  <i class="fa fa-twitter"></i> [[x-notification:settings.connect-account]]
-                </button>
-              </div>
-              
-              <div class="form-group x-events-section" style="display:none;">
-                <label>[[x-notification:settings.events]]</label>
-                <div class="checkbox">
-                  <label>
-                    <input type="checkbox" name="newTopic" class="x-event-toggle">
-                    [[x-notification:settings.event.new-topic]]
-                  </label>
-                </div>
-                <div class="checkbox">
-                  <label>
-                    <input type="checkbox" name="newPost" class="x-event-toggle">
-                    [[x-notification:settings.event.new-post]]
-                  </label>
-                </div>
-                <div class="checkbox">
-                  <label>
-                    <input type="checkbox" name="memberJoin" class="x-event-toggle">
-                    [[x-notification:settings.event.member-join]]
-                  </label>
-                </div>
-                <div class="checkbox">
-                  <label>
-                    <input type="checkbox" name="memberLeave" class="x-event-toggle">
-                    [[x-notification:settings.event.member-leave]]
-                  </label>
-                </div>
-              </div>
-              
-              <div class="form-group x-templates-section" style="display:none;">
-                <label>[[x-notification:settings.templates]]</label>
-                <div class="form-group">
-                  <label>[[x-notification:settings.template.new-topic]]</label>
-                  <textarea class="form-control x-template" name="newTopic" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                  <label>[[x-notification:settings.template.new-post]]</label>
-                  <textarea class="form-control x-template" name="newPost" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                  <label>[[x-notification:settings.template.member-join]]</label>
-                  <textarea class="form-control x-template" name="memberJoin" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                  <label>[[x-notification:settings.template.member-leave]]</label>
-                  <textarea class="form-control x-template" name="memberLeave" rows="2"></textarea>
-                </div>
-                <p class="help-block">
-                  [[x-notification:settings.template-help]]
-                </p>
-              </div>
-              
-              <div class="form-group x-test-section" style="display:none;">
-                <label>[[x-notification:settings.test]]</label>
-                <div class="input-group">
-                  <input type="text" class="form-control x-test-message" placeholder="[[x-notification:settings.test-placeholder]]">
-                  <span class="input-group-btn">
-                    <button class="btn btn-default btn-test-x" type="button">
-                      <i class="fa fa-send"></i> [[x-notification:settings.test-button]]
-                    </button>
-                  </span>
-                </div>
-              </div>
-              
-              <button class="btn btn-success btn-save-x-settings" style="display:none;">
-                <i class="fa fa-save"></i> [[x-notification:settings.save]]
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
+    // Load and add tab content template
+    require(['benchpress'], function(Benchpress) {
+      Benchpress.render('partials/x-notification-tab', { cid: cid }).then(function(html) {
+        tabContent.append(html);
+        
+        // Initialize after template is rendered
+        loadXSettings(cid);
+        bindEvents(modal, cid);
+      });
+    });
     
-    // Load current settings
-    loadXSettings(cid);
-    
+  });
+  
+  function bindEvents(modal, cid) {
     // Event handlers
     modal.on('click', '.btn-connect-x', function() {
       connectXAccount(cid);
@@ -130,7 +51,7 @@
       const container = modal.find('.x-notification-container');
       container.find('.btn-save-x-settings').show();
     });
-  });
+  }
   
   function loadXSettings(cid) {
     window.socket.emit('plugins.caiz.getXNotificationSettings', { cid }, function(err, data) {
@@ -140,37 +61,30 @@
       }
       const container = $(`.x-notification-container[data-cid="${cid}"]`);
       
-      // Update accounts list
-      if (data.accounts && data.accounts.length > 0) {
-        let accountsHtml = '<select class="form-control x-account-select">';
-        accountsHtml += '<option value="">Select account</option>';
-        
-        data.accounts.forEach(account => {
-          const selected = account.accountId === data.selectedAccountId ? 'selected' : '';
-          accountsHtml += `<option value="${account.accountId}" ${selected}>@${account.screenName}</option>`;
-        });
-        
-        accountsHtml += '</select>';
-        accountsHtml += '<div class="account-actions" style="margin-top: 10px;">';
-        
-        data.accounts.forEach(account => {
-          accountsHtml += `
-            <button class="btn btn-xs btn-danger btn-disconnect-x" data-account-id="${account.accountId}">
-              <i class="fa fa-times"></i> @${account.screenName}
-            </button> `;
-        });
-        
-        accountsHtml += '</div>';
-        
-        container.find('.x-accounts-list').html(accountsHtml);
-        
-        // Show other sections if account is selected
-        if (data.selectedAccountId) {
-          container.find('.x-events-section, .x-templates-section, .x-test-section, .btn-save-x-settings').show();
-        }
-      } else {
-        container.find('.x-accounts-list').html('<p class="text-muted">No X accounts connected</p>');
+      // Prepare accounts data
+      const accountsData = {
+        accounts: data.accounts || []
+      };
+      
+      // Mark selected account
+      if (data.selectedAccountId && accountsData.accounts.length > 0) {
+        accountsData.accounts = accountsData.accounts.map(account => ({
+          ...account,
+          selected: account.accountId === data.selectedAccountId
+        }));
       }
+      
+      // Render accounts list template
+      require(['benchpress'], function(Benchpress) {
+        Benchpress.render('partials/x-accounts-list', accountsData).then(function(html) {
+          container.find('.x-accounts-list').html(html);
+          
+          // Show other sections if account is selected
+          if (data.selectedAccountId) {
+            container.find('.x-events-section, .x-templates-section, .x-test-section, .btn-save-x-settings').show();
+          }
+        });
+      });
       
       // Update events
       if (data.events) {
