@@ -907,6 +907,115 @@ sockets.apiTokens.delete = async function(socket, data) {
   return { success: true };
 };
 
+// X notification settings socket handlers  
+sockets.caiz.getXNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  // Check if user is community owner/manager
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const config = await xConfig.getConfig(cid);
+  
+  // Mask tokens for security
+  if (config.accounts) {
+    config.accounts = config.accounts.map(account => ({
+      ...account,
+      accessToken: '********',
+      refreshToken: '********'
+    }));
+  }
+  
+  return config;
+};
+
+sockets.caiz.saveXNotificationSettings = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, settings } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const { selectedAccountId, events, templates } = settings;
+  await xConfig.updateConfig(cid, {
+    selectedAccountId,
+    events,
+    templates
+  });
+  
+  return { success: true };
+};
+
+sockets.caiz.getXAuthUrl = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  const xAuth = require('./libs/x-notification/x-auth');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  const authUrl = await xAuth.getAuthorizationUrl(cid, socket.uid);
+  return { authUrl };
+};
+
+sockets.caiz.disconnectXAccount = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, accountId } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  await xConfig.removeAccount(cid, accountId);
+  return { success: true };
+};
+
+sockets.caiz.testXPost = async function(socket, data) {
+  if (!socket.uid) {
+    throw new Error('[[error:not-logged-in]]');
+  }
+  
+  const { cid, message } = data;
+  const xConfig = require('./libs/x-notification/x-config');
+  const xClient = require('./libs/x-notification/x-client');
+  
+  const isOwner = await xConfig.isCommunityOwner(cid, socket.uid);
+  if (!isOwner) {
+    throw new Error('[[error:no-privileges]]');
+  }
+  
+  try {
+    const result = await xClient.postToX(cid, message || 'Test post from NodeBB');
+    return { success: true, postId: result.id };
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
+
 // Discord notification settings socket handlers
 sockets.caiz.getDiscordNotificationSettings = async function(socket, data) {
   if (!socket.uid) {

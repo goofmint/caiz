@@ -133,13 +133,17 @@
   });
   
   function loadXSettings(cid) {
-    $.get(`/api/community/${cid}/x-settings`, function(data) {
+    window.socket.emit('plugins.caiz.getXNotificationSettings', { cid }, function(err, data) {
+      if (err) {
+        console.error('[X] Load settings error:', err);
+        return;
+      }
       const container = $(`.x-notification-container[data-cid="${cid}"]`);
       
       // Update accounts list
       if (data.accounts && data.accounts.length > 0) {
         let accountsHtml = '<select class="form-control x-account-select">';
-        accountsHtml += '<option value="">[[x-notification:settings.select-account]]</option>';
+        accountsHtml += '<option value="">Select account</option>';
         
         data.accounts.forEach(account => {
           const selected = account.accountId === data.selectedAccountId ? 'selected' : '';
@@ -165,7 +169,7 @@
           container.find('.x-events-section, .x-templates-section, .x-test-section, .btn-save-x-settings').show();
         }
       } else {
-        container.find('.x-accounts-list').html('<p class="text-muted">[[x-notification:settings.no-accounts]]</p>');
+        container.find('.x-accounts-list').html('<p class="text-muted">No X accounts connected</p>');
       }
       
       // Update events
@@ -185,7 +189,11 @@
   }
   
   function connectXAccount(cid) {
-    $.post(`/api/community/${cid}/x-connect`, function(data) {
+    window.socket.emit('plugins.caiz.getXAuthUrl', { cid }, function(err, data) {
+      if (err) {
+        console.error('[X] Get auth URL error:', err);
+        return;
+      }
       if (data.authUrl) {
         // Open OAuth popup
         const popup = window.open(data.authUrl, 'x-auth', 'width=600,height=700');
@@ -198,7 +206,7 @@
             
             app.alert({
               type: 'success',
-              message: `[[x-notification:settings.connected-success, ${event.data.screenName}]]`
+              message: `Connected to X account @${event.data.screenName}`
             });
             
             // Reload settings
@@ -210,18 +218,21 @@
   }
   
   function disconnectXAccount(cid, accountId) {
-    bootbox.confirm('[[x-notification:settings.disconnect-confirm]]', function(result) {
+    bootbox.confirm('[[caiz:confirm-disconnect-x-message]]', function(result) {
       if (result) {
-        $.ajax({
-          url: `/api/community/${cid}/x-account/${accountId}`,
-          method: 'DELETE',
-          success: function() {
+        window.socket.emit('plugins.caiz.disconnectXAccount', { cid, accountId }, function(err, data) {
+          if (err) {
             app.alert({
-              type: 'success',
-              message: '[[x-notification:settings.disconnected]]'
+              type: 'danger',
+              message: err.message || '[[caiz:failed-to-disconnect-from-x]]'
             });
-            loadXSettings(cid);
+            return;
           }
+          app.alert({
+            type: 'success',
+            message: '[[caiz:disconnected-from-x-successfully]]'
+          });
+          loadXSettings(cid);
         });
       }
     });
@@ -246,10 +257,17 @@
       settings.templates[$(this).attr('name')] = $(this).val();
     });
     
-    $.post(`/api/community/${cid}/x-settings`, settings, function() {
+    window.socket.emit('plugins.caiz.saveXNotificationSettings', { cid, settings }, function(err, data) {
+      if (err) {
+        app.alert({
+          type: 'danger',
+          message: err.message || '[[caiz:failed-to-save-notification-settings]]'
+        });
+        return;
+      }
       app.alert({
         type: 'success',
-        message: '[[x-notification:settings.saved]]'
+        message: '[[caiz:notification-settings-saved]]'
       });
     });
   }
@@ -261,24 +279,26 @@
     if (!message) {
       app.alert({
         type: 'warning',
-        message: '[[x-notification:settings.test-message-required]]'
+        message: 'Test message is required'
       });
       return;
     }
     
-    $.post(`/api/community/${cid}/x-test`, { message }, function(data) {
+    window.socket.emit('plugins.caiz.testXPost', { cid, message }, function(err, data) {
+      if (err) {
+        app.alert({
+          type: 'danger',
+          message: err.message || 'Test failed'
+        });
+        return;
+      }
       if (data.success) {
         app.alert({
           type: 'success',
-          message: '[[x-notification:settings.test-success]]'
+          message: 'Test post sent successfully'
         });
         container.find('.x-test-message').val('');
       }
-    }).fail(function(err) {
-      app.alert({
-        type: 'danger',
-        message: err.responseJSON ? err.responseJSON.error : '[[x-notification:error.test-failed]]'
-      });
     });
   }
 })();
