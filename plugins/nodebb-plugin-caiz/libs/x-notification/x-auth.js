@@ -58,12 +58,32 @@ xAuth.getStateClaims = async (state) => {
     db.getObjectField(`x-auth:state:${state}`, 'cid'),
     db.getObjectField(`x-auth:state:${state}`, 'uid'),
   ]);
-  if (!codeVerifier || !cid || !uid) {
+  if (!codeVerifier) {
     throw new Error('Invalid state');
   }
+
+  // Backward-compat: if cid/uid not stored in DB (legacy state), parse from state payload
+  let parsedCid = cid;
+  let parsedUid = uid;
+  if (!parsedCid || !parsedUid) {
+    try {
+      const json = JSON.parse(Buffer.from(state, 'base64').toString());
+      if (json && (json.cid !== undefined) && (json.uid !== undefined)) {
+        parsedCid = String(json.cid);
+        parsedUid = String(json.uid);
+      }
+    } catch (e) {
+      // ignore, will validate below
+    }
+  }
+
+  if (!parsedCid || !parsedUid) {
+    throw new Error('Invalid state');
+  }
+
   // Consume state to prevent replay
   await db.delete(`x-auth:state:${state}`);
-  return { codeVerifier, cid: parseInt(cid, 10), uid: parseInt(uid, 10) };
+  return { codeVerifier, cid: parseInt(parsedCid, 10), uid: parseInt(parsedUid, 10) };
 };
 
 xAuth.exchangeCodeForTokens = async (code, codeVerifier) => {
