@@ -25,9 +25,11 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   // Generate state
   const state = Buffer.from(JSON.stringify({ cid, uid, codeVerifier })).toString('base64');
   
-  // Store code verifier temporarily (in production, use Redis or database)
+  // Store state claims temporarily (in production, use Redis or database)
   const db = require.main.require('./src/database');
   await db.setObjectField(`x-auth:state:${state}`, 'codeVerifier', codeVerifier);
+  await db.setObjectField(`x-auth:state:${state}`, 'cid', String(cid));
+  await db.setObjectField(`x-auth:state:${state}`, 'uid', String(uid));
   await db.pexpire(`x-auth:state:${state}`, 600000); // 10 minutes
   
   const baseUrl = nconf.get('url');
@@ -46,25 +48,35 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   return `https://x.com/i/oauth2/authorize?${params.toString()}`;
 };
 
-xAuth.exchangeCodeForTokens = async (code, state) => {
+xAuth.getStateClaims = async (state) => {
+  if (!state || typeof state !== 'string') {
+    throw new Error('Invalid state');
+  }
+  const db = require.main.require('./src/database');
+  const [codeVerifier, cid, uid] = await Promise.all([
+    db.getObjectField(`x-auth:state:${state}`, 'codeVerifier'),
+    db.getObjectField(`x-auth:state:${state}`, 'cid'),
+    db.getObjectField(`x-auth:state:${state}`, 'uid'),
+  ]);
+  if (!codeVerifier || !cid || !uid) {
+    throw new Error('Invalid state');
+  }
+  // Consume state to prevent replay
+  await db.delete(`x-auth:state:${state}`);
+  return { codeVerifier, cid: parseInt(cid, 10), uid: parseInt(uid, 10) };
+};
+
+xAuth.exchangeCodeForTokens = async (code, codeVerifier) => {
   const meta = require.main.require('./src/meta');
   const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
   const clientSecret = await meta.settings.getOne('caiz', 'oauth:x:clientSecret');
   const baseUrl = nconf.get('url');
   
-  // Retrieve code verifier from state
-  const db = require.main.require('./src/database');
-  const stateData = await db.getObjectField(`x-auth:state:${state}`, 'codeVerifier');
-  
-  if (!stateData) {
-    throw new Error('Invalid state');
-  }
-  
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     code: code,
     redirect_uri: `${baseUrl}/caiz/oauth/x/callback`,
-    code_verifier: stateData
+    code_verifier: codeVerifier
   });
   
   // reduced logging
@@ -88,9 +100,6 @@ xAuth.exchangeCodeForTokens = async (code, state) => {
   
   const data = await response.json();
   // reduced logging
-  
-  // Clean up state
-  await db.delete(`x-auth:state:${state}`);
   
   return data;
 };

@@ -15,12 +15,17 @@ controllers.handleOAuthCallback = async (req, res) => {
   }
   
   try {
-    // Parse state to get cid and uid
-    const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-    const { cid, uid } = stateData;
-    
-    // Exchange code for tokens
-    const tokens = await xAuth.exchangeCodeForTokens(code, state);
+    // Validate state and retrieve claims (cid, uid, codeVerifier)
+    const { cid, uid, codeVerifier } = await xAuth.getStateClaims(state);
+
+    // Verify the initiator is still owner of the community
+    const isOwner = await xConfig.isCommunityOwner(cid, uid);
+    if (!isOwner) {
+      return res.status(403).json({ error: '[[error:no-privileges]]' });
+    }
+
+    // Exchange code for tokens only after ownership is verified
+    const tokens = await xAuth.exchangeCodeForTokens(code, codeVerifier);
     
     // Save account to community config
     const accountData = {
