@@ -9,7 +9,7 @@ class OAuthSettings {
     
     /**
      * Get OAuth settings for a platform
-     * @param {string} platform - 'slack' or 'discord'
+     * @param {string} platform - 'slack', 'discord', or 'x'
      * @returns {Object} Settings with secrets hidden
      */
     async getSettings(platform) {
@@ -24,6 +24,9 @@ class OAuthSettings {
                 settings.clientId = await meta.settings.getOne('caiz', `oauth:discord:clientId`);
                 settings.hasSecret = !!(await meta.settings.getOne('caiz', `oauth:discord:clientSecret`));
                 settings.hasToken = !!(await meta.settings.getOne('caiz', `oauth:discord:botToken`));
+            } else if (platform === 'x') {
+                settings.clientKey = await meta.settings.getOne('caiz', `oauth:x:clientKey`);
+                settings.hasSecret = !!(await meta.settings.getOne('caiz', `oauth:x:clientSecret`));
             }
             
             return settings;
@@ -61,6 +64,13 @@ class OAuthSettings {
                 }
                 if (settings.botToken) {
                     updates[`oauth:discord:botToken`] = settings.botToken;
+                }
+            } else if (platform === 'x') {
+                if (settings.clientKey !== undefined) {
+                    updates[`oauth:x:clientKey`] = settings.clientKey;
+                }
+                if (settings.clientSecret) {
+                    updates[`oauth:x:clientSecret`] = settings.clientSecret;
                 }
             }
             
@@ -246,10 +256,12 @@ class OAuthSettings {
     async getAllSettings() {
         const slack = await this.getSettings('slack');
         const discord = await this.getSettings('discord');
+        const x = await this.getSettings('x');
         
         return {
             slack,
-            discord
+            discord,
+            x
         };
     }
 }

@@ -9,10 +9,11 @@ const xAuth = {};
 
 // OAuth 2.0 PKCE implementation for X API v2
 xAuth.getAuthorizationUrl = async (cid, uid) => {
-  const config = await xSettings.getDecrypted();
+  const meta = require.main.require('./src/meta');
+  const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
   
-  if (!config.clientKey) {
-    throw new Error('[[x-notification:error.no-client-key]]');
+  if (!clientKey) {
+    throw new Error('X Client Key not configured');
   }
   
   // Generate PKCE challenge
@@ -33,7 +34,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   const baseUrl = nconf.get('url');
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: config.clientKey,
+    client_id: clientKey,
     redirect_uri: `${baseUrl}/x-notification/callback`,
     scope: 'tweet.read tweet.write users.read offline.access',
     state: state,
@@ -45,7 +46,9 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
 };
 
 xAuth.exchangeCodeForTokens = async (code) => {
-  const config = await xSettings.getDecrypted();
+  const meta = require.main.require('./src/meta');
+  const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
+  const clientSecret = await meta.settings.getOne('caiz', 'oauth:x:clientSecret');
   const baseUrl = nconf.get('url');
   
   // Retrieve code verifier from state
@@ -53,7 +56,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
   const stateData = await db.getObjectField(`x-auth:state:${code}`, 'codeVerifier');
   
   if (!stateData) {
-    throw new Error('[[x-notification:error.invalid-state]]');
+    throw new Error('Invalid state');
   }
   
   const response = await axios.post('https://api.twitter.com/2/oauth2/token', 
@@ -66,7 +69,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
     {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${config.clientKey}:${config.clientSecret}`).toString('base64')}`
+        'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
       }
     }
   );
@@ -78,7 +81,9 @@ xAuth.exchangeCodeForTokens = async (code) => {
 };
 
 xAuth.refreshAccessToken = async (refreshToken) => {
-  const config = await xSettings.getDecrypted();
+  const meta = require.main.require('./src/meta');
+  const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
+  const clientSecret = await meta.settings.getOne('caiz', 'oauth:x:clientSecret');
   
   const response = await axios.post('https://api.twitter.com/2/oauth2/token',
     new URLSearchParams({
@@ -88,7 +93,7 @@ xAuth.refreshAccessToken = async (refreshToken) => {
     {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${Buffer.from(`${config.clientKey}:${config.clientSecret}`).toString('base64')}`
+        'Authorization': `Basic ${Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')}`
       }
     }
   );
