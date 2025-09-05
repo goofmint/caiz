@@ -34,8 +34,8 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientKey,
-    redirect_uri: `${baseUrl}/x-notification/callback`,
-    scope: 'tweet.read tweet.write users.read offline.access',
+    redirect_uri: `${baseUrl}/caiz/oauth/x/callback`,
+    scope: 'tweet.write',
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256'
@@ -61,7 +61,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     code: code,
-    redirect_uri: `${baseUrl}/x-notification/callback`,
+    redirect_uri: `${baseUrl}/caiz/oauth/x/callback`,
     code_verifier: stateData
   });
   
