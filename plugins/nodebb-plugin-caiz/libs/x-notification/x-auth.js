@@ -41,7 +41,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
     code_challenge_method: 'S256'
   });
   
-  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
+  return `https://x.com/i/oauth2/authorize?${params.toString()}`;
 };
 
 xAuth.exchangeCodeForTokens = async (code) => {
@@ -65,7 +65,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
     code_verifier: stateData
   });
   
-  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+  const response = await fetch('https://api.x.com/2/oauth2/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -96,7 +96,7 @@ xAuth.refreshAccessToken = async (refreshToken) => {
     refresh_token: refreshToken
   });
   
-  const response = await fetch('https://api.twitter.com/2/oauth2/token', {
+  const response = await fetch('https://api.x.com/2/oauth2/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -113,7 +113,7 @@ xAuth.refreshAccessToken = async (refreshToken) => {
 };
 
 xAuth.getUserInfo = async (accessToken) => {
-  const response = await fetch('https://api.twitter.com/2/users/me', {
+  const response = await fetch('https://api.x.com/2/users/me', {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`

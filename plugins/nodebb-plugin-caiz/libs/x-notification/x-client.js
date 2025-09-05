@@ -37,7 +37,7 @@ xClient.postToX = async (cid, message) => {
   // Truncate message if too long (X has 280 character limit)
   const truncatedMessage = message.length > 280 ? message.substring(0, 277) + '...' : message;
   
-  const response = await fetch('https://api.twitter.com/2/tweets', {
+  const response = await fetch('https://api.x.com/2/tweets', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
