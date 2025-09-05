@@ -42,17 +42,31 @@ controllers.handleOAuthCallback = async (req, res) => {
     await xConfig.addAccount(cid, accountData);
     // reduced logging
     
-    // Return success page that closes the window
-    res.send(`
+    // Return success page – if opened as popup, notify opener; otherwise show a link
+    const baseUrl = nconf.get('url');
+    const successHtml = `
       <html>
         <body>
           <script>
-            window.opener.postMessage({ type: 'x-auth-success', accountId: 'x_${Date.now()}_${cid}', screenName: 'Connected Account' }, '*');
-            window.close();
+            try {
+              if (window.opener && typeof window.opener.postMessage === 'function') {
+                window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
+                window.close();
+              } else {
+                // Fallback: redirect to community settings (owner page) or home
+                window.location = '${baseUrl}';
+              }
+            } catch (e) {
+              window.location = '${baseUrl}';
+            }
           </script>
+          <noscript>
+            <p>Connection successful. You may close this window.</p>
+            <a href="${baseUrl}">Return to site</a>
+          </noscript>
         </body>
-      </html>
-    `);
+      </html>`;
+    res.send(successHtml);
   } catch (err) {
     console.error('[caiz] X OAuth callback error:', err);
     res.status(500).json({ error: err.message });
