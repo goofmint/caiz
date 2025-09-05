@@ -103,9 +103,8 @@
                                 screenName: event.data.screenName
                             });
                             
-                            app.alert({
-                                type: 'success',
-                                message: `[[caiz:x-connected-to-account, ${event.data.screenName}]]`
+                            require(['alerts'], function(alerts) {
+                                alerts.success(`[[caiz:x-connected-to-account, ${event.data.screenName}]]`);
                             });
                         }
                     };
@@ -115,9 +114,8 @@
             } catch (err) {
                 console.error('[X] Connection failed:', err);
                 this.showDisconnectedState();
-                app.alert({
-                    type: 'danger',
-                    message: '[[caiz:x-connection-failed-message]]'
+                require(['alerts'], function(alerts) {
+                    alerts.error('[[caiz:x-connection-failed-message]]');
                 });
             }
         }
@@ -145,15 +143,13 @@
                 });
                 
                 this.showDisconnectedState();
-                app.alert({
-                    type: 'success',
-                    message: '[[caiz:disconnected-from-x-successfully]]'
+                require(['alerts'], function(alerts) {
+                    alerts.success('[[caiz:disconnected-from-x-successfully]]');
                 });
             } catch (err) {
                 console.error('[X] Disconnection failed:', err);
-                app.alert({
-                    type: 'danger',
-                    message: '[[caiz:failed-to-disconnect-from-x]]'
+                require(['alerts'], function(alerts) {
+                    alerts.error('[[caiz:failed-to-disconnect-from-x]]');
                 });
             }
         }
