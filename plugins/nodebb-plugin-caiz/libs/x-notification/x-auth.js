@@ -35,7 +35,9 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
     response_type: 'code',
     client_id: clientKey,
     redirect_uri: `${baseUrl}/caiz/oauth/x/callback`,
-    scope: 'tweet.write',
+    // Request full set of scopes recommended for posting via user context
+    // Ref: X API v2 OAuth 2.0 scopes
+    scope: 'tweet.read tweet.write users.read offline.access',
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256'
@@ -44,7 +46,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   return `https://x.com/i/oauth2/authorize?${params.toString()}`;
 };
 
-xAuth.exchangeCodeForTokens = async (code) => {
+xAuth.exchangeCodeForTokens = async (code, state) => {
   const meta = require.main.require('./src/meta');
   const clientKey = await meta.settings.getOne('caiz', 'oauth:x:clientKey');
   const clientSecret = await meta.settings.getOne('caiz', 'oauth:x:clientSecret');
@@ -52,7 +54,7 @@ xAuth.exchangeCodeForTokens = async (code) => {
   
   // Retrieve code verifier from state
   const db = require.main.require('./src/database');
-  const stateData = await db.getObjectField(`x-auth:state:${code}`, 'codeVerifier');
+  const stateData = await db.getObjectField(`x-auth:state:${state}`, 'codeVerifier');
   
   if (!stateData) {
     throw new Error('Invalid state');
@@ -65,6 +67,13 @@ xAuth.exchangeCodeForTokens = async (code) => {
     code_verifier: stateData
   });
   
+  console.log('[x-auth] Token exchange request:', {
+    url: 'https://api.x.com/2/oauth2/token',
+    hasClientKey: !!clientKey,
+    hasClientSecret: !!clientSecret,
+    bodyParams: params.toString()
+  });
+
   const response = await fetch('https://api.x.com/2/oauth2/token', {
     method: 'POST',
     headers: {
@@ -74,14 +83,28 @@ xAuth.exchangeCodeForTokens = async (code) => {
     body: params.toString()
   });
   
+  console.log('[x-auth] Token exchange response:', {
+    status: response.status,
+    statusText: response.statusText
+  });
+  
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.log('[x-auth] Token exchange error:', errorBody);
     throw new Error(`X OAuth token exchange failed: ${response.statusText}`);
   }
   
   const data = await response.json();
+  console.log('[x-auth] Token exchange success:', {
+    hasAccessToken: !!data.access_token,
+    hasRefreshToken: !!data.refresh_token,
+    expiresIn: data.expires_in,
+    tokenType: data.token_type,
+    scope: data.scope
+  });
   
   // Clean up state
-  await db.delete(`x-auth:state:${code}`);
+  await db.delete(`x-auth:state:${state}`);
   
   return data;
 };
@@ -112,20 +135,5 @@ xAuth.refreshAccessToken = async (refreshToken) => {
   return await response.json();
 };
 
-xAuth.getUserInfo = async (accessToken) => {
-  const response = await fetch('https://api.x.com/2/users/me', {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`X API user info failed: ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  return data.data;
-};
 
 module.exports = xAuth;
