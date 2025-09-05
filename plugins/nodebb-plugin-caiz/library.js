@@ -949,8 +949,9 @@ sockets.caiz.saveXNotificationSettings = async function(socket, data) {
     throw new Error('[[error:no-privileges]]');
   }
   
-  const { selectedAccountId, events, templates } = settings;
+  const { enabled, selectedAccountId, events, templates } = settings;
   await xConfig.updateConfig(cid, {
+    enabled,
     selectedAccountId,
     events,
     templates
@@ -1099,12 +1100,12 @@ plugin.actionTopicSave = async function(hookData) {
         winston.error(`[plugin/caiz] Error in Discord topic notification: ${err.message}`);
       }
     });
-
+    
     // Send X notification (non-blocking)
     setImmediate(async () => {
       try {
-        const xNotification = require('./libs/x-notification/x-notification');
-        await xNotification.handleEvent('newTopic', { topic: topicData });
+        const xNotifier = require('./libs/x-notification/x-notifier');
+        await xNotifier.notifyNewTopic(topicData);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in X topic notification: ${err.message}`);
       }
@@ -1151,8 +1152,8 @@ plugin.actionPostSave = async function(hookData) {
     // Send X notification (non-blocking)
     setImmediate(async () => {
       try {
-        const xNotification = require('./libs/x-notification/x-notification');
-        await xNotification.handleEvent('newPost', { post });
+        const xNotifier = require('./libs/x-notification/x-notifier');
+        await xNotifier.notifyNewPost(post);
       } catch (err) {
         winston.error(`[plugin/caiz] Error in X comment notification: ${err.message}`);
       }
