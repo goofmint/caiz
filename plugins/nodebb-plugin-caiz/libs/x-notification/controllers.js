@@ -48,17 +48,20 @@ controllers.handleOAuthCallback = async (req, res) => {
       <html>
         <body>
           <script>
-            try {
-              if (window.opener && typeof window.opener.postMessage === 'function') {
-                window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
-                window.close();
-              } else {
-                // Fallback: redirect to community settings (owner page) or home
-                window.location = '${baseUrl}';
+            (function() {
+              try {
+                // Notify opener if present
+                if (window.opener && typeof window.opener.postMessage === 'function') {
+                  window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
+                  try { window.close(); } catch (e) {}
+                } else {
+                  // No opener – show completion message
+                  document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
+                }
+              } catch (e) {
+                document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
               }
-            } catch (e) {
-              window.location = '${baseUrl}';
-            }
+            })();
           </script>
           <noscript>
             <p>Connection successful. You may close this window.</p>

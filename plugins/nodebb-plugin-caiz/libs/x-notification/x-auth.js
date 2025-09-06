@@ -22,8 +22,8 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
     .update(codeVerifier)
     .digest('base64url');
   
-  // Generate state
-  const state = Buffer.from(JSON.stringify({ cid, uid, codeVerifier })).toString('base64');
+  // Generate cryptographically random state id (URL-safe)
+  const state = crypto.randomBytes(32).toString('base64url');
   
   // Store state claims temporarily (in production, use Redis or database)
   const db = require.main.require('./src/database');
@@ -58,45 +58,18 @@ xAuth.getStateClaims = async (state) => {
     db.getObjectField(`x-auth:state:${state}`, 'cid'),
     db.getObjectField(`x-auth:state:${state}`, 'uid'),
   ]);
-  // Backward-compat: parse from state payload (legacy) if missing in DB
-  let parsed = null;
-  const tryParse = (s) => {
-    try { return JSON.parse(Buffer.from(s, 'base64').toString()); } catch(_) {}
-    try {
-      // base64url -> base64
-      let t = s.replace(/-/g, '+').replace(/_/g, '/');
-      while (t.length % 4) t += '=';
-      return JSON.parse(Buffer.from(t, 'base64').toString());
-    } catch(_) {}
-    return null;
-  };
-  parsed = tryParse(state);
-
-  const codeVerifier = codeVerifierDb || (parsed && parsed.codeVerifier) || null;
+  const codeVerifier = codeVerifierDb || null;
   if (!codeVerifier) {
     throw new Error('Invalid state');
   }
 
-  let parsedCid = cidDb;
-  let parsedUid = uidDb;
-  if (!parsedCid || !parsedUid) {
-    try {
-      if (parsed && (parsed.cid !== undefined) && (parsed.uid !== undefined)) {
-        parsedCid = String(parsed.cid);
-        parsedUid = String(parsed.uid);
-      }
-    } catch (e) {
-      // ignore, will validate below
-    }
-  }
-
-  if (!parsedCid || !parsedUid) {
+  if (!cidDb || !uidDb) {
     throw new Error('Invalid state');
   }
 
   // Consume state to prevent replay
   await db.delete(`x-auth:state:${state}`);
-  return { codeVerifier, cid: parseInt(parsedCid, 10), uid: parseInt(parsedUid, 10) };
+  return { codeVerifier, cid: parseInt(cidDb, 10), uid: parseInt(uidDb, 10) };
 };
 
 xAuth.exchangeCodeForTokens = async (code, codeVerifier) => {
