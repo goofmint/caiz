@@ -140,8 +140,13 @@ $(document).ready(function() {
 
         const payload = { url: url };
         if (typeof window.topicId !== 'undefined') payload.topicId = window.topicId;
+        // Add spin feedback
+        const $icon = $btn.find('i.fa');
+        $icon.addClass('fa-spin');
+
         socket.emit('plugins.ogp-embed.refetch', payload, function(res) {
             $btn.prop('disabled', false);
+            $icon.removeClass('fa-spin');
             try {
                 if (res && res.accepted) {
                     if (typeof app !== 'undefined' && app.alertSuccess) {
@@ -151,6 +156,18 @@ $(document).ready(function() {
                             });
                         });
                     }
+
+                    // Immediately fetch updated OGP and replace this card
+                    socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err2, data2) {
+                        if (!err2 && data2 && data2.url) {
+                            const newHtml = buildOGPCard(data2);
+                            const $newCard = $(newHtml);
+                            $card.replaceWith($newCard);
+                            require(['translator'], function(translator) {
+                                translator.translate($newCard.get(0));
+                            });
+                        }
+                    });
                 } else if (res && res.error && res.error.message) {
                     if (typeof app !== 'undefined' && app.alertError) {
                         app.alertError(res.error.message);
