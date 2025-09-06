@@ -1,8 +1,8 @@
-# タスク45: OGP再取得機能（スレッド単位・1分間制限）
+# タスク45: OGP再取得機能（URL単位・1分間制限）
 
 ## 概要
 
-スレッド（トピック）単位でOGPメタデータの再取得を要求できる機能の設計ドキュメント。ユーザー操作により対象スレッド内の全OGP対象URLについて再取得を行う。短時間の連打や負荷増大を防ぐため、同一スレッドに対する再取得要求は1分間は不可とする（レート制限）。
+URL単位でOGPメタデータの再取得を要求できる機能の設計ドキュメント。ユーザー操作により、指定したURLについて再取得を行う。短時間の連打や負荷増大を防ぐため、同一URLに対する再取得要求は1分間は不可とする（レート制限）。
 
 - 実装は未着手。本書はインタフェース定義と振る舞いの説明のみ。
 - 通信は既存方針どおりWebSocketを使用（window.socketは既存のまま）。
@@ -10,20 +10,24 @@
 
 ## スコープ
 
-- 対象: トピック（thread/topic）1件に対するOGP再取得要求
+- 対象: URL1件に対するOGP再取得要求
 - 非対象: OGP埋め込みロジックの変更、UI詳細デザイン、永続化方式の実装
 
 ## 期待される動作
 
-- 許可された利用者がスレッドで「OGP再取得」を実行すると、対象スレッド内のOGP対象URLが再取得キューに投入される。
-- 同一スレッドに対する再取得要求は、最後の受理から60秒間は拒否する。
+- コミュニティメンバー（メンバー、マネージャー、オーナー）が投稿内のURL（OGP表示状態）で「OGP再取得」を実行すると、OGP対象URLが再取得キューに投入される。
+- 取得中は「取得中」表示、完了後は最新のOGP情報に更新される。
+- 再取得要求は1分間に1回まで。超過時はエラー応答。
+- 未認証ユーザー、権限のないユーザー（非メンバー等）はエラー応答。
+- URLが存在しない場合はエラー
+- 同一URLに対する再取得要求は、最後の受理から60秒間は拒否する。
 - レート制限超過時はエラーを返し、翻訳キーでメッセージ表示。
 
 ## インタフェース定義（コードは宣言のみ）
 
 ```ts
 // 基本型
-export type TopicId = number;
+export type URL = string;
 export type UserId = number;
 
 export type OgpRefetchErrorCode =
@@ -40,13 +44,13 @@ export interface ErrorPayload {
 
 // 要求ペイロード
 export interface OgpRefetchRequest {
-  topicId: TopicId;
+  url: URL;
 }
 
 // 成功応答
 export interface OgpRefetchAccepted {
   accepted: true;
-  topicId: TopicId;
+  url: URL;
   // 次に再取得可能になるUNIXエポック（ミリ秒）
   nextAllowedAt: number;
 }
@@ -72,22 +76,22 @@ export interface OgpRefetchSocket {
 // レート制限判定（1分）
 export interface OgpRefetchLimiter {
   // 現在時刻（ms）を引数で受け、判定のみを行う
-  isAllowed(topicId: TopicId, userId: UserId, now: number): boolean;
+  isAllowed(url: URL, now: number): boolean;
   // 許可された場合に記録
-  note(topicId: TopicId, userId: UserId, now: number): void;
+  note(url: URL, now: number): void;
   // 次に許可される時刻（ms）。未登録ならnowを返す実装を想定
-  nextAllowedAt(topicId: TopicId, userId: UserId, now: number): number;
+  nextAllowedAt(url: URL, now: number): number;
 }
 
 // 権限確認
 export interface OgpRefetchPermission {
-  // ユーザーが対象スレッドで再取得を要求できるかの論理
-  canRequest(userId: UserId, topicId: TopicId): Promise<boolean>;
+  // 対象URLが再取得を要求できるかの論理
+  canRequest(url: URL): Promise<boolean>;
 }
 
 // 再取得キュー投入（非同期実行）
 export interface OgpRefetchQueue {
-  enqueue(topicId: TopicId): Promise<void>;
+  enqueue(url: URL): Promise<void>;
 }
 ```
 
@@ -106,7 +110,7 @@ export interface OgpRefetchQueue {
 
 - レート制限超過: `RATE_LIMITED` を返却。UIは `ogp-refetch-rate-limited` を翻訳表示。
 - 未認証/未権限: `NOT_AUTHENTICATED` / `NOT_AUTHORIZED`。
-- スレッド未検出: `TOPIC_NOT_FOUND`。
+- URL未検出: `URL_NOT_FOUND`。
 - 予期せぬ失敗: `INTERNAL_ERROR`。
 
 ## セキュリティと制約
@@ -117,6 +121,5 @@ export interface OgpRefetchQueue {
 
 ## 同時実行と負荷
 
-- 同一スレッドの重複実行はキュー側でデデュープする前提のインタフェース定義（実装は別タスク）。
+- 同一URLの重複実行はキュー側でデデュープする前提のインタフェース定義（実装は別タスク）。
 - 最大同時処理数はプラグイン設定に依存（ここでは仕様を固定しない）。
-
