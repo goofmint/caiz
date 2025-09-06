@@ -68,7 +68,7 @@ $(document).ready(function() {
         html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">';
         html += escapeHtml(data.title || 'No title');
         html += '</a>';
-        html += '<a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch"></a>';
+        html += '<a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch">[[ogp-embed:ogp-refetch]]</a>';
         html += '</h6>';
         
         // Description

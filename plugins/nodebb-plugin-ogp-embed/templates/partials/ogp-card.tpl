@@ -14,7 +14,7 @@
                     <a href="{url}" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">
                         {title}
                     </a>
-                    <a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch"></a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch">[[ogp-embed:ogp-refetch]]</a>
                 </h6>
                 
                 <!-- IF description -->
