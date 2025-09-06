@@ -49,6 +49,8 @@ controllers.handleOAuthCallback = async (req, res) => {
     // reduced logging
     
     // Return success page – openerへ通知(可能なら)し、確実にクローズを試行（フォールバック表示なし）
+    // Try to preserve opener relationship in browsers/proxies by setting COOP appropriately
+    res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
     const successHtml = `
       <!doctype html>
       <html><head><meta charset="utf-8"></head><body>
