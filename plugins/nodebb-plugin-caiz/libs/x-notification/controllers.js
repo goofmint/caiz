@@ -45,6 +45,10 @@ controllers.handleOAuthCallback = async (req, res) => {
     // reduced logging
     
     await xConfig.addAccount(cid, accountData);
+    
+    // Enable X notifications by default when account is connected
+    await xConfig.updateConfig(cid, { enabled: true });
+    
     winston.info(`[x-oauth] account persisted cid=${cid} accountId=${accountData.accountId}`);
     // reduced logging
     
