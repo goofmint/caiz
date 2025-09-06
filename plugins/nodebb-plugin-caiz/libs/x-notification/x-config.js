@@ -14,12 +14,6 @@ xConfig.getConfig = async (cid) => {
     enabled: await meta.settings.getOne('caiz', `${settingsPrefix}enabled`) === 'true',
     selectedAccountId: await meta.settings.getOne('caiz', `${settingsPrefix}selectedAccountId`),
     accounts: [],
-    events: {
-      newTopic: await meta.settings.getOne('caiz', `${settingsPrefix}events:newTopic`) === 'true',
-      newPost: await meta.settings.getOne('caiz', `${settingsPrefix}events:newPost`) === 'true',
-      memberJoin: await meta.settings.getOne('caiz', `${settingsPrefix}events:memberJoin`) === 'true',
-      memberLeave: await meta.settings.getOne('caiz', `${settingsPrefix}events:memberLeave`) === 'true'
-    },
     templates: {
       newTopic: await meta.settings.getOne('caiz', `${settingsPrefix}templates:newTopic`),
       newPost: await meta.settings.getOne('caiz', `${settingsPrefix}templates:newPost`),
@@ -49,12 +43,6 @@ xConfig.updateConfig = async (cid, updates) => {
     await meta.settings.setOne('caiz', `${settingsPrefix}selectedAccountId`, updates.selectedAccountId);
   }
   
-  // Update events
-  if (updates.events) {
-    for (const [key, value] of Object.entries(updates.events)) {
-      await meta.settings.setOne('caiz', `${settingsPrefix}events:${key}`, value.toString());
-    }
-  }
   
   // Update templates
   if (updates.templates) {
