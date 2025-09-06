@@ -51,7 +51,7 @@ async function setLastAcceptedAt(url, ts) {
 }
 
 async function translate(key) {
-  // Expect proper i18n keys like '[[caiz:ogp-refetch-rate-limited]]'
+  // Expect proper i18n keys like '[[ogp-embed:ogp-refetch-rate-limited]]'
   return translator.translate(key);
 }
 
@@ -67,14 +67,14 @@ module.exports = {
 
   async refetch({ userId, url }) {
     if (!userId) {
-      const message = await translate('[[caiz:ogp-refetch-not-authenticated]]');
+      const message = await translate('[[ogp-embed:ogp-refetch-not-authenticated]]');
       return {
         accepted: false,
         error: { code: 'NOT_AUTHENTICATED', message },
       };
     }
     if (!url || typeof url !== 'string') {
-      const message = await translate('[[caiz:ogp-refetch-internal-error]]');
+      const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
       return {
         accepted: false,
         error: { code: 'INTERNAL_ERROR', message },
@@ -86,7 +86,7 @@ module.exports = {
       normalized = normalizeUrl(url);
     } catch (err) {
       winston.warn(`[ogp-embed] Refetch validation failed: ${err.message}`);
-      const message = await translate('[[caiz:ogp-refetch-internal-error]]');
+      const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
       return {
         accepted: false,
         error: { code: 'INTERNAL_ERROR', message },
@@ -97,7 +97,7 @@ module.exports = {
     const last = await getLastAcceptedAt(normalized);
     if (last && now - last < ONE_MINUTE_MS) {
       const nextAllowedAt = last + ONE_MINUTE_MS;
-      const message = await translate('[[caiz:ogp-refetch-rate-limited]]');
+      const message = await translate('[[ogp-embed:ogp-refetch-rate-limited]]');
       return {
         accepted: false,
         error: { code: 'RATE_LIMITED', message },
@@ -109,7 +109,7 @@ module.exports = {
     try {
       const ogpData = await parser.parse(normalized);
       if (!ogpData) {
-        const message = await translate('[[caiz:ogp-refetch-internal-error]]');
+        const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
         return { accepted: false, error: { code: 'INTERNAL_ERROR', message }, url: normalized };
       }
       await cache.set(normalized, ogpData);
@@ -117,9 +117,8 @@ module.exports = {
       return { accepted: true, url: normalized, nextAllowedAt: now + ONE_MINUTE_MS };
     } catch (err) {
       winston.error(`[ogp-embed] Refetch error for ${normalized}: ${err.message}`);
-      const message = await translate('[[caiz:ogp-refetch-internal-error]]');
+      const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
       return { accepted: false, error: { code: 'INTERNAL_ERROR', message }, url: normalized };
     }
   },
 };
-

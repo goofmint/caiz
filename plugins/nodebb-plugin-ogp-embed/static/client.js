@@ -34,7 +34,11 @@ $(document).ready(function() {
                     );
                 } else {
                     const cardHtml = buildOGPCard(data);
-                    $placeholder.replaceWith(cardHtml);
+                    const $card = $(cardHtml);
+                    $placeholder.replaceWith($card);
+                    require(['translator'], function(translator) {
+                        translator.translate($card.get(0));
+                    });
                 }
             });
         });
@@ -46,7 +50,7 @@ $(document).ready(function() {
      * Build OGP card HTML from data (matching server-side template)
      */
     function buildOGPCard(data) {
-        let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;">';
+        let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;" data-ogp-url="' + escapeHtml(data.url) + '">';
         html += '<div class="card-body p-3">';
         html += '<div class="d-flex">';
         html += '<div class="flex-grow-1">';
@@ -59,11 +63,12 @@ $(document).ready(function() {
         html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
         html += '</div>';
         
-        // Title
+        // Title + Actions
         html += '<h6 class="mb-2">';
-        html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary">';
+        html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">';
         html += escapeHtml(data.title || 'No title');
         html += '</a>';
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch"></button>';
         html += '</h6>';
         
         // Description
@@ -108,4 +113,46 @@ $(document).ready(function() {
     });
     
     processOGPPlaceholders();
+
+    // Refetch handler
+    $(document).on('click', '[data-action="ogp-refetch"]', function(e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const $card = $btn.closest('.ogp-embed-card');
+        const url = $card.attr('data-ogp-url');
+        if (!url) return;
+
+        // Disable button during request
+        $btn.prop('disabled', true);
+
+        // Ensure label is translated
+        require(['translator'], function(translator) {
+            translator.translate($btn.get(0));
+        });
+
+        const payload = { url: url };
+        if (typeof window.topicId !== 'undefined') payload.topicId = window.topicId;
+        socket.emit('plugins.ogp-embed.refetch', payload, function(res) {
+            $btn.prop('disabled', false);
+            try {
+                if (res && res.accepted) {
+                    if (typeof app !== 'undefined' && app.alertSuccess) {
+                        require(['translator'], function(translator) {
+                            translator.translate('[[ogp-embed:ogp-refetch-accepted]]', function(text) {
+                                app.alertSuccess(text);
+                            });
+                        });
+                    }
+                } else if (res && res.error && res.error.message) {
+                    if (typeof app !== 'undefined' && app.alertError) {
+                        app.alertError(res.error.message);
+                    }
+                }
+            } catch (err) {
+                if (typeof app !== 'undefined' && app.alertError) {
+                    app.alertError('Error');
+                }
+            }
+        });
+    });
 });

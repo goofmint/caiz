@@ -1,0 +1,9 @@
+{
+  "ogp-refetch": "Refetch OGP",
+  "ogp-refetch-accepted": "Refetch accepted",
+  "ogp-refetch-rate-limited": "Refetch is limited to once per minute",
+  "ogp-refetch-not-authenticated": "Authentication required",
+  "ogp-refetch-not-authorized": "Not authorised",
+  "ogp-refetch-url-not-found": "URL not found",
+  "ogp-refetch-internal-error": "An internal error occurred"
+}

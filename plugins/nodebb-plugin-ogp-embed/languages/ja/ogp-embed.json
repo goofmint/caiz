@@ -1,0 +1,9 @@
+{
+  "ogp-refetch": "OGPを再取得",
+  "ogp-refetch-accepted": "再取得を受け付けました",
+  "ogp-refetch-rate-limited": "1分以内の再取得は行えません",
+  "ogp-refetch-not-authenticated": "ログインが必要です",
+  "ogp-refetch-not-authorized": "権限がありません",
+  "ogp-refetch-url-not-found": "URLが見つかりません",
+  "ogp-refetch-internal-error": "内部エラーが発生しました"
+}
