@@ -56,17 +56,32 @@ controllers.handleOAuthCallback = async (req, res) => {
           <script>
             (function() {
               try {
-                // Notify opener if present
+                var hasOpener = !!window.opener;
+                var message = { type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' };
+                var messageSent = false;
+                var error = null;
+                
                 if (window.opener && typeof window.opener.postMessage === 'function') {
-                  window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
-                  try { window.close(); } catch (e) {}
-                } else {
-                  // No opener – attempt to close, then show completion message if still open
-                  try { window.close(); } catch (e) {}
-                  document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
+                  try {
+                    window.opener.postMessage(message, '*');
+                    messageSent = true;
+                  } catch(e) {
+                    error = e.toString();
+                  }
                 }
+                
+                // Show debug info instead of closing
+                document.body.innerHTML = 
+                  '<h3>X OAuth Debug</h3>' +
+                  '<p>Connection successful ✓</p>' +
+                  '<p>Has opener: ' + hasOpener + '</p>' +
+                  '<p>Message sent: ' + messageSent + '</p>' +
+                  '<p>Account ID: ${accountData.accountId}</p>' +
+                  (error ? '<p>Error: ' + error + '</p>' : '') +
+                  '<br><button onclick="window.close()">Close Window</button>';
+                  
               } catch (e) {
-                document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
+                document.body.innerHTML = '<p>Error: ' + e.toString() + '</p>';
               }
             })();
           </script>

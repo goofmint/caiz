@@ -101,7 +101,9 @@
                     const popup = window.open(authData.authUrl, 'x-auth', 'width=600,height=700');
 
                     const messageHandler = (event) => {
+                        console.log('[X] Message received:', event.data);
                         if (event && event.data && event.data.type === 'x-auth-success') {
+                            console.log('[X] Auth success, updating UI');
                             try { popup && popup.close && popup.close(); } catch (e) {}
                             window.removeEventListener('message', messageHandler);
                             this.showConnectedState({ accountId: event.data.accountId, screenName: event.data.screenName });
