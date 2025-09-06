@@ -58,7 +58,7 @@ $(document).ready(function() {
         // Favicon and domain
         html += '<div class="d-flex align-items-center mb-2">';
         if (data.favicon) {
-            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" width="16" height="16" class="me-2" onerror="this.style.display=\'none\'" style="width: 16px; height: 16px; padding: 0; border: none;">';
+            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" width="16" height="16" class="me-2" style="width: 16px; height: 16px; padding: 0; border: none;">';
         }
         html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
         html += '</div>';
@@ -82,7 +82,7 @@ $(document).ready(function() {
         if (data.image) {
             html += '<div class="ms-3" style="flex-shrink: 0;">';
             html += '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" class="rounded" ';
-            html += 'style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none" onerror="this.style.display=\'none\'">';
+            html += 'style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none">';
             html += '</div>';
         }
         

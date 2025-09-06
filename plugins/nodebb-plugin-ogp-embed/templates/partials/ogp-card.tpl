@@ -4,7 +4,7 @@
             <div class="flex-grow-1">
                 <div class="d-flex align-items-center mb-2">
                     <!-- IF favicon -->
-                    <img src="{favicon}" alt="" width="16" height="16" class="me-2" onerror="this.style.display='none'"
+                    <img src="{favicon}" alt="" width="16" height="16" class="me-2"
                       style="width: 16px; height: 16px; padding: 0; border: none;">
                     <!-- ENDIF favicon -->
                     <small class="text-muted">{domain}</small>
@@ -24,8 +24,7 @@
             <!-- IF image -->
             <div class="ms-3" style="flex-shrink: 0;">
                 <img src="{image}" alt="{title}" loading="lazy" class="rounded"
-                  style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none"
-                onerror="this.style.display='none'">
+                  style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none">
             </div>
             <!-- ENDIF image -->
         </div>
