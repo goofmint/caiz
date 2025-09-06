@@ -1,4 +1,4 @@
-<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;">
+<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;" data-ogp-url="{url}">
     <div class="card-body p-3">
         <div class="d-flex">
             <div class="flex-grow-1">
@@ -11,9 +11,10 @@
                 </div>
                 
                 <h6 class="mb-2">
-                    <a href="{url}" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary">
+                    <a href="{url}" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">
                         {title}
                     </a>
+                    <a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch"></a>
                 </h6>
                 
                 <!-- IF description -->
