@@ -61,7 +61,8 @@ controllers.handleOAuthCallback = async (req, res) => {
                   window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
                   try { window.close(); } catch (e) {}
                 } else {
-                  // No opener – show completion message
+                  // No opener – attempt to close, then show completion message if still open
+                  try { window.close(); } catch (e) {}
                   document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
                 }
               } catch (e) {
