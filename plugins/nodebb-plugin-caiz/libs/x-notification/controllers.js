@@ -4,11 +4,13 @@ const xSettings = require('./settings');
 const xAuth = require('./x-auth');
 const xConfig = require('./x-config');
 const nconf = require.main.require('nconf');
+const winston = require.main.require('winston');
 
 const controllers = {};
 
 controllers.handleOAuthCallback = async (req, res) => {
   const { code, state } = req.query;
+  winston.info(`[x-oauth] callback received state=${state ? String(state) : 'null'} code=${code ? 'present' : 'missing'}`);
   
   if (!code || !state) {
     return res.status(400).json({ error: 'Missing code or state parameter' });
@@ -17,15 +19,18 @@ controllers.handleOAuthCallback = async (req, res) => {
   try {
     // Validate state and retrieve claims (cid, uid, codeVerifier)
     const { cid, uid, codeVerifier } = await xAuth.getStateClaims(state);
+    winston.info(`[x-oauth] callback claims state=${state} cid=${cid} uid=${uid}`);
 
     // Verify the initiator is still owner of the community
     const isOwner = await xConfig.isCommunityOwner(cid, uid);
     if (!isOwner) {
+      winston.warn(`[x-oauth] non-owner callback blocked cid=${cid} uid=${uid}`);
       return res.status(403).json({ error: '[[error:no-privileges]]' });
     }
 
     // Exchange code for tokens only after ownership is verified
     const tokens = await xAuth.exchangeCodeForTokens(code, codeVerifier);
+    winston.info(`[x-oauth] token exchange success cid=${cid} uid=${uid} scope=${tokens && tokens.scope}`);
     
     // Save account to community config
     const accountData = {
@@ -40,6 +45,7 @@ controllers.handleOAuthCallback = async (req, res) => {
     // reduced logging
     
     await xConfig.addAccount(cid, accountData);
+    winston.info(`[x-oauth] account persisted cid=${cid} accountId=${accountData.accountId}`);
     // reduced logging
     
     // Return success page – if opened as popup, notify opener; otherwise show a link
@@ -48,17 +54,20 @@ controllers.handleOAuthCallback = async (req, res) => {
       <html>
         <body>
           <script>
-            try {
-              if (window.opener && typeof window.opener.postMessage === 'function') {
-                window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
-                window.close();
-              } else {
-                // Fallback: redirect to community settings (owner page) or home
-                window.location = '${baseUrl}';
+            (function() {
+              try {
+                // Notify opener if present
+                if (window.opener && typeof window.opener.postMessage === 'function') {
+                  window.opener.postMessage({ type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' }, '*');
+                  try { window.close(); } catch (e) {}
+                } else {
+                  // No opener – show completion message
+                  document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
+                }
+              } catch (e) {
+                document.body.innerHTML = '<p>Connection successful. You may close this window.</p>';
               }
-            } catch (e) {
-              window.location = '${baseUrl}';
-            }
+            })();
           </script>
           <noscript>
             <p>Connection successful. You may close this window.</p>

@@ -99,24 +99,17 @@
                 
                 if (authData.authUrl) {
                     const popup = window.open(authData.authUrl, 'x-auth', 'width=600,height=700');
-                    
-                    const handler = (event) => {
-                        if (event.data.type === 'x-auth-success') {
-                            popup.close();
-                            window.removeEventListener('message', handler);
-                            
-                            this.showConnectedState({
-                                accountId: event.data.accountId,
-                                screenName: event.data.screenName
-                            });
-                            
-                            if (alerts) {
-                                alerts.success(`[[caiz:x-connected-to-account, ${event.data.screenName}]]`);
-                            }
+
+                    const messageHandler = (event) => {
+                        if (event && event.data && event.data.type === 'x-auth-success') {
+                            try { popup && popup.close && popup.close(); } catch (e) {}
+                            window.removeEventListener('message', messageHandler);
+                            this.showConnectedState({ accountId: event.data.accountId, screenName: event.data.screenName });
+                            if (alerts) { alerts.success(`[[caiz:x-connected-to-account, ${event.data.screenName}]]`); }
                         }
                     };
-                    
-                    window.addEventListener('message', handler);
+
+                    window.addEventListener('message', messageHandler);
                 }
             } catch (err) {
                 console.error('[X] Connection failed:', err);
