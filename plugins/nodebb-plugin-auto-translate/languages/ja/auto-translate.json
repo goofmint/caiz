@@ -36,7 +36,7 @@
         "test-connection": "接続テスト",
         "prompt-settings": "プロンプト設定",
         "system-prompt": "システムプロンプト",
-        "system-prompt-help": "翻訳AIの役割を定義するプロンプト",
+        "system-prompt-help": "必須: Markdown形式を厳密に維持し、URL(href/src)は一切変更しないこと。{content} と {supportedLanguages} のプレースホルダーを含め、JSONのみを返すよう指示してください。",
         "save": "設定を保存"
     }
 }

@@ -36,7 +36,7 @@
         "test-connection": "Test Connection",
         "prompt-settings": "Prompt Settings",
         "system-prompt": "System Prompt",
-        "system-prompt-help": "System prompt that defines the AI translator's role",
+        "system-prompt-help": "Required: Instruct to strictly preserve Markdown formatting and keep all URLs (href/src) unchanged. Include {content} and {supportedLanguages} placeholders and request JSON-only output.",
         "save": "Save Settings"
     }
 }
