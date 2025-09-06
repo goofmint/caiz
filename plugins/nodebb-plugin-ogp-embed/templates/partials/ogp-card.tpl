@@ -1,6 +1,6 @@
 <div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;" data-ogp-url="{url}">
     <div class="card-body p-3">
-        <a href="#" class="btn btn-sm btn-outline-secondary ogp-refetch-btn" data-action="ogp-refetch" title="[[ogp-embed:ogp-refetch]]">
+        <a href="#" class="btn btn-sm btn-outline-secondary ogp-refetch-btn" data-action="ogp-refetch" title="[[ogp-embed:ogp-refetch]]" style="position:absolute;top:8px;right:8px;line-height:1;padding:4px 6px;">
             <i class="fa fa-refresh"></i>
         </a>
         <div class="d-flex">
