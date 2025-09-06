@@ -1121,9 +1121,17 @@ plugin.actionPostSave = async function(hookData) {
   try {
     const post = hookData.post;
     
-    // 新規投稿（コメント）かチェック
+    // 新規投稿（コメント）かチェック（メイン投稿は topic creation hook で処理済み）
     if (!post || post.isMainPost) {
       winston.info(`[plugin/caiz] Skipping main post ${post?.pid} - handled by topic creation hook`);
+      return;
+    }
+    
+    // 追加チェック: トピックの最初の投稿（メイン投稿）を確実にスキップ
+    const topics = require.main.require('./src/topics');
+    const topicData = await topics.getTopicData(post.tid);
+    if (topicData && parseInt(topicData.mainPid) === parseInt(post.pid)) {
+      winston.info(`[plugin/caiz] Skipping main post ${post.pid} (mainPid=${topicData.mainPid}) - handled by topic creation hook`);
       return;
     }
 

@@ -7,6 +7,42 @@ const xClient = require('./x-client');
 
 const xNotifier = {};
 
+// HTML entity decoder (same as notifier-base.js)
+xNotifier.decodeHtmlEntities = (text) => {
+  if (!text) return text;
+  
+  // Common HTML entities
+  const entities = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&#039;': "'",
+    '&nbsp;': ' ',
+    '&#x2F;': '/',
+    '&#x2f;': '/',
+    '&#47;': '/'
+  };
+  
+  let decoded = text;
+  for (const [entity, replacement] of Object.entries(entities)) {
+    decoded = decoded.replace(new RegExp(entity, 'g'), replacement);
+  }
+  
+  // Handle numeric entities like &#123;
+  decoded = decoded.replace(/&#(\d+);/g, (match, dec) => {
+    return String.fromCharCode(parseInt(dec, 10));
+  });
+  
+  // Handle hex entities like &#x1F;
+  decoded = decoded.replace(/&#x([0-9A-Fa-f]+);/g, (match, hex) => {
+    return String.fromCharCode(parseInt(hex, 16));
+  });
+  
+  return decoded;
+};
+
 xNotifier.notifyNewTopic = async (topicData) => {
   try {
     // Get community from category
@@ -41,8 +77,10 @@ xNotifier.notifyNewTopic = async (topicData) => {
     const baseUrl = nconf.get('url');
     const topicUrl = `${baseUrl}/topic/${topicData.tid}`;
     
-    // Format message
-    const message = `🆕 New topic in ${community.name}: ${topicData.title}\n${topicUrl}`;
+    // Format message with HTML entity decoding
+    const decodedCommunityName = xNotifier.decodeHtmlEntities(community.name);
+    const decodedTitle = xNotifier.decodeHtmlEntities(topicData.title);
+    const message = `🆕 New topic in ${decodedCommunityName}: ${decodedTitle}\n${topicUrl}`;
     
     // Post to X
     await xClient.postToX(community.cid, message);
@@ -95,8 +133,10 @@ xNotifier.notifyNewPost = async (postData) => {
     const baseUrl = nconf.get('url');
     const postUrl = `${baseUrl}/post/${postData.pid}`;
     
-    // Format message
-    const message = `💬 New post in ${community.name}: ${topicData.title}\n${postUrl}`;
+    // Format message with HTML entity decoding
+    const decodedCommunityName = xNotifier.decodeHtmlEntities(community.name);
+    const decodedTitle = xNotifier.decodeHtmlEntities(topicData.title);
+    const message = `💬 New post in ${decodedCommunityName}: ${decodedTitle}\n${postUrl}`;
     
     // Post to X
     await xClient.postToX(community.cid, message);
