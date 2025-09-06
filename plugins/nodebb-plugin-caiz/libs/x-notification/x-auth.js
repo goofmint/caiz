@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const xSettings = require('./settings');
 const nconf = require.main.require('nconf');
+const winston = require.main.require('winston');
 
 const xAuth = {};
 
@@ -31,6 +32,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
   await db.setObjectField(`x-auth:state:${state}`, 'cid', String(cid));
   await db.setObjectField(`x-auth:state:${state}`, 'uid', String(uid));
   await db.pexpire(`x-auth:state:${state}`, 600000); // 10 minutes
+  winston.info(`[x-oauth] state created id=${state} cid=${cid} uid=${uid} ttl=600000`);
   
   const baseUrl = nconf.get('url');
   const params = new URLSearchParams({
@@ -50,6 +52,7 @@ xAuth.getAuthorizationUrl = async (cid, uid) => {
 
 xAuth.getStateClaims = async (state) => {
   if (!state || typeof state !== 'string') {
+    winston.warn('[x-oauth] getStateClaims: missing or invalid state param');
     throw new Error('Invalid state');
   }
   const db = require.main.require('./src/database');
@@ -58,17 +61,21 @@ xAuth.getStateClaims = async (state) => {
     db.getObjectField(`x-auth:state:${state}`, 'cid'),
     db.getObjectField(`x-auth:state:${state}`, 'uid'),
   ]);
+  winston.info(`[x-oauth] getStateClaims: lookup state=${state} hasCodeVerifier=${!!codeVerifierDb} hasCid=${!!cidDb} hasUid=${!!uidDb}`);
   const codeVerifier = codeVerifierDb || null;
   if (!codeVerifier) {
+    winston.warn(`[x-oauth] getStateClaims: codeVerifier missing for state=${state}`);
     throw new Error('Invalid state');
   }
 
   if (!cidDb || !uidDb) {
+    winston.warn(`[x-oauth] getStateClaims: cid/uid missing for state=${state} cid=${cidDb} uid=${uidDb}`);
     throw new Error('Invalid state');
   }
 
   // Consume state to prevent replay
   await db.delete(`x-auth:state:${state}`);
+  winston.info(`[x-oauth] getStateClaims: consumed state=${state} cid=${cidDb} uid=${uidDb}`);
   return { codeVerifier, cid: parseInt(cidDb, 10), uid: parseInt(uidDb, 10) };
 };
 
