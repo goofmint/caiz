@@ -34,7 +34,7 @@ export type OgpRefetchErrorCode =
   | 'RATE_LIMITED'
   | 'NOT_AUTHENTICATED'
   | 'NOT_AUTHORIZED'
-  | 'TOPIC_NOT_FOUND'
+  | 'URL_NOT_FOUND'
   | 'INTERNAL_ERROR';
 
 export interface ErrorPayload {
@@ -85,8 +85,13 @@ export interface OgpRefetchLimiter {
 
 // 権限確認
 export interface OgpRefetchPermission {
-  // 対象URLが再取得を要求できるかの論理
-  canRequest(url: URL): Promise<boolean>;
+  // 再取得要求の権限確認（ユーザーIDと対象の文脈を明示）
+  canRequest(params: {
+    userId: UserId;
+    url: URL;
+    topicId?: number; // スレッド文脈（任意）
+    postId?: number;  // 投稿文脈（任意）
+  }): Promise<boolean>;
 }
 
 // 再取得キュー投入（非同期実行）
@@ -100,8 +105,9 @@ export interface OgpRefetchQueue {
 - `[[caiz:ogp-refetch]]`
 - `[[caiz:ogp-refetch-accepted]]`
 - `[[caiz:ogp-refetch-rate-limited]]`
+- `[[caiz:ogp-refetch-not-authenticated]]`
 - `[[caiz:ogp-refetch-not-authorized]]`
-- `[[caiz:ogp-refetch-topic-not-found]]`
+- `[[caiz:ogp-refetch-url-not-found]]`
 - `[[caiz:ogp-refetch-internal-error]]`
 
 注: 実装時は `languages/ja/caiz.json`, `en-US/caiz.json`, `en-GB/caiz.json` に同一キーをフラットで定義すること。`app.parseAndTranslate()` はテンプレート用であり、単一キー翻訳には `translator.translate()` を用いる（設計時の注意のみ、実装は本タスク範囲外）。
