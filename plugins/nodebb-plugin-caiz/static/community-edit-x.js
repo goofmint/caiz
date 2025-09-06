@@ -21,6 +21,41 @@
         init() {
             this.checkConnectionStatus();
             this.attachEventHandlers();
+            this.checkOAuthResult();
+        }
+        
+        checkOAuthResult() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('x_success')) {
+                const accountName = urlParams.get('account');
+                this.showConnectedState({ 
+                    accountId: 'connected', 
+                    screenName: decodeURIComponent(accountName || 'Connected Account') 
+                });
+                if (alerts) {
+                    alerts.success('[[caiz:x-connected-successfully]]');
+                }
+                // Clean URL
+                this.cleanUrl();
+            }
+            
+            if (urlParams.get('x_error')) {
+                this.showDisconnectedState();
+                if (alerts) {
+                    alerts.error('[[caiz:x-connection-failed-message]]');
+                }
+                // Clean URL
+                this.cleanUrl();
+            }
+        }
+        
+        cleanUrl() {
+            const url = new URL(window.location);
+            url.searchParams.delete('x_success');
+            url.searchParams.delete('x_error');
+            url.searchParams.delete('account');
+            window.history.replaceState({}, document.title, url.toString());
         }
         
         async checkConnectionStatus() {
@@ -98,45 +133,8 @@
                 });
                 
                 if (authData.authUrl) {
-                    const popup = window.open(authData.authUrl, 'x-auth', 'width=600,height=700');
-
-                    // Listen for both postMessage and localStorage
-                    const messageHandler = (event) => {
-                        if (event && event.data && event.data.type === 'x-auth-success') {
-                            handleSuccess(event.data);
-                        }
-                    };
-                    
-                    const handleSuccess = (data) => {
-                        try { popup && popup.close && popup.close(); } catch (e) {}
-                        window.removeEventListener('message', messageHandler);
-                        clearInterval(pollInterval);
-                        localStorage.removeItem('x-auth-callback');
-                        this.showConnectedState({ accountId: data.accountId, screenName: data.screenName });
-                        if (alerts) { alerts.success(`[[caiz:x-connected-to-account, ${data.screenName}]]`); }
-                    };
-                    
-                    // Method 1: Listen for postMessage
-                    window.addEventListener('message', messageHandler);
-                    
-                    // Method 2: Poll localStorage (for Cloudflare environments)
-                    const pollInterval = setInterval(() => {
-                        try {
-                            const stored = localStorage.getItem('x-auth-callback');
-                            if (stored) {
-                                const data = JSON.parse(stored);
-                                if (data.type === 'x-auth-success') {
-                                    handleSuccess(data);
-                                }
-                            }
-                        } catch(e) {}
-                    }, 500);
-                    
-                    // Stop polling after 2 minutes
-                    setTimeout(() => {
-                        clearInterval(pollInterval);
-                        window.removeEventListener('message', messageHandler);
-                    }, 120000);
+                    // Redirect to X OAuth (same as Slack/Discord)
+                    window.location.href = authData.authUrl;
                 }
             } catch (err) {
                 console.error('[X] Connection failed:', err);
