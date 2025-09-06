@@ -52,6 +52,9 @@ $(document).ready(function() {
     function buildOGPCard(data) {
         let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;" data-ogp-url="' + escapeHtml(data.url) + '">';
         html += '<div class="card-body p-3">';
+        html += '<a href="#" class="btn btn-sm btn-outline-secondary ogp-refetch-btn" data-action="ogp-refetch" title="[[ogp-embed:ogp-refetch]]">';
+        html += '<i class="fa fa-refresh"></i>';
+        html += '</a>';
         html += '<div class="d-flex">';
         html += '<div class="flex-grow-1">';
         
@@ -63,12 +66,11 @@ $(document).ready(function() {
         html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
         html += '</div>';
         
-        // Title + Actions
+        // Title
         html += '<h6 class="mb-2">';
         html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">';
         html += escapeHtml(data.title || 'No title');
         html += '</a>';
-        html += '<a href="#" class="btn btn-sm btn-outline-secondary align-baseline" data-action="ogp-refetch" data-i18n="ogp-embed:ogp-refetch">[[ogp-embed:ogp-refetch]]</a>';
         html += '</h6>';
         
         // Description
