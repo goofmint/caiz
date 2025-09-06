@@ -16,10 +16,17 @@ xNotifier.notifyNewTopic = async (topicData) => {
       return;
     }
     
-    // Get X notification config
-    const config = await xConfig.getConfig(community.cid);
-    winston.info(`[x-notification] Config for community ${community.cid}: enabled=${config.enabled}, newTopic=${config.events.newTopic}`);
-    if (!config.enabled || !config.events.newTopic) {
+    // Get X connection config (for enabled status)
+    const xConnConfig = await xConfig.getConfig(community.cid);
+    if (!xConnConfig.enabled) {
+      winston.info(`[x-notification] X notifications disabled for community ${community.cid}`);
+      return;
+    }
+    
+    // Get common notification settings (same as Slack/Discord)
+    const communitySlackSettings = require('../community-slack-settings');
+    const notificationSettings = await communitySlackSettings.getNotificationSettings(community.cid);
+    if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.newTopic) {
       winston.info(`[x-notification] New topic notification disabled for community ${community.cid}`);
       return;
     }
@@ -63,9 +70,17 @@ xNotifier.notifyNewPost = async (postData) => {
       return;
     }
     
-    // Get X notification config
-    const config = await xConfig.getConfig(community.cid);
-    if (!config.enabled || !config.events.newPost) {
+    // Get X connection config (for enabled status)
+    const xConnConfig = await xConfig.getConfig(community.cid);
+    if (!xConnConfig.enabled) {
+      winston.info(`[x-notification] X notifications disabled for community ${community.cid}`);
+      return;
+    }
+    
+    // Get common notification settings (same as Slack/Discord)
+    const communitySlackSettings = require('../community-slack-settings');
+    const notificationSettings = await communitySlackSettings.getNotificationSettings(community.cid);
+    if (!notificationSettings || notificationSettings.enabled === false || !notificationSettings.newPost) {
       winston.info(`[x-notification] New post notification disabled for community ${community.cid}`);
       return;
     }
