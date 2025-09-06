@@ -48,49 +48,17 @@ controllers.handleOAuthCallback = async (req, res) => {
     winston.info(`[x-oauth] account persisted cid=${cid} accountId=${accountData.accountId}`);
     // reduced logging
     
-    // Return success page – if opened as popup, notify opener; otherwise show a link
-    const baseUrl = nconf.get('url');
+    // Return success page – openerへ通知(可能なら)し、確実にクローズを試行（フォールバック表示なし）
     const successHtml = `
-      <html>
-        <body>
-          <script>
-            (function() {
-              try {
-                var hasOpener = !!window.opener;
-                var message = { type: 'x-auth-success', accountId: '${accountData.accountId}', screenName: 'Connected Account' };
-                var messageSent = false;
-                var error = null;
-                
-                if (window.opener && typeof window.opener.postMessage === 'function') {
-                  try {
-                    window.opener.postMessage(message, '*');
-                    messageSent = true;
-                  } catch(e) {
-                    error = e.toString();
-                  }
-                }
-                
-                // Show debug info instead of closing
-                document.body.innerHTML = 
-                  '<h3>X OAuth Debug</h3>' +
-                  '<p>Connection successful ✓</p>' +
-                  '<p>Has opener: ' + hasOpener + '</p>' +
-                  '<p>Message sent: ' + messageSent + '</p>' +
-                  '<p>Account ID: ${accountData.accountId}</p>' +
-                  (error ? '<p>Error: ' + error + '</p>' : '') +
-                  '<br><button onclick="window.close()">Close Window</button>';
-                  
-              } catch (e) {
-                document.body.innerHTML = '<p>Error: ' + e.toString() + '</p>';
-              }
-            })();
-          </script>
-          <noscript>
-            <p>Connection successful. You may close this window.</p>
-            <a href="${baseUrl}">Return to site</a>
-          </noscript>
-        </body>
-      </html>`;
+      <!doctype html>
+      <html><head><meta charset="utf-8"></head><body>
+      <script>(function(){
+        try{ if(window.opener && typeof window.opener.postMessage==='function'){ window.opener.postMessage({type:'x-auth-success',accountId:'${accountData.accountId}',screenName:'Connected Account'}, '*'); } }catch(e){}
+        try{ window.close(); }catch(e){}
+        try{ window.open('','_self'); window.close(); }catch(e){}
+        setTimeout(function(){ try{ window.open('','_self'); window.close(); }catch(e){} }, 150);
+      })();</script>
+      </body></html>`;
     res.send(successHtml);
   } catch (err) {
     console.error('[caiz] X OAuth callback error:', err);
