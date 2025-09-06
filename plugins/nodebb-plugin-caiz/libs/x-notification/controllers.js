@@ -48,20 +48,17 @@ controllers.handleOAuthCallback = async (req, res) => {
     winston.info(`[x-oauth] account persisted cid=${cid} accountId=${accountData.accountId}`);
     // reduced logging
     
-    // Return success page – openerへ通知(可能なら)し、確実にクローズを試行（フォールバック表示なし）
-    // Try to preserve opener relationship in browsers/proxies by setting COOP appropriately
-    res.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-    const successHtml = `
-      <!doctype html>
-      <html><head><meta charset="utf-8"></head><body>
-      <script>(function(){
-        try{ if(window.opener && typeof window.opener.postMessage==='function'){ window.opener.postMessage({type:'x-auth-success',accountId:'${accountData.accountId}',screenName:'Connected Account'}, '*'); } }catch(e){}
-        try{ window.close(); }catch(e){}
-        try{ window.open('','_self'); window.close(); }catch(e){}
-        setTimeout(function(){ try{ window.open('','_self'); window.close(); }catch(e){} }, 150);
-      })();</script>
-      </body></html>`;
-    res.send(successHtml);
+    // Redirect back to community page with success message (same as Slack/Discord)
+    const nconf = require.main.require('nconf');
+    const url = nconf.get('url');
+    
+    // Get community handle for redirect
+    const db = require.main.require('./src/database');
+    const handle = await db.getObjectField(`category:${cid}`, 'handle');
+    
+    // Build redirect URL with success parameters
+    const redirectUrl = `${url}/${handle}?x_success=1&account=${encodeURIComponent('Connected Account')}`;
+    res.redirect(redirectUrl);
   } catch (err) {
     console.error('[caiz] X OAuth callback error:', err);
     res.status(500).json({ error: err.message });

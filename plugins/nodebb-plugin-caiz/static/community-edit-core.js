@@ -43,6 +43,21 @@ function initializeOAuthResultChecker() {
     };
     checkManager();
   }
+  
+  if (urlParams.get('x_success') || urlParams.get('x_error')) {
+    console.log('[caiz] X OAuth result detected, initializing XManager...');
+    
+    // Wait for XManager to be available
+    const checkManager = () => {
+      if (typeof XManager !== 'undefined' && currentCommunityId) {
+        console.log('[caiz] Creating X manager for OAuth result processing');
+        window.xManager = new XManager(currentCommunityId);
+      } else {
+        setTimeout(checkManager, 100);
+      }
+    };
+    checkManager();
+  }
 }
 
 // Call the initializer
