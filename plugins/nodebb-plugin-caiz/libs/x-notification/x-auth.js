@@ -60,9 +60,17 @@ xAuth.getStateClaims = async (state) => {
   ]);
   // Backward-compat: parse from state payload (legacy) if missing in DB
   let parsed = null;
-  try {
-    parsed = JSON.parse(Buffer.from(state, 'base64').toString());
-  } catch(e) {}
+  const tryParse = (s) => {
+    try { return JSON.parse(Buffer.from(s, 'base64').toString()); } catch(_) {}
+    try {
+      // base64url -> base64
+      let t = s.replace(/-/g, '+').replace(/_/g, '/');
+      while (t.length % 4) t += '=';
+      return JSON.parse(Buffer.from(t, 'base64').toString());
+    } catch(_) {}
+    return null;
+  };
+  parsed = tryParse(state);
 
   const codeVerifier = codeVerifierDb || (parsed && parsed.codeVerifier) || null;
   if (!codeVerifier) {
