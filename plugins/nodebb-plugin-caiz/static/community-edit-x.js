@@ -34,7 +34,11 @@
                     screenName: decodeURIComponent(accountName || 'Connected Account') 
                 });
                 if (alerts) {
-                    alerts.success('[[caiz:x-connected-successfully]]');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[caiz:x-connected-successfully]]', function(translated) {
+                            alerts.success(translated);
+                        });
+                    });
                 }
                 // Clean URL
                 this.cleanUrl();
@@ -43,7 +47,11 @@
             if (urlParams.get('x_error')) {
                 this.showDisconnectedState();
                 if (alerts) {
-                    alerts.error('[[caiz:x-connection-failed-message]]');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[caiz:x-connection-failed-message]]', function(translated) {
+                            alerts.error(translated);
+                        });
+                    });
                 }
                 // Clean URL
                 this.cleanUrl();
@@ -140,7 +148,11 @@
                 console.error('[X] Connection failed:', err);
                 this.showDisconnectedState();
                 if (alerts) {
-                    alerts.error('[[caiz:x-connection-failed-message]]');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[caiz:x-connection-failed-message]]', function(translated) {
+                            alerts.error(translated);
+                        });
+                    });
                 }
             }
         }
@@ -148,10 +160,14 @@
         async disconnectFromX() {
             const self = this;
             
-            bootbox.confirm('[[caiz:confirm-disconnect-x-message]]', function(result) {
-                if (result) {
-                    self.performDisconnection();
-                }
+            require(['translator'], function(translator) {
+                translator.translate('[[caiz:confirm-disconnect-x-message]]', function(translated) {
+                    bootbox.confirm(translated, function(result) {
+                        if (result) {
+                            self.performDisconnection();
+                        }
+                    });
+                });
             });
         }
         
@@ -169,12 +185,20 @@
                 
                 this.showDisconnectedState();
                 if (alerts) {
-                    alerts.success('[[caiz:disconnected-from-x-successfully]]');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[caiz:disconnected-from-x-successfully]]', function(translated) {
+                            alerts.success(translated);
+                        });
+                    });
                 }
             } catch (err) {
                 console.error('[X] Disconnection failed:', err);
                 if (alerts) {
-                    alerts.error('[[caiz:failed-to-disconnect-from-x]]');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[caiz:failed-to-disconnect-from-x]]', function(translated) {
+                            alerts.error(translated);
+                        });
+                    });
                 }
             }
         }
