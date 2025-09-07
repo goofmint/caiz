@@ -25,7 +25,13 @@ $(document).ready(function() {
             
             $placeholder.addClass('processing');
             
+            console.info('[ogp-embed/client] fetch:start', { url });
             socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err, data) {
+                if (err) {
+                    console.error('[ogp-embed/client] fetch:error', { url, error: err && err.message ? err.message : err });
+                } else {
+                    console.info('[ogp-embed/client] fetch:success', { url, hasData: !!(data && data.url) });
+                }
                 if (err || !data || !data.url) {
                     $placeholder.replaceWith(
                         '<div class="ogp-card-fallback">' +
@@ -34,6 +40,7 @@ $(document).ready(function() {
                     );
                 } else {
                     renderOGPCard(data).then(function($card) {
+                        console.info('[ogp-embed/client] fetch:replace', { url });
                         $placeholder.replaceWith($card);
                     });
                 }
@@ -109,11 +116,13 @@ $(document).ready(function() {
         const $icon = $btn.find('i.fa');
         $icon.addClass('fa-spin');
 
+        console.info('[ogp-embed/client] refetch:emit', { payload });
         socket.emit('plugins.ogp-embed.refetch', payload, function(err, res) {
             $btn.prop('disabled', false);
             $icon.removeClass('fa-spin');
             try {
                 if (err) {
+                    console.error('[ogp-embed/client] refetch:error', { url, error: err && err.message ? err.message : err });
                     if (typeof app !== 'undefined' && app.alertError) {
                         const msg = err.message || '[[ogp-embed:ogp-refetch-internal-error]]';
                         if (/\[\[.*\]\]/.test(msg)) {
@@ -127,6 +136,7 @@ $(document).ready(function() {
                     return;
                 }
                 if (res && res.accepted) {
+                    console.info('[ogp-embed/client] refetch:accepted', { url, nextAllowedAt: res.nextAllowedAt });
                     if (typeof app !== 'undefined' && app.alertSuccess) {
                         require(['translator'], function(translator) {
                             translator.translate('[[ogp-embed:ogp-refetch-accepted]]', function(text) {
@@ -136,14 +146,20 @@ $(document).ready(function() {
                     }
 
                     // Immediately fetch updated OGP and replace this card
+                    console.info('[ogp-embed/client] fetch-after-refetch:start', { url });
                     socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err2, data2) {
                         if (!err2 && data2 && data2.url) {
+                            console.info('[ogp-embed/client] fetch-after-refetch:success', { url });
                             renderOGPCard(data2).then(function($newCard) {
+                                console.info('[ogp-embed/client] fetch-after-refetch:replace', { url });
                                 $card.replaceWith($newCard);
                             });
+                        } else {
+                            console.error('[ogp-embed/client] fetch-after-refetch:error', { url, error: err2 && err2.message ? err2.message : err2 });
                         }
                     });
                 } else if (res && res.error) {
+                    console.warn('[ogp-embed/client) refetch:rejected', { url, code: res.error.code, message: res.error.message, nextAllowedAt: res.nextAllowedAt });
                     const message = res.error.message || '[[ogp-embed:ogp-refetch-internal-error]]';
                     if (typeof app !== 'undefined' && app.alertError) {
                         if (/\[\[.*\]\]/.test(message)) {
@@ -156,6 +172,7 @@ $(document).ready(function() {
                     }
                 }
             } catch (err) {
+                console.error('[ogp-embed/client] refetch:exception', { url, error: err && err.message ? err.message : err });
                 if (typeof app !== 'undefined' && app.alertError) {
                     require(['translator'], function(translator) {
                         translator.translate('[[ogp-embed:ogp-refetch-internal-error]]', function(text) { app.alertError(text); });

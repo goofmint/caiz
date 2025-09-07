@@ -66,6 +66,7 @@ module.exports = {
   },
 
   async refetch({ userId, url }) {
+    const winston = require.main.require('winston');
     if (!userId) {
       const message = await translate('[[ogp-embed:ogp-refetch-not-authenticated]]');
       return {
@@ -85,6 +86,7 @@ module.exports = {
     try {
       normalized = normalizeUrl(url);
     } catch (err) {
+      winston.warn(`[ogp-embed] refetch: invalid url -> ${url} (${err.message})`);
       winston.warn(`[ogp-embed] Refetch validation failed: ${err.message}`);
       const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
       return {
@@ -98,6 +100,7 @@ module.exports = {
     if (last && now - last < ONE_MINUTE_MS) {
       const nextAllowedAt = last + ONE_MINUTE_MS;
       const message = await translate('[[ogp-embed:ogp-refetch-rate-limited]]');
+      winston.info(`[ogp-embed] refetch: rate-limited url=${normalized} nextAllowedAt=${nextAllowedAt}`);
       return {
         accepted: false,
         error: { code: 'RATE_LIMITED', message },
@@ -107,13 +110,16 @@ module.exports = {
     }
 
     try {
+      winston.info(`[ogp-embed] refetch: start url=${normalized}`);
       const ogpData = await parser.parse(normalized);
       if (!ogpData) {
+        winston.warn(`[ogp-embed] refetch: parser returned no data url=${normalized}`);
         const message = await translate('[[ogp-embed:ogp-refetch-internal-error]]');
         return { accepted: false, error: { code: 'INTERNAL_ERROR', message }, url: normalized };
       }
       await cache.set(normalized, ogpData);
       await setLastAcceptedAt(normalized, now);
+      winston.info(`[ogp-embed] refetch: accepted url=${normalized}`);
       return { accepted: true, url: normalized, nextAllowedAt: now + ONE_MINUTE_MS };
     } catch (err) {
       winston.error(`[ogp-embed] Refetch error for ${normalized}: ${err.message}`);
