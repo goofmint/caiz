@@ -60,14 +60,12 @@ class Topic extends Base {
       const locale = await displayI18n.resolveLocale(req || {});
       await applyBreadcrumbI18n(breadcrumbs, locale);
 
-      // Apply i18n to topic-info category label (no fallback)
+      // Apply i18n to topic-info category label (use DB value only when present)
       if (templateData && templateData.category && templateData.category.cid) {
         const cid = templateData.category.cid;
         const display = await displayI18n.getCategoryDisplayText(cid, locale);
         if (display && typeof display.name === 'string' && display.name.trim()) {
           templateData.category.name = display.name;
-        } else {
-          templateData.category.name = `[i18n missing: category ${cid} ${locale}]`;
         }
       }
     } catch (err) {
