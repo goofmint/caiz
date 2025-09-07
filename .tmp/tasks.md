@@ -191,10 +191,11 @@
   - [x] 42: 参加ルール同意フロー 設計ドキュメント作成（.tmp/tasks/42-community-consent.md）
   - [x] 43: Xへの通知機能 設計ドキュメント作成（.tmp/tasks/43-x-notification.md）
 - OGP
-  - [ ] 再取得機能
+  - [x] 再取得機能
   - [x] 45: OGP再取得機能 設計ドキュメント作成（.tmp/tasks/task-45-ogp-refetch.md）
 - バグ修正
   - [ ] 規約のモーダルがコミュニティを表示したタイミングで表示されてしまう（本来はBecome memberを押したとき）
+  - [x] 46: 規約モーダル表示トリガー 設計ドキュメント作成（.tmp/tasks/task-46-consent-modal-trigger.md）
   - [ ] div.topic-info のカテゴリー名が多言語処理されていない
   - [ ] html lang 属性が多言語処理されていない
 - MCP機能 ver2
