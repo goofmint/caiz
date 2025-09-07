@@ -190,13 +190,16 @@
   - [x] 参加ルール設定。独自の規約に同意したり、アンケートに答えてもらうなど
   - [x] 42: 参加ルール同意フロー 設計ドキュメント作成（.tmp/tasks/42-community-consent.md）
   - [x] 43: Xへの通知機能 設計ドキュメント作成（.tmp/tasks/43-x-notification.md）
+    - [x] 43-1: X通知システム基本実装完了
+    - [x] 43-2: 共通通知設定アーキテクチャ対応完了
+    - [x] 43-3: HTMLエンティティ・重複実行問題修正完了
 - OGP
   - [x] 再取得機能
   - [x] 45: OGP再取得機能 設計ドキュメント作成（.tmp/tasks/task-45-ogp-refetch.md）
 - バグ修正
   - [x] 規約のモーダルがコミュニティを表示したタイミングで表示されてしまう（本来はBecome memberを押したとき）
   - [x] 46: 規約モーダル表示トリガー 設計ドキュメント作成（.tmp/tasks/task-46-consent-modal-trigger.md）
-  - [ ] div.topic-info のカテゴリー名が多言語処理されていない
+  - [x] div.topic-info のカテゴリー名が多言語処理されていない
   - [x] 47: div.topic-info カテゴリー名 i18n 設計ドキュメント作成（.tmp/tasks/task-47-topic-info-category-i18n.md）
   - [ ] html lang 属性が多言語処理されていない
 - MCP機能 ver2
@@ -207,8 +210,8 @@
 - Webhook
 - 配信
   - [ ] RTMP受信
-- 投稿を編集した場合に再翻訳
-- 投稿を編集した場合に、再モデレーション
+- [x] 投稿を編集した場合に再翻訳
+- [ ] 48: 投稿を編集した場合に、再モデレーション 設計ドキュメント作成（.tmp/tasks/task-48-post-edit-remoderation.md）
 - コミュニティごとの未読表示
 - プロフィールの多言語化 https://caiz.dev/user/goofmint/posts
 - トピックの多言語化 https://caiz.dev/user/goofmint/topics
