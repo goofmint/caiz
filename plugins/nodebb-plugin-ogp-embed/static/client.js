@@ -33,11 +33,8 @@ $(document).ready(function() {
                         '</div>'
                     );
                 } else {
-                    const cardHtml = buildOGPCard(data);
-                    const $card = $(cardHtml);
-                    $placeholder.replaceWith($card);
-                    require(['translator'], function(translator) {
-                        translator.translate($card.get(0));
+                    renderOGPCard(data).then(function($card) {
+                        $placeholder.replaceWith($card);
                     });
                 }
             });
@@ -46,53 +43,21 @@ $(document).ready(function() {
         isProcessing = false;
     }
     
-    /**
-     * Build OGP card HTML from data (matching server-side template)
-     */
-    function buildOGPCard(data) {
-        let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;" data-ogp-url="' + escapeHtml(data.url) + '">';
-        html += '<div class="card-body p-3">';
-        html += '<a href="#" class="btn btn-sm btn-outline-secondary ogp-refetch-btn" data-action="ogp-refetch" title="[[ogp-embed:ogp-refetch]]">';
-        html += '<i class="fa fa-refresh"></i>';
-        html += '</a>';
-        html += '<div class="d-flex">';
-        html += '<div class="flex-grow-1">';
-        
-        // Favicon and domain
-        html += '<div class="d-flex align-items-center mb-2">';
-        if (data.favicon) {
-            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" width="16" height="16" class="me-2" style="width: 16px; height: 16px; padding: 0; border: none;">';
-        }
-        html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
-        html += '</div>';
-        
-        // Title
-        html += '<h6 class="mb-2">';
-        html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary me-2">';
-        html += escapeHtml(data.title || 'No title');
-        html += '</a>';
-        html += '</h6>';
-        
-        // Description
-        if (data.description) {
-            html += '<p class="card-text text-muted small mb-0">' + escapeHtml(data.description) + '</p>';
-        }
-        
-        html += '</div>';
-        
-        // Image
-        if (data.image) {
-            html += '<div class="ms-3" style="flex-shrink: 0;">';
-            html += '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" class="rounded" ';
-            html += 'style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none">';
-            html += '</div>';
-        }
-        
-        html += '</div>'; // d-flex
-        html += '</div>'; // card-body
-        html += '</div>'; // card
-        
-        return html;
+    // Render OGP card using Benchpress template on client
+    function renderOGPCard(data) {
+        return new Promise((resolve) => {
+            const tplData = {
+                url: data.url,
+                title: data.title || '',
+                description: data.description || '',
+                image: data.image || '',
+                domain: data.domain || '',
+                favicon: data.favicon || ''
+            };
+            app.parseAndTranslate('partials/ogp-card', tplData, function(html) {
+                resolve($(html));
+            });
+        });
     }
     
     /**
@@ -160,11 +125,8 @@ $(document).ready(function() {
                     // Immediately fetch updated OGP and replace this card
                     socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err2, data2) {
                         if (!err2 && data2 && data2.url) {
-                            const newHtml = buildOGPCard(data2);
-                            const $newCard = $(newHtml);
-                            $card.replaceWith($newCard);
-                            require(['translator'], function(translator) {
-                                translator.translate($newCard.get(0));
+                            renderOGPCard(data2).then(function($newCard) {
+                                $card.replaceWith($newCard);
                             });
                         }
                     });
