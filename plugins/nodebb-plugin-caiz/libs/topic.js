@@ -59,6 +59,15 @@ class Topic extends Base {
       const { applyBreadcrumbI18n } = require('./breadcrumb-i18n');
       const locale = await displayI18n.resolveLocale(req || {});
       await applyBreadcrumbI18n(breadcrumbs, locale);
+
+      // Apply i18n to topic-info category label (use DB value only when present)
+      if (templateData && templateData.category && templateData.category.cid) {
+        const cid = templateData.category.cid;
+        const display = await displayI18n.getCategoryDisplayText(cid, locale);
+        if (display && typeof display.name === 'string' && display.name.trim()) {
+          templateData.category.name = display.name;
+        }
+      }
     } catch (err) {
       return Promise.reject(err);
     }
