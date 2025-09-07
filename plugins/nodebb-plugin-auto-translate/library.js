@@ -382,6 +382,101 @@ plugin.onTopicSave = async function(data) {
 };
 
 /**
+ * Hook: After post edit — re-translate if content changed (no fallbacks)
+ */
+plugin.onPostEdit = async function (data) {
+    try {
+        const post = data && data.post;
+        if (!post || !post.pid) {
+            winston.warn('[auto-translate] onPostEdit called without post payload');
+            return data;
+        }
+
+        const settings = await plugin.settingsManager.getRawSettings();
+        if (!settings || !settings.api || !settings.api.geminiApiKey) {
+            winston.error('[auto-translate] Missing API settings on edit; aborting re-translation', { pid: post.pid });
+            return data;
+        }
+
+        const content = String(post.content || '');
+        if (content.length < 10) {
+            winston.info('[auto-translate] Edited content too short; skip re-translation', { pid: post.pid, length: content.length });
+            return data;
+        }
+
+        const key = `auto-translate:post:${post.pid}`;
+        const existing = await db.getObject(key);
+        const previousOriginal = existing && typeof existing.original === 'string' ? existing.original : null;
+
+        const changed = !previousOriginal || previousOriginal !== content;
+        winston.info('[auto-translate] Post edit diff check', {
+            pid: post.pid,
+            hadPrevious: !!previousOriginal,
+            changed
+        });
+
+        if (!changed) {
+            winston.info('[auto-translate] Post content unchanged; skip re-translation', { pid: post.pid });
+            return data;
+        }
+
+        await translateAndSaveContent('post', post.pid, content, settings);
+        winston.info('[auto-translate] Re-translation completed for edited post', { pid: post.pid });
+    } catch (err) {
+        winston.error('[auto-translate] Failed to re-translate edited post', { error: err.message, stack: err.stack });
+    }
+    return data;
+};
+
+/**
+ * Hook: After topic edit — re-translate if title changed (no fallbacks)
+ */
+plugin.onTopicEdit = async function (data) {
+    try {
+        const topic = data && data.topic;
+        if (!topic || !topic.tid) {
+            winston.warn('[auto-translate] onTopicEdit called without topic payload');
+            return data;
+        }
+
+        const settings = await plugin.settingsManager.getRawSettings();
+        if (!settings || !settings.api || !settings.api.geminiApiKey) {
+            winston.error('[auto-translate] Missing API settings on topic edit; aborting re-translation', { tid: topic.tid });
+            return data;
+        }
+
+        const title = String(topic.title || '');
+        if (title.length < 5) {
+            winston.info('[auto-translate] Edited title too short; skip re-translation', { tid: topic.tid, length: title.length });
+            return data;
+        }
+
+        const markdownTitle = `# ${title}`;
+        const key = `auto-translate:topic:${topic.tid}`;
+        const existing = await db.getObject(key);
+        const previousOriginal = existing && typeof existing.original === 'string' ? existing.original : null;
+        const changed = !previousOriginal || previousOriginal !== markdownTitle;
+
+        winston.info('[auto-translate] Topic edit diff check', {
+            tid: topic.tid,
+            hadPrevious: !!previousOriginal,
+            changed
+        });
+
+        if (!changed) {
+            winston.info('[auto-translate] Topic title unchanged; skip re-translation', { tid: topic.tid });
+            return data;
+        }
+
+        await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+        winston.info('[auto-translate] Re-translation completed for edited topic', { tid: topic.tid });
+    } catch (err) {
+        winston.error('[auto-translate] Failed to re-translate edited topic', { error: err.message, stack: err.stack });
+    }
+    return data;
+};
+
+/**
  * Translate content and save to database
  */
 async function translateAndSaveContent(type, id, content, settings) {
