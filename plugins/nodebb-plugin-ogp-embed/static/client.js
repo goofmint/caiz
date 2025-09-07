@@ -109,10 +109,20 @@ $(document).ready(function() {
         const $icon = $btn.find('i.fa');
         $icon.addClass('fa-spin');
 
-        socket.emit('plugins.ogp-embed.refetch', payload, function(res) {
+        socket.emit('plugins.ogp-embed.refetch', payload, function(err, res) {
             $btn.prop('disabled', false);
             $icon.removeClass('fa-spin');
             try {
+                if (err) {
+                    if (typeof app !== 'undefined' && app.alertError) {
+                        // Prefer server-provided message when available
+                        const msg = err.message || '[[ogp-embed:ogp-refetch-internal-error]]';
+                        require(['translator'], function(translator) {
+                            translator.translate(msg, function(text) { app.alertError(text); });
+                        });
+                    }
+                    return;
+                }
                 if (res && res.accepted) {
                     if (typeof app !== 'undefined' && app.alertSuccess) {
                         require(['translator'], function(translator) {
@@ -130,14 +140,19 @@ $(document).ready(function() {
                             });
                         }
                     });
-                } else if (res && res.error && res.error.message) {
+                } else if (res && res.error) {
+                    const message = res.error.message || '[[ogp-embed:ogp-refetch-internal-error]]';
                     if (typeof app !== 'undefined' && app.alertError) {
-                        app.alertError(res.error.message);
+                        require(['translator'], function(translator) {
+                            translator.translate(message, function(text) { app.alertError(text); });
+                        });
                     }
                 }
             } catch (err) {
                 if (typeof app !== 'undefined' && app.alertError) {
-                    app.alertError('Error');
+                    require(['translator'], function(translator) {
+                        translator.translate('[[ogp-embed:ogp-refetch-internal-error]]', function(text) { app.alertError(text); });
+                    });
                 }
             }
         });
