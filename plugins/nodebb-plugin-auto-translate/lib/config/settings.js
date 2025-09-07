@@ -39,16 +39,19 @@ class SettingsManager {
     async init() {
         try {
             const savedSettings = await db.getObject(this.settingsKey);
-            if (savedSettings) {
-                this.settings = this.mergeSettings(DEFAULT_SETTINGS, savedSettings);
+            if (savedSettings && Object.keys(savedSettings).length > 0) {
+                // Use exactly what is stored (no runtime fallback/merge)
+                this.settings = savedSettings;
             } else {
+                // First-time initialization only: persist defaults
                 this.settings = DEFAULT_SETTINGS;
-                await this.saveSettings(this.settings);
+                await db.setObject(this.settingsKey, this.settings);
             }
             winston.info('[auto-translate] Settings initialized');
         } catch (err) {
             winston.error('[auto-translate] Failed to initialize settings:', err);
-            this.settings = DEFAULT_SETTINGS;
+            // Do not fallback at runtime; surface empty settings to callers
+            this.settings = {};
         }
     }
     
@@ -72,25 +75,23 @@ class SettingsManager {
      */
     async saveSettings(settings) {
         try {
-            // Validate settings
             await this.validateSettings(settings);
-            
-            // Merge with existing settings, preserving API key if not provided
-            const mergedSettings = this.mergeSettings(this.settings || DEFAULT_SETTINGS, settings);
-            
-            // If no API key provided in new settings, keep the existing one
-            if (!settings.api || !settings.api.geminiApiKey) {
-                if (this.settings && this.settings.api && this.settings.api.geminiApiKey) {
-                    mergedSettings.api = mergedSettings.api || {};
-                    mergedSettings.api.geminiApiKey = this.settings.api.geminiApiKey;
-                }
+            if (!this.settings) {
+                await this.init();
             }
-            
+
+            // Merge into current stored settings only (no DEFAULT merge)
+            const mergedSettings = this.mergeObjects(this.settings || {}, settings);
+
+            // Preserve existing API key if not explicitly provided
+            const hasApi = settings && settings.api && Object.prototype.hasOwnProperty.call(settings.api, 'geminiApiKey');
+            if (!hasApi && this.settings && this.settings.api && this.settings.api.geminiApiKey) {
+                mergedSettings.api = mergedSettings.api || {};
+                mergedSettings.api.geminiApiKey = this.settings.api.geminiApiKey;
+            }
+
             this.settings = mergedSettings;
-            
-            // Save to database
             await db.setObject(this.settingsKey, this.settings);
-            
             winston.info('[auto-translate] Settings saved successfully');
             return true;
         } catch (err) {
@@ -123,18 +124,16 @@ class SettingsManager {
     /**
      * Merge settings with defaults
      */
-    mergeSettings(defaults, settings) {
-        const merged = JSON.parse(JSON.stringify(defaults));
-        
-        // Deep merge
-        Object.keys(settings).forEach(key => {
-            if (typeof settings[key] === 'object' && !Array.isArray(settings[key])) {
-                merged[key] = { ...merged[key], ...settings[key] };
+    mergeObjects(base, patch) {
+        const merged = JSON.parse(JSON.stringify(base || {}));
+        Object.keys(patch || {}).forEach(key => {
+            const value = patch[key];
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                merged[key] = this.mergeObjects(merged[key] || {}, value);
             } else {
-                merged[key] = settings[key];
+                merged[key] = value;
             }
         });
-        
         return merged;
     }
     

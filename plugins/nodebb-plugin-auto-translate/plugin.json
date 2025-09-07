@@ -41,6 +41,14 @@
       "method": "onTopicSave"
     },
     {
+      "hook": "action:post.edit",
+      "method": "onPostEdit"
+    },
+    {
+      "hook": "action:topic.edit",
+      "method": "onTopicEdit"
+    },
+    {
       "hook": "filter:topic.build",
       "method": "filterTopicBuild"
     },
