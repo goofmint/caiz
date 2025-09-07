@@ -194,9 +194,10 @@
   - [x] 再取得機能
   - [x] 45: OGP再取得機能 設計ドキュメント作成（.tmp/tasks/task-45-ogp-refetch.md）
 - バグ修正
-  - [ ] 規約のモーダルがコミュニティを表示したタイミングで表示されてしまう（本来はBecome memberを押したとき）
+  - [x] 規約のモーダルがコミュニティを表示したタイミングで表示されてしまう（本来はBecome memberを押したとき）
   - [x] 46: 規約モーダル表示トリガー 設計ドキュメント作成（.tmp/tasks/task-46-consent-modal-trigger.md）
   - [ ] div.topic-info のカテゴリー名が多言語処理されていない
+  - [x] 47: div.topic-info カテゴリー名 i18n 設計ドキュメント作成（.tmp/tasks/task-47-topic-info-category-i18n.md）
   - [ ] html lang 属性が多言語処理されていない
 - MCP機能 ver2
   - [ ] レート制限
