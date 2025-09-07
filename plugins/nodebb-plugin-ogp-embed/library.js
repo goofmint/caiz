@@ -37,14 +37,17 @@ function extractURLsFromRawText(content) {
  */
 function extractURLsFromHTML(content) {
     const results = [];
+    const seen = new Set();
     // Match links in paragraphs (with or without closing </p>, and with possible <br /> tags)
     const linkRegex = new RegExp(`<p[^>]*>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>(?:\\s*<br\\s*\\/?>)?(?:\\s*<\\/p>)?`, 'gi');
     let match;
     
     while ((match = linkRegex.exec(content)) !== null) {
         const fullMatch = match[0];
+        if (seen.has(fullMatch)) continue;
         const url = match[1];
         results.push({ type: 'link-alone', fullMatch, url });
+        seen.add(fullMatch);
     }
     
     // Also support: <p>some text<br> <a href="URL">URL</a></p>
@@ -52,13 +55,32 @@ function extractURLsFromHTML(content) {
         const linkWithPrefixRegex = new RegExp(`<p([^>]*)>\\s*([\\s\\S]*?)<br\\s*\\/?>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>\\s*<\\/p>`, 'gi');
         while ((match = linkWithPrefixRegex.exec(content)) !== null) {
             const fullMatch = match[0];
+            if (seen.has(fullMatch)) continue;
             const pAttrs = match[1] || '';
             const prefixHtml = match[2] || '';
             const url = match[3];
             results.push({ type: 'prefix', fullMatch, url, pAttrs, prefixHtml });
+            seen.add(fullMatch);
         }
     } catch (e) {
         winston.warn('[ogp-embed] linkWithPrefixRegex failed:', e.message);
+    }
+
+    // Generic: <p> ... (prefix) ... <a href="URL"> ... </a> ... (suffix) ... </p>
+    try {
+        const genericInParagraphRegex = new RegExp(`<p([^>]*)>\\s*([\\s\\S]*?)<a\\s+href=\"(${URL_PATTERN})\"[^>]*>[^<]*<\\/a>([\\s\\S]*?)<\\/p>`, 'gi');
+        while ((match = genericInParagraphRegex.exec(content)) !== null) {
+            const fullMatch = match[0];
+            if (seen.has(fullMatch)) continue;
+            const pAttrs = match[1] || '';
+            const prefixHtml = match[2] || '';
+            const url = match[3];
+            const suffixHtml = match[4] || '';
+            results.push({ type: 'prefix-suffix', fullMatch, url, pAttrs, prefixHtml, suffixHtml });
+            seen.add(fullMatch);
+        }
+    } catch (e) {
+        winston.warn('[ogp-embed] genericInParagraphRegex failed:', e.message);
     }
 
     winston.info(`[ogp-embed] Extracted ${results.length} URLs from HTML: ${results.map(r => r.url).join(', ')}`);
@@ -190,6 +212,11 @@ plugin.parsePost = async function(hookData) {
                         const openP = `<p${item.pAttrs}>`;
                         const prefixPart = `${openP}${item.prefixHtml}</p>`;
                         processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${cardHtml}`);
+                    } else if (item.type === 'prefix-suffix') {
+                        const openP = `<p${item.pAttrs}>`;
+                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
+                        const suffixPart = `${openP}${item.suffixHtml}</p>`;
+                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${cardHtml}\n${suffixPart}`);
                     } else {
                         processedContent = processedContent.replace(fullMatch, cardHtml);
                     }
@@ -206,6 +233,11 @@ plugin.parsePost = async function(hookData) {
                         const openP = `<p${item.pAttrs}>`;
                         const prefixPart = `${openP}${item.prefixHtml}</p>`;
                         processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${placeholderHtml}`);
+                    } else if (item.type === 'prefix-suffix') {
+                        const openP = `<p${item.pAttrs}>`;
+                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
+                        const suffixPart = `${openP}${item.suffixHtml}</p>`;
+                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${placeholderHtml}\n${suffixPart}`);
                     } else {
                         processedContent = processedContent.replace(fullMatch, placeholderHtml);
                     }
