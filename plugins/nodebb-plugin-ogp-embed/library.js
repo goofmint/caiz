@@ -44,10 +44,11 @@ function extractURLsFromHTML(content) {
     
     while ((match = linkRegex.exec(content)) !== null) {
         const fullMatch = match[0];
-        if (seen.has(fullMatch)) continue;
+        const posKey = `${match.index}:${fullMatch.length}`;
+        if (seen.has(posKey)) continue;
         const url = match[1];
         results.push({ type: 'link-alone', fullMatch, url });
-        seen.add(fullMatch);
+        seen.add(posKey);
     }
     
     // Also support: <p>some text<br> <a href="URL">URL</a></p>
@@ -55,12 +56,13 @@ function extractURLsFromHTML(content) {
         const linkWithPrefixRegex = new RegExp(`<p([^>]*)>\\s*([\\s\\S]*?)<br\\s*\\/?>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>\\s*<\\/p>`, 'gi');
         while ((match = linkWithPrefixRegex.exec(content)) !== null) {
             const fullMatch = match[0];
-            if (seen.has(fullMatch)) continue;
+            const posKey = `${match.index}:${fullMatch.length}`;
+            if (seen.has(posKey)) continue;
             const pAttrs = match[1] || '';
             const prefixHtml = match[2] || '';
             const url = match[3];
             results.push({ type: 'prefix', fullMatch, url, pAttrs, prefixHtml });
-            seen.add(fullMatch);
+            seen.add(posKey);
         }
     } catch (e) {
         winston.warn('[ogp-embed] linkWithPrefixRegex failed:', e.message);
@@ -71,13 +73,14 @@ function extractURLsFromHTML(content) {
         const genericInParagraphRegex = new RegExp(`<p([^>]*)>\\s*([\\s\\S]*?)<a\\s+href=\"(${URL_PATTERN})\"[^>]*>[^<]*<\\/a>([\\s\\S]*?)<\\/p>`, 'gi');
         while ((match = genericInParagraphRegex.exec(content)) !== null) {
             const fullMatch = match[0];
-            if (seen.has(fullMatch)) continue;
+            const posKey = `${match.index}:${fullMatch.length}`;
+            if (seen.has(posKey)) continue;
             const pAttrs = match[1] || '';
             const prefixHtml = match[2] || '';
             const url = match[3];
             const suffixHtml = match[4] || '';
             results.push({ type: 'prefix-suffix', fullMatch, url, pAttrs, prefixHtml, suffixHtml });
-            seen.add(fullMatch);
+            seen.add(posKey);
         }
     } catch (e) {
         winston.warn('[ogp-embed] genericInParagraphRegex failed:', e.message);
