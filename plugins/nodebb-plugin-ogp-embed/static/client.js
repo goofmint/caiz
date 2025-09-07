@@ -115,11 +115,14 @@ $(document).ready(function() {
             try {
                 if (err) {
                     if (typeof app !== 'undefined' && app.alertError) {
-                        // Prefer server-provided message when available
                         const msg = err.message || '[[ogp-embed:ogp-refetch-internal-error]]';
-                        require(['translator'], function(translator) {
-                            translator.translate(msg, function(text) { app.alertError(text); });
-                        });
+                        if (/\[\[.*\]\]/.test(msg)) {
+                            require(['translator'], function(translator) {
+                                translator.translate(msg, function(text) { app.alertError(text); });
+                            });
+                        } else {
+                            app.alertError(msg);
+                        }
                     }
                     return;
                 }
@@ -143,9 +146,13 @@ $(document).ready(function() {
                 } else if (res && res.error) {
                     const message = res.error.message || '[[ogp-embed:ogp-refetch-internal-error]]';
                     if (typeof app !== 'undefined' && app.alertError) {
-                        require(['translator'], function(translator) {
-                            translator.translate(message, function(text) { app.alertError(text); });
-                        });
+                        if (/\[\[.*\]\]/.test(message)) {
+                            require(['translator'], function(translator) {
+                                translator.translate(message, function(text) { app.alertError(text); });
+                            });
+                        } else {
+                            app.alertError(message);
+                        }
                     }
                 }
             } catch (err) {
