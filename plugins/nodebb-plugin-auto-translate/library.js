@@ -332,26 +332,12 @@ plugin.onTopicSave = async function(data) {
             title: topic.title ? topic.title.substring(0, 50) + '...' : 'empty'
         });
         
-        // Check if translation is enabled and API is available
-        const settings = await plugin.settingsManager.getRawSettings();
-        if (!settings.api || !settings.api.geminiApiKey) {
-            winston.info('[auto-translate] No API key configured, skipping translation');
+        // Perform translation (no diff check on create)
+        const translations = await performTopicTranslation(topic, { checkDiff: false });
+        if (!translations) {
+            winston.info('[auto-translate] Translation skipped on topic save', { tid: topic.tid });
             return data;
         }
-        
-        // Skip if title is too short or empty
-        if (!topic.title || topic.title.length < 5) {
-            winston.info('[auto-translate] Title too short, skipping translation');
-            return data;
-        }
-        
-        winston.info('[auto-translate] Translating topic:', { tid: topic.tid });
-        
-        // Format title as Markdown heading for better translation context
-        const markdownTitle = `# ${topic.title}`;
-        
-        // Perform translation
-        const translations = await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
 
         // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
         try {
