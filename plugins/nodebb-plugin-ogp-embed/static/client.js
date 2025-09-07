@@ -35,7 +35,7 @@ $(document).ready(function() {
                 if (err || !data || !data.url) {
                     $placeholder.replaceWith(
                         '<div class="ogp-card-fallback">' +
-                        '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' +
+                        '<a href="' + sanitizeHrefUrl(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' +
                         '</div>'
                     );
                 } else {
@@ -70,17 +70,30 @@ $(document).ready(function() {
     /**
      * Escape HTML to prevent XSS
      */
-    function escapeHtml(text) {
-        if (!text) return '';
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Allow only http/https for href to prevent javascript: and other dangerous schemes
+function sanitizeHrefUrl(raw) {
+    try {
+        var u = new URL(String(raw), window.location.origin);
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+            return u.href;
+        }
+    } catch (e) {
+        // fall through to safe default
     }
+    return '#';
+}
     
     $(window).on('action:posts.loaded action:topic.loaded', function() {
         processOGPPlaceholders();
