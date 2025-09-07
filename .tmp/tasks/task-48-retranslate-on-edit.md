@@ -32,8 +32,8 @@ export interface PostEditEvent {
   editorUid: number;
   previousTitle?: string;
   previousRawContent?: string;
-  currentTitle?: string;
-  currentRawContent?: string;
+  currentTitle: string;
+  currentRawContent: string;
 }
 
 export interface TranslateJobResult {
