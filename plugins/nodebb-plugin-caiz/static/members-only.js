@@ -38,15 +38,6 @@ console.log('[caiz] members-only.js loaded');
 
     console.log('[caiz] Checking follow status for cid:', cid, 'user uid:', app.user?.uid);
 
-    // If logged in, prompt for consent on view if required
-    if (app && app.user && app.user.uid && window.socket && window.CaizConsent) {
-      window.socket.emit('plugins.caiz.checkConsent', { cid: cid }, function (err, res) {
-        if (!err && res && res.required) {
-          window.CaizConsent.requestConsentThen(cid, function () { window.location.reload(); });
-        }
-      });
-    }
-
     // ゲストユーザーは投稿フォーム非表示
     if (!app.user || !app.user.uid) {
       console.log('[caiz] Guest user - hiding posting elements');

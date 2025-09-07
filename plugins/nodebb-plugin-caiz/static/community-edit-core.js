@@ -349,24 +349,7 @@ const initializeCommunityPage = async () => {
   // Re-trigger OAuth result checker now that we have community ID
   initializeOAuthResultChecker();
 
-  // Prompt for consent on view if required (logged-in users)
-  try {
-    if (app && app.user && app.user.uid && window.socket && window.CaizConsent) {
-      window.socket.emit('plugins.caiz.checkConsent', { cid }, function (err, res) {
-        if (err) {
-          console.warn('[caiz] checkConsent error:', err);
-          return;
-        }
-        if (res && res.required) {
-          window.CaizConsent.requestConsentThen(cid, function () {
-            window.location.reload();
-          });
-        }
-      });
-    }
-  } catch (e) {
-    console.warn('[caiz] consent view check failed:', e);
-  }
+  // Consent modal must NOT auto-open on view. Only trigger on join action.
   
   // Initialize follow button for all users
   if (app.user && app.user.uid) {
