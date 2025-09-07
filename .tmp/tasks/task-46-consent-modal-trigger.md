@@ -28,12 +28,21 @@ export function onJoinButtonClicked(params: { cid: number; locale: string }): vo
 
 // 規約モーダルの表示と同意の取得
 export namespace CaizConsentUI {
-  // 同意が必要ならモーダルを表示し、同意後に resolve する
-  export function requestConsentIfRequired(cid: number, locale: string): Promise<void>;
+  // 同意が必要ならモーダルを表示し、結果を返す
+  // 成功: { status: 'agreed' } / キャンセル: { status: 'cancelled' }
+  export function requestConsentIfRequired(
+    cid: number,
+    locale: string
+  ): Promise<{ status: 'agreed' | 'cancelled' }>;
 }
 
 // 同意要否の確認（サーバと通信）
-export function checkConsent(params: { cid: number }): Promise<{ required: boolean }>; // socket: plugins.caiz.checkConsent
+export function checkConsent(params: { cid: number }): Promise<{
+  required: boolean;
+  version?: string;                 // サーバの現行規約版
+  alreadyConsentedVersion?: string; // ユーザーが既に同意済の版
+  reason?: 'first' | 'updated';     // 初回/改定再同意の区別（UI表示に活用）
+}>; // socket: plugins.caiz.checkConsent
 
 // 同意確定の送信（サーバと通信）
 export function setUserConsent(params: { cid: number; version: string }): Promise<{ ok: boolean }>; // socket: plugins.caiz.setUserConsent
@@ -66,11 +75,19 @@ export async function addMember(socket: Socket, data: { cid: number }): Promise<
 
 ## フロー（Join時）
 
+0. 未ログインならログイン導線へ（Joinフロー開始不可）。
 1. ユーザーが Join（Become member）ボタンをクリック。
 2. クライアント `checkConsent({ cid })` を呼び、`required` を取得。
-3. `required === true` の場合、`CaizConsentUI.requestConsentIfRequired(cid, locale)` がモーダルを表示し、同意後に `setUserConsent` を送信。
+3. `required === true` の場合、`CaizConsentUI.requestConsentIfRequired(cid, locale)` がモーダルを表示。
+   - 同意: `setUserConsent({ cid, version })` を送信して続行。
+   - キャンセル: 何もせず終了（アラートは出さない）。
 4. 同意完了後、`joinCommunity({ cid })` を実行。
 5. `required === false` の場合は、3をスキップして `joinCommunity` を実行。
+
+## 実装ガイドライン（起動トリガーの集中化）
+
+- ページロードや描画フックから規約モーダルを起動しない。
+- `members-only.js`、`community-edit-core.js`、`consent-interceptor.js` 等に存在する自動起動パスは排除し、Joinボタンのクリックハンドラのみから `requestConsentIfRequired` を起動する。
 
 ## i18nキー（例・フラット構造）
 
