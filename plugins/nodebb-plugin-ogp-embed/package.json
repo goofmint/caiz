@@ -26,6 +26,6 @@
     "compatibility": "^3.0.0"
   },
   "dependencies": {
-    "ogp-parser": "^0.7.1"
+    "ogp-parser": "github:goofmint/ogpParser#bfe557cc16d3c0309a8a1fa4c42b3d5628b3205c"
   }
 }

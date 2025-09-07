@@ -44,9 +44,23 @@ function extractURLsFromHTML(content) {
     while ((match = linkRegex.exec(content)) !== null) {
         const fullMatch = match[0];
         const url = match[1];
-        results.push({ fullMatch, url });
+        results.push({ type: 'link-alone', fullMatch, url });
     }
     
+    // Also support: <p>some text<br> <a href="URL">URL</a></p>
+    try {
+        const linkWithPrefixRegex = new RegExp(`<p([^>]*)>\\s*([\\s\\S]*?)<br\\s*\\/?>\\s*<a\\s+href="(${URL_PATTERN})"[^>]*>[^<]*<\\/a>\\s*<\\/p>`, 'gi');
+        while ((match = linkWithPrefixRegex.exec(content)) !== null) {
+            const fullMatch = match[0];
+            const pAttrs = match[1] || '';
+            const prefixHtml = match[2] || '';
+            const url = match[3];
+            results.push({ type: 'prefix', fullMatch, url, pAttrs, prefixHtml });
+        }
+    } catch (e) {
+        winston.warn('[ogp-embed] linkWithPrefixRegex failed:', e.message);
+    }
+
     winston.info(`[ogp-embed] Extracted ${results.length} URLs from HTML: ${results.map(r => r.url).join(', ')}`);
     return results;
 }
@@ -151,7 +165,8 @@ plugin.parsePost = async function(hookData) {
     const urlResults = extractURLsFromHTML(content);
     let processedContent = content;
     
-    for (const { fullMatch, url } of urlResults) {
+    for (const item of urlResults) {
+        const { fullMatch, url } = item;
         winston.info(`[ogp-embed] Found URL for processing: ${url}`);
         
         try {
@@ -171,7 +186,13 @@ plugin.parsePost = async function(hookData) {
                 if (ogpData && ogpData.title) {
                     winston.info(`[ogp-embed] Found OGP data for: ${url}`);
                     const cardHtml = await renderer.render(ogpData);
-                    processedContent = processedContent.replace(fullMatch, cardHtml);
+                    if (item.type === 'prefix') {
+                        const openP = `<p${item.pAttrs}>`;
+                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
+                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${cardHtml}`);
+                    } else {
+                        processedContent = processedContent.replace(fullMatch, cardHtml);
+                    }
                     winston.info(`[ogp-embed] Replaced URL with OGP card: ${url}`);
                 } else {
                     // No OGP data in cache, output placeholder for async loading
@@ -181,7 +202,13 @@ plugin.parsePost = async function(hookData) {
                             <i class="fa fa-spinner fa-spin"></i> Loading preview...
                         </div>
                     </div>`;
-                    processedContent = processedContent.replace(fullMatch, placeholderHtml);
+                    if (item.type === 'prefix') {
+                        const openP = `<p${item.pAttrs}>`;
+                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
+                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${placeholderHtml}`);
+                    } else {
+                        processedContent = processedContent.replace(fullMatch, placeholderHtml);
+                    }
                     winston.info(`[ogp-embed] Replaced URL with placeholder: ${url}`);
                 }
             }

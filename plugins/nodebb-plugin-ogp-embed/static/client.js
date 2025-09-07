@@ -25,16 +25,24 @@ $(document).ready(function() {
             
             $placeholder.addClass('processing');
             
+            console.info('[ogp-embed/client] fetch:start', { url });
             socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err, data) {
+                if (err) {
+                    console.error('[ogp-embed/client] fetch:error', { url, error: err && err.message ? err.message : err });
+                } else {
+                    console.info('[ogp-embed/client] fetch:success', { url, hasData: !!(data && data.url) });
+                }
                 if (err || !data || !data.url) {
                     $placeholder.replaceWith(
                         '<div class="ogp-card-fallback">' +
-                        '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' +
+                        '<a href="' + sanitizeHrefUrl(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' +
                         '</div>'
                     );
                 } else {
-                    const cardHtml = buildOGPCard(data);
-                    $placeholder.replaceWith(cardHtml);
+                    renderOGPCard(data).then(function($card) {
+                        console.info('[ogp-embed/client] fetch:replace', { url });
+                        $placeholder.replaceWith($card);
+                    });
                 }
             });
         });
@@ -42,70 +50,138 @@ $(document).ready(function() {
         isProcessing = false;
     }
     
-    /**
-     * Build OGP card HTML from data (matching server-side template)
-     */
-    function buildOGPCard(data) {
-        let html = '<div class="card mb-3 ogp-embed-card border-start border-3" style="border-left-color: #4a9fd5 !important;">';
-        html += '<div class="card-body p-3">';
-        html += '<div class="d-flex">';
-        html += '<div class="flex-grow-1">';
-        
-        // Favicon and domain
-        html += '<div class="d-flex align-items-center mb-2">';
-        if (data.favicon) {
-            html += '<img src="' + escapeHtml(data.favicon) + '" alt="" width="16" height="16" class="me-2" onerror="this.style.display=\'none\'" style="width: 16px; height: 16px; padding: 0; border: none;">';
-        }
-        html += '<small class="text-muted">' + escapeHtml(data.domain || '') + '</small>';
-        html += '</div>';
-        
-        // Title
-        html += '<h6 class="mb-2">';
-        html += '<a href="' + escapeHtml(data.url) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-primary">';
-        html += escapeHtml(data.title || 'No title');
-        html += '</a>';
-        html += '</h6>';
-        
-        // Description
-        if (data.description) {
-            html += '<p class="card-text text-muted small mb-0">' + escapeHtml(data.description) + '</p>';
-        }
-        
-        html += '</div>';
-        
-        // Image
-        if (data.image) {
-            html += '<div class="ms-3" style="flex-shrink: 0;">';
-            html += '<img src="' + escapeHtml(data.image) + '" alt="' + escapeHtml(data.title || '') + '" loading="lazy" class="rounded" ';
-            html += 'style="width: 80px; height: 80px; object-fit: cover; padding: 0px; border: none" onerror="this.style.display=\'none\'">';
-            html += '</div>';
-        }
-        
-        html += '</div>'; // d-flex
-        html += '</div>'; // card-body
-        html += '</div>'; // card
-        
-        return html;
+    // Render OGP card using Benchpress template on client
+    function renderOGPCard(data) {
+        return new Promise((resolve) => {
+            const tplData = {
+                url: data.url,
+                title: data.title || '',
+                description: data.description || '',
+                image: data.image || '',
+                domain: data.domain || '',
+                favicon: data.favicon || ''
+            };
+            app.parseAndTranslate('partials/ogp-card', tplData, function(html) {
+                resolve($(html));
+            });
+        });
     }
     
     /**
      * Escape HTML to prevent XSS
      */
-    function escapeHtml(text) {
-        if (!text) return '';
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Allow only http/https for href to prevent javascript: and other dangerous schemes
+function sanitizeHrefUrl(raw) {
+    try {
+        var u = new URL(String(raw), window.location.origin);
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+            return u.href;
+        }
+    } catch (e) {
+        // fall through to safe default
     }
+    return '#';
+}
     
     $(window).on('action:posts.loaded action:topic.loaded', function() {
         processOGPPlaceholders();
+        require(['translator'], function(translator) {
+            $('.ogp-embed-card').each(function() { translator.translate(this); });
+        });
     });
     
     processOGPPlaceholders();
+    require(['translator'], function(translator) {
+        $('.ogp-embed-card').each(function() { translator.translate(this); });
+    });
+
+    // Refetch handler
+    $(document).on('click', '[data-action="ogp-refetch"]', function(e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const $card = $btn.closest('.ogp-embed-card');
+        const url = $card.attr('data-ogp-url');
+        if (!url) return;
+
+        // Disable button during request
+        $btn.prop('disabled', true);
+
+        // Ensure label is translated
+        require(['translator'], function(translator) {
+            translator.translate($btn.get(0));
+        });
+
+        const payload = { url: url };
+        if (typeof window.topicId !== 'undefined') payload.topicId = window.topicId;
+        // Add spin feedback
+        const $icon = $btn.find('i.fa');
+        $icon.addClass('fa-spin');
+
+        console.info('[ogp-embed/client] refetch:emit', { payload });
+        socket.emit('plugins.ogp-embed.refetch', payload, function(err, res) {
+            $btn.prop('disabled', false);
+            $icon.removeClass('fa-spin');
+            try {
+                if (err) {
+                    console.error('[ogp-embed/client] refetch:error', { url, error: err && err.message ? err.message : err });
+                    const msg = err.message || '[[ogp-embed:ogp-refetch-internal-error]]';
+                    if (/\[\[.*\]\]/.test(msg)) {
+                        require(['translator', 'alerts'], function(translator, alerts) {
+                            translator.translate(msg, function(text) { alerts.error(text); });
+                        });
+                    } else {
+                        require(['alerts'], function(alerts) { alerts.error(msg); });
+                    }
+                    return;
+                }
+                if (res && res.accepted) {
+                    console.info('[ogp-embed/client] refetch:accepted', { url, nextAllowedAt: res.nextAllowedAt });
+                    require(['translator', 'alerts'], function(translator, alerts) {
+                        translator.translate('[[ogp-embed:ogp-refetch-accepted]]', function(text) { alerts.success(text); });
+                    });
+
+                    // Immediately fetch updated OGP and replace this card
+                    console.info('[ogp-embed/client] fetch-after-refetch:start', { url });
+                    socket.emit('plugins.ogp-embed.fetch', { url: url }, function(err2, data2) {
+                        if (!err2 && data2 && data2.url) {
+                            console.info('[ogp-embed/client] fetch-after-refetch:success', { url });
+                            renderOGPCard(data2).then(function($newCard) {
+                                console.info('[ogp-embed/client] fetch-after-refetch:replace', { url });
+                                $card.replaceWith($newCard);
+                            });
+                        } else {
+                            console.error('[ogp-embed/client] fetch-after-refetch:error', { url, error: err2 && err2.message ? err2.message : err2 });
+                        }
+                    });
+                } else if (res && res.error) {
+                    console.warn('[ogp-embed/client) refetch:rejected', { url, code: res.error.code, message: res.error.message, nextAllowedAt: res.nextAllowedAt });
+                    const message = res.error.message || '[[ogp-embed:ogp-refetch-internal-error]]';
+                    if (/\[\[.*\]\]/.test(message)) {
+                        require(['translator', 'alerts'], function(translator, alerts) {
+                            translator.translate(message, function(text) { alerts.error(text); });
+                        });
+                    } else {
+                        require(['alerts'], function(alerts) { alerts.error(message); });
+                    }
+                }
+            } catch (err) {
+                console.error('[ogp-embed/client] refetch:exception', { url, error: err && err.message ? err.message : err });
+                require(['translator', 'alerts'], function(translator, alerts) {
+                    translator.translate('[[ogp-embed:ogp-refetch-internal-error]]', function(text) { alerts.error(text); });
+                });
+            }
+        });
+    });
 });

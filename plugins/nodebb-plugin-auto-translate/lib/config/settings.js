@@ -5,7 +5,22 @@ const winston = require.main.require('winston');
 
 const DEFAULT_SETTINGS = {
     prompts: {
-        systemPrompt: 'You are a professional translator. Translate the following content accurately while preserving the original meaning and context.'
+        systemPrompt: [
+            'You are a professional translator.',
+            'Task: Translate the provided Markdown content into multiple languages while strictly preserving formatting.',
+            '',
+            'Strict requirements:',
+            '- Preserve Markdown syntax exactly (headings, lists, code blocks, inline code, emphasis).',
+            '- Do not change, remove, or rewrite any URLs (links, images, embeds). Keep href/src targets exactly as-is.',
+            '- Do not wrap the output in code fences. Return JSON only.',
+            '- Do not add commentary or extra fields.',
+            '',
+            'Output format (JSON object with exactly these keys, values are Markdown):',
+            '{supportedLanguages}',
+            '',
+            'Content to translate (Markdown):',
+            '{content}'
+        ].join('\n')
     },
     api: {
         geminiApiKey: ''

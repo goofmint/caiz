@@ -4,6 +4,7 @@ const winston = require.main.require('winston');
 const cache = require('../cache');
 const parser = require('../parser');
 const renderer = require('../renderer');
+const refetch = require('../refetch');
 
 const clientSockets = {};
 
@@ -115,6 +116,15 @@ clientSockets.registerSockets = function(socketPlugins) {
             winston.error(`[ogp-embed] Client socket error: ${err.message}`);
             throw err;
         }
+    };
+
+    // OGP re-fetch with 1-minute per-URL rate limit
+    socketPlugins['ogp-embed'].refetch = async function(socket, data) {
+        if (!socket || !socket.uid) {
+            // Return structured rejection with i18n message
+            return await refetch.refetch({ userId: null, url: data && data.url });
+        }
+        return await refetch.refetch({ userId: socket.uid, url: data && data.url, topicId: data && data.topicId, postId: data && data.postId });
     };
     
     winston.info('[ogp-embed] Client socket handlers registered');

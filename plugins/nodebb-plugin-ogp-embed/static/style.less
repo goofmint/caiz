@@ -11,6 +11,7 @@
     
     .card-body {
         padding: 12px !important;
+        position: relative;
     }
 
     // Slack-style thumbnail image (80x80, rounded)
@@ -82,6 +83,15 @@
             height: 100px !important;
         }
     }
+}
+
+// Refetch button (top-right)
+.ogp-embed-card .ogp-refetch-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    line-height: 1;
+    padding: 4px 6px;
 }
 
 // Dark theme support for Slack-style cards
