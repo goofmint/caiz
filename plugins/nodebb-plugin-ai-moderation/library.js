@@ -11,6 +11,7 @@ const settings = require('./libs/core/settings');
 const ContentAnalyzer = require('./libs/core/analyzer');
 const apiFactory = require('./libs/api');
 const postsHooks = require('./libs/hooks/posts');
+const topicsHooks = require('./libs/hooks/topics');
 
 // インスタンス
 const contentAnalyzer = new ContentAnalyzer();
@@ -54,6 +55,7 @@ plugin.addAdminNavigation = function(header, callback) {
 plugin.moderatePostCreate = postsHooks.moderatePostCreate;
 plugin.moderatePostEdit = postsHooks.moderatePostEdit;
 plugin.afterPostSave = postsHooks.afterPostSave;
+plugin.moderateTopicEdit = topicsHooks.moderateTopicEdit;
 
 // 新規カテゴリ作成時のフック（将来の拡張用に残す）
 plugin.onCategoryCreate = async function(data) {
@@ -66,6 +68,7 @@ plugin.onCategoryCreate = async function(data) {
 winston.info('[ai-moderation] Hooks registered', {
     moderatePostCreate: typeof plugin.moderatePostCreate,
     moderatePostEdit: typeof plugin.moderatePostEdit,
+    moderateTopicEdit: typeof plugin.moderateTopicEdit,
     afterPostSave: typeof plugin.afterPostSave,
     onCategoryCreate: typeof plugin.onCategoryCreate
 });

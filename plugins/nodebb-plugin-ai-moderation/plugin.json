@@ -22,6 +22,10 @@
       "method": "moderatePostEdit"
     },
     {
+      "hook": "action:topic.edit",
+      "method": "moderateTopicEdit"
+    },
+    {
       "hook": "action:category.create",
       "method": "onCategoryCreate"
     },
