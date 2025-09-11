@@ -33,5 +33,17 @@ async function getApiKey() {
 module.exports = {
     saveSettings,
     getSettings,
-    getApiKey
+    getApiKey,
+    ensureEditDefaults: async function ensureEditDefaults() {
+        const current = await meta.settings.get('ai-moderation') || {};
+        const seed = {};
+        if (!current.hasOwnProperty('edit.enabled')) seed['edit.enabled'] = 'true';
+        if (!current.hasOwnProperty('edit.minChange.relative')) seed['edit.minChange.relative'] = '0.10';
+        if (!current.hasOwnProperty('edit.minChange.absolute')) seed['edit.minChange.absolute'] = '20';
+        if (!current.hasOwnProperty('edit.cooldownSecs')) seed['edit.cooldownSecs'] = '10';
+        if (!current.hasOwnProperty('edit.excludedRoles')) seed['edit.excludedRoles'] = '';
+        if (Object.keys(seed).length) {
+            await meta.settings.set('ai-moderation', { ...current, ...seed });
+        }
+    }
 };

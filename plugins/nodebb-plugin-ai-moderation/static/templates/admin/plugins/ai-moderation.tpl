@@ -60,6 +60,44 @@
                         <div class="form-group" style="margin-bottom: 30px;">
                             <button type="button" class="btn btn-primary" id="save">[[ai-moderation:save-settings]]</button>
                         </div>
+
+                        <hr />
+                        <h4>Re‑Moderation on Edit</h4>
+                        <div class="row">
+                            <div class="col-sm-4">
+                                <div class="checkbox">
+                                    <label>
+                                        <input type="checkbox" name="edit.enabled" /> Enable re‑moderation on edit
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="form-group">
+                                    <label>Relative threshold (0.0–1.0)</label>
+                                    <input type="number" step="0.01" min="0" max="1" class="form-control" name="edit.minChange.relative" />
+                                </div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="form-group">
+                                    <label>Absolute threshold (chars)</label>
+                                    <input type="number" step="1" min="0" class="form-control" name="edit.minChange.absolute" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-sm-4">
+                                <div class="form-group">
+                                    <label>Cooldown (seconds)</label>
+                                    <input type="number" step="1" min="0" class="form-control" name="edit.cooldownSecs" />
+                                </div>
+                            </div>
+                            <div class="col-sm-8">
+                                <div class="form-group">
+                                    <label>Excluded roles (comma separated)</label>
+                                    <input type="text" class="form-control" name="edit.excludedRoles" placeholder="administrators, Global Moderators" />
+                                </div>
+                            </div>
+                        </div>
                     </form>
                 </div>
             </div>
