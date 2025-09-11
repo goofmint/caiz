@@ -29,6 +29,12 @@ plugin.init = async function(params) {
     
     // Initialize database schema
     await initializeDatabase();
+    // Seed edit.* defaults once (runtimeフォールバックではなく初期永続化)
+    try {
+        await settings.ensureEditDefaults();
+    } catch (e) {
+        winston.error('[ai-moderation] Failed to ensure edit defaults', { error: e.message });
+    }
     
     // Setup admin routes
     setupAdminRoutes(router, middleware);

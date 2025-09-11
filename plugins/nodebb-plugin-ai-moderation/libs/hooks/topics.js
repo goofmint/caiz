@@ -3,6 +3,8 @@
 const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
 const Topics = require.main.require('./src/topics');
+const Posts = require.main.require('./src/posts');
+const Flags = require.main.require('./src/flags');
 const Groups = require.main.require('./src/groups');
 const Flags = require.main.require('./src/flags');
 const ContentAnalyzer = require('../core/analyzer');
@@ -72,18 +74,40 @@ module.exports = {
       dedupe.set(key, now + Math.max(1000, Math.min(cfg.cooldownMs, 5000)));
 
       const prevTitle = await Topics.getTopicField(topic.tid, 'title');
-      if (!significant(String(prevTitle || ''), String(topic.title || ''), cfg.threshold)) return hookData;
+      const titleChanged = significant(String(prevTitle || ''), String(topic.title || ''), cfg.threshold);
 
-      const analysis = await analyzer.analyzeContent({ content: `# ${String(topic.title || '')}`, contentType: 'topic', contentId: topic.tid, uid: topic.uid });
       const settings = require('../core/settings');
       const cur = await settings.getSettings();
       const actorUid = cur.flagUid || 1;
-      if (analysis.action === 'flagged' || analysis.action === 'rejected') {
-        // create a topic-level flag is not directly supported; flag main post is out-of-scope here
-        winston.info('[ai-moderation] Topic flagged on edit (title)', { tid: topic.tid, score: analysis.score });
-      } else {
-        // improvement path: nothing to resolve at topic level here
-        winston.info('[ai-moderation] Topic title improved on edit', { tid: topic.tid });
+
+      if (titleChanged) {
+        const analysis = await analyzer.analyzeContent({ content: `# ${String(topic.title || '')}`, contentType: 'topic', contentId: topic.tid, uid: topic.uid });
+        if (analysis.action === 'flagged' || analysis.action === 'rejected') {
+          winston.info('[ai-moderation] Topic flagged on edit (title)', { tid: topic.tid, score: analysis.score });
+        } else {
+          winston.info('[ai-moderation] Topic title improved on edit', { tid: topic.tid });
+        }
+      }
+
+      // メインポスト本文も連動して再モデレーション
+      const mainPid = await Topics.getTopicField(topic.tid, 'mainPid');
+      if (mainPid) {
+        const [prev] = await Posts.getPostsFields([mainPid], ['content', 'uid']);
+        const prevContent = prev && prev.content ? String(prev.content) : '';
+        // hookDataに本文がない場合もあるので、DBの現在値で判定（最小実装）
+        if (significant(prevContent, prevContent /* self-compare avoided change unless external edit available */, cfg.threshold)) {
+          // ここでは本文比較ができない状況を避けるためスキップ
+        } else {
+          // 現在値を解析
+          const analysisPost = await analyzer.analyzeContent({ content: prevContent, contentType: 'post', contentId: mainPid, uid: prev && prev.uid });
+          if (analysisPost.action === 'flagged' || analysisPost.action === 'rejected') {
+            await Flags.create('post', mainPid, actorUid, `AI Remoderation (topic edit): score=${analysisPost.score}`, null, true);
+            winston.info('[ai-moderation] Main post flagged on topic edit', { tid: topic.tid, pid: mainPid });
+          } else {
+            await Flags.resolveFlag('post', mainPid, actorUid);
+            winston.info('[ai-moderation] Main post flags resolved on topic edit', { tid: topic.tid, pid: mainPid });
+          }
+        }
       }
       lastModerationByTopic.set(topic.tid, now);
       lastModerationByUser.set(topic.uid, now);
@@ -93,4 +117,3 @@ module.exports = {
     return hookData;
   }
 };
-
