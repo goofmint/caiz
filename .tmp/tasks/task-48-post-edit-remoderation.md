@@ -25,8 +25,11 @@
 // NodeBBフックを利用した編集検知
 // hooks: action:post.edit, action:topic.edit
 editModerationHandler.onPostEdit = async (hookData) => {
-  // 編集前後の内容を比較
-  // 変更があった場合のみモデレーション実行
+  // 注意: フックは編集「後」のデータのみ提供
+  // → 事前内容をDB/APIから取得して差分を計算
+  //   - Posts.getPost(pid) で previousRawContent を取得
+  //   - 比較対象: hookData.post.content
+  // 変更があった場合のみ（かつ最小変更量を満たす場合のみ）モデレーションを実行
 };
 ```
 
@@ -44,9 +47,11 @@ moderationService.remoderate = async (postData, originalContent) => {
 ```javascript
 // 編集時専用の処理フロー
 editModerationHandler.processResult = async (postId, moderationResult) => {
-  // しきい値超過時の処理
-  // モデレーター通知
-  // ログ記録
+  // しきい値超過時: モデレーション待ちフラグの設定、通知、監査ログ
+  // 改善（しきい値下回り）時: 既存フラグの自動解除、通知、監査ログ
+  //  - 事前状態を取得（フラグ有無）
+  //  - フラグ解除は冪等なUPSERT/単一UPDATEで実施（重複を防ぐ）
+  //  - DB確定後にのみ通知/監査ログを発火
 };
 ```
 
@@ -56,12 +61,15 @@ editModerationHandler.processResult = async (postId, moderationResult) => {
 - **編集時再モデレーション有効化**: チェックボックス
 - **編集時しきい値**: 新規投稿時と同じ or 個別設定可能
 - **最小変更量**: 軽微な編集（誤字修正等）を除外する文字数・変更率の閾値
+- **クールダウン**: ユーザー/投稿単位の再モデレーション間隔（秒/分、既定値あり、ポリシー毎に上書き可能）
+- **除外ロール**: 再モデレーションをバイパスするロール（ID/名前のリスト）
 
 ### 技術仕様
 
 #### 対象Hook
 - `action:post.edit`: 投稿編集後
 - `action:topic.edit`: トピック編集後（タイトル・本文）
+  - 同一編集で両フックが発火しうるため、重複実行を避ける重複排除（de-dupe）が必須
 
 #### 実装ファイル
 ```
@@ -76,20 +84,25 @@ plugins/nodebb-plugin-ai-moderation/
 
 #### APIフロー
 1. 投稿編集 → NodeBBフック発火
-2. 編集前後コンテンツ比較
-3. 変更検知時 → AI API呼び出し
-4. モデレーション結果判定
-5. しきい値超過時 → 投稿ステータス変更
+2. 編集前後コンテンツ比較（DB/APIから事前内容を取得）
+3. 変更検知時 → 設定・権限・クールダウン・サイズ制限を検証
+4. de-dupeキー（例: `remod:post:{pid}` or 影響範囲により正規化キー）で重複排除（TTL付き）
+5. AI API呼び出し（タイムアウト付き）
+6. モデレーション結果判定（冪等アップサート）
+7. しきい値超過時 → 投稿ステータス変更（待ち）/ 改善時 → 既存フラグ解除
+8. 通知・監査ログ（DB確定後）
 
 ### モデレーションロジック
 
 #### 変更検知
 ```javascript
 // 編集内容の変更検知ロジック
-function hasSignificantChange(originalContent, editedContent, minChangeThreshold) {
-  // テキスト差分計算
-  // 最小変更量による除外判定
-  // 返り値: true/false
+function hasSignificantChange(originalContent, editedContent, minChangeThreshold /* { relative: number, absolute: number } */) {
+  // 正規化: マークダウン/HTMLタグ除去、コードフェンス除去、全角→半角、空白圧縮、lowercase
+  // 差分計算: 相対（編集距離やトークン差分/最大長）と絶対（変更トークン/文字数）
+  // 判定: relative >= threshold.relative OR absolute >= threshold.absolute
+  // 空白や装飾のみの変更は除外
+  // 返り値: boolean
 }
 ```
 
@@ -97,9 +110,12 @@ function hasSignificantChange(originalContent, editedContent, minChangeThreshold
 ```javascript
 // 再モデレーション実行判定
 async function shouldRemoderate(postData, editData, settings) {
-  // 設定確認: 編集時モデレーション有効？
-  // 変更量確認: 最小変更量を超えているか？
-  // 権限確認: 編集者の権限レベル（モデレーター等は除外可能）
+  // 1) 設定: 機能の有効化、しきい値・閾値の取得
+  // 2) 変更量: hasSignificantChange(...) による相対/絶対閾値評価
+  // 3) 権限: 編集者が除外ロール（モデレーター/管理者等）であれば除外
+  // 4) クールダウン: ユーザー/投稿単位で最後の再モデ時刻を参照し、未経過なら除外
+  // 5) サイズ: 新コンテンツの長さ/語数が上限内か検証
+  // ログまたは構造化結果で除外理由を返せる設計（booleanに加え理由を付与可能）
 }
 ```
 
@@ -114,17 +130,25 @@ async function shouldRemoderate(postData, editData, settings) {
 #### モデレーション待ち状態
 - 投稿者: 編集内容が確認中である旨の表示
 - モデレーター: 管理画面で編集された投稿の再確認
-- 他ユーザー: 編集前の内容または非表示
+- 他ユーザー: 最後に承認された版を表示。承認版がなければ非表示
 
-### エラーハンドリング
-- AI API障害時: 編集を許可してログに記録
-- ネットワークエラー時: リトライ機構
-- 設定エラー時: フォールバック動作
+### エラーハンドリング / リトライ
+- リトライは上限回数付きの指数バックオフ＋ジッター（例: 試行3〜5回、初期待機500ms、倍率×2、±20%ジッター）
+- 各リクエストに個別タイムアウト、全体でも最大所要時間の上限を設定
+- 上限到達時はエラーを記録しフローを穏当終了（編集は維持/保留、隠蔽的フォールバックは禁止）
+- 冪等性: ジョブキーで重複排除、結果状態を記録して同版の再処理をスキップ
 
 ### ログ・監査
 - 編集時モデレーション実行ログ
 - AI判定結果の記録
 - モデレーター行動履歴
+- de-dupeキーの発行/解放、クールダウン判定、フラグ解除（改善）の監査ログ
+
+### 重複排除（de-dupe）と冪等性
+- ジョブキー: `remod:post:{pid}` / `remod:topic:{tid}` を編集対象に応じて正規化（同一編集で両方に影響する場合は単一キーに正規化）
+- 共有ストア（Redis/DB）に短TTL付きで `enqueue-if-not-exists` を実装し、重複実行を抑制
+- 完了後はキーを解放/期限切れにより再試行可能
+- 連続編集の合流（debounce）: 1–5s の短時間ウィンドウで連続編集を一つに統合
 
 ## 実装時の考慮事項
 
