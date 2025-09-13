@@ -6,7 +6,6 @@ const Topics = require.main.require('./src/topics');
 const Posts = require.main.require('./src/posts');
 const Flags = require.main.require('./src/flags');
 const Groups = require.main.require('./src/groups');
-const Flags = require.main.require('./src/flags');
 const ContentAnalyzer = require('../core/analyzer');
 
 const analyzer = new ContentAnalyzer();
