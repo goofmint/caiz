@@ -210,8 +210,8 @@
 - Webhook
 - 配信
   - [ ] RTMP受信
-- [x] 投稿を編集した場合に再翻訳
-- [ ] 48: 投稿を編集した場合に、再モデレーション 設計ドキュメント作成（.tmp/tasks/task-48-post-edit-remoderation.md）
+- [x] 48: 投稿を編集した場合に再翻訳 設計ドキュメント作成（.tmp/tasks/task-48-retranslate-on-edit.md）
+- [ ] 49: 投稿を編集した場合に、再モデレーション 設計ドキュメント作成（.tmp/tasks/task-48-post-edit-remoderation.md）
 - コミュニティごとの未読表示
 - プロフィールの多言語化 https://caiz.dev/user/goofmint/posts
 - トピックの多言語化 https://caiz.dev/user/goofmint/topics
