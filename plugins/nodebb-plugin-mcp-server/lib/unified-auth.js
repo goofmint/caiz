@@ -355,9 +355,12 @@ class OAuthAuthenticator {
         const token = OAuthAuthenticator.extractBearerToken(req.get('Authorization'));
         
         if (token) {
-            // Try OAuth2 validation
-            const authInfo = await OAuthAuthenticator.validateOAuth2Token(token);
-            
+            // Try OAuth2 first, then API token
+            let authInfo = await OAuthAuthenticator.validateOAuth2Token(token);
+            if (!authInfo) {
+                authInfo = await OAuthAuthenticator.validateAPIToken(token);
+            }
+
             if (authInfo) {
                 // Get user information
                 const User = require.main.require('./src/user');
