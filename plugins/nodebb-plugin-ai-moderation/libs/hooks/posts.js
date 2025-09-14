@@ -76,7 +76,8 @@ async function getEditSettingsStrict() {
         throw new Error('[ai-moderation] Invalid numeric edit.* settings');
     }
     const excludedRoles = String(s['edit.excludedRoles'] || '').split(',').map(x => x.trim()).filter(Boolean);
-    return { enabled, threshold, cooldownMs, excludedRoles };
+    const flagUid = s.flagUid || 1;
+    return { enabled, threshold, cooldownMs, excludedRoles, flagUid };
 }
 
 function acquireJobKey(key, ttlMs) {
@@ -182,8 +183,21 @@ const postsHooks = {
 
             // 除外ロールチェック
             if (cfg.excludedRoles.length) {
-                const memberships = await Groups.getUserGroups([post.uid]);
-                const groups = Array.isArray(memberships) && memberships[0] ? memberships[0].map(g => g && (g.displayName || g.name)).filter(Boolean) : [];
+                let groups = [];
+                try {
+                    const memberships = await Groups.getUserGroups([post.uid]);
+                    if (Array.isArray(memberships) && memberships.length > 0) {
+                        const userGroups = memberships[0];
+                        if (Array.isArray(userGroups)) {
+                            groups = userGroups
+                                .filter(g => g && typeof g === 'object')
+                                .map(g => g.displayName || g.name || '')
+                                .filter(Boolean);
+                        }
+                    }
+                } catch (e) {
+                    winston.warn('[ai-moderation] getUserGroups failed; continuing with empty groups', { error: e.message, uid: post.uid });
+                }
                 if (groups.some(name => cfg.excludedRoles.includes(name))) {
                     winston.info('[ai-moderation] Bypassing remoderation due to excluded role', { uid: post.uid, groups });
                     return hookData;
@@ -224,9 +238,7 @@ const postsHooks = {
 
             winston.info('[ai-moderation] Post edit analysis result', { action: analysisResult.action, score: analysisResult.score });
 
-            const config = require('../core/settings');
-            const currentSettings = await config.getSettings(); // 既存実装に合わせた取得（flagUidなど）
-            const actorUid = currentSettings.flagUid || 1;
+            const actorUid = cfg.flagUid;
 
             if (analysisResult.action === 'flagged' || analysisResult.action === 'rejected') {
                 // フラグを作成（待ち状態へ）
