@@ -492,6 +492,21 @@ async function mcpAuthenticate(req, res, next) {
         winston.verbose('[mcp-server] MCP authentication failed:', err.message);
         return sendMCPAuthenticationRequired(req, res);
     }
+
+    // Enforce minimal scope for SSE endpoint
+    try {
+        const requiredScope = 'mcp:sse:read';
+        if (req.method === 'GET' && req.path === '/api/mcp') {
+            const scopes = Array.isArray(req.auth?.scopes) ? req.auth.scopes : [];
+            if (!scopes.includes(requiredScope)) {
+                const OAuthAuthenticator = require('../lib/unified-auth');
+                return OAuthAuthenticator.sendInsufficientScope(res, [requiredScope]);
+            }
+        }
+    } catch (e) {
+        winston.error('[mcp-server] Scope enforcement error:', e);
+        return sendMCPAuthenticationRequired(req, res);
+    }
 }
 
 module.exports = function(router) {
