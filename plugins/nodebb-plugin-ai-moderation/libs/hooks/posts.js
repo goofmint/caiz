@@ -164,12 +164,14 @@ const postsHooks = {
     async moderatePostEdit(hookData) {
         winston.info('[ai-moderation] Post edit hook triggered', {
             content: hookData.post?.content?.substring(0, 50) || 'no content',
-            pid: hookData.post?.pid,
-            uid: hookData.post?.uid
+            pid: hookData?.data?.pid,
+            uid: hookData?.uid
         });
         try {
-            const post = hookData.post;
-            if (!post || !post.pid || typeof post.content !== 'string') {
+            const edited = hookData && hookData.post;
+            const pid = hookData && hookData.data && hookData.data.pid;
+            const uid = hookData && hookData.uid;
+            if (!edited || !pid || typeof edited.content !== 'string') {
                 winston.warn('[ai-moderation] Invalid post payload on edit');
                 return hookData;
             }
@@ -185,7 +187,7 @@ const postsHooks = {
             if (cfg.excludedRoles.length) {
                 let groups = [];
                 try {
-                    const memberships = await Groups.getUserGroups([post.uid]);
+                    const memberships = await Groups.getUserGroups([uid]);
                     if (Array.isArray(memberships) && memberships.length > 0) {
                         const userGroups = memberships[0];
                         if (Array.isArray(userGroups)) {
@@ -199,41 +201,41 @@ const postsHooks = {
                     winston.warn('[ai-moderation] getUserGroups failed; continuing with empty groups', { error: e.message, uid: post.uid });
                 }
                 if (groups.some(name => cfg.excludedRoles.includes(name))) {
-                    winston.info('[ai-moderation] Bypassing remoderation due to excluded role', { uid: post.uid, groups });
+                    winston.info('[ai-moderation] Bypassing remoderation due to excluded role', { uid, groups });
                     return hookData;
                 }
             }
 
             // クールダウン（ユーザー/投稿）
             const now = Date.now();
-            const lastPid = lastModerationByPost.get(post.pid) || 0;
-            const lastUid = lastModerationByUser.get(post.uid) || 0;
+            const lastPid = lastModerationByPost.get(pid) || 0;
+            const lastUid = lastModerationByUser.get(uid) || 0;
             if ((now - lastPid) < cfg.cooldownMs || (now - lastUid) < cfg.cooldownMs) {
-                winston.info('[ai-moderation] Within cooldown window; skip remoderation', { pid: post.pid, uid: post.uid });
+                winston.info('[ai-moderation] Within cooldown window; skip remoderation', { pid, uid });
                 return hookData;
             }
 
             // 重複排除（短TTL）
-            const jobKey = `remod:post:${post.pid}`;
+            const jobKey = `remod:post:${pid}`;
             if (!acquireJobKey(jobKey, Math.max(1000, Math.min(cfg.cooldownMs, 5000)))) {
                 winston.info('[ai-moderation] Duplicate edit event suppressed', { jobKey });
                 return hookData;
             }
 
             // 編集前の原文を取得して差分判定
-            const [prev] = await Posts.getPostsFields([post.pid], ['content']);
+            const [prev] = await Posts.getPostsFields([pid], ['content']);
             const previousRaw = prev && prev.content ? String(prev.content) : '';
-            if (!hasSignificantChange(previousRaw, String(post.content), cfg.threshold)) {
-                winston.info('[ai-moderation] Change below thresholds; skip remoderation', { pid: post.pid });
+            if (!hasSignificantChange(previousRaw, String(edited.content), cfg.threshold)) {
+                winston.info('[ai-moderation] Change below thresholds; skip remoderation', { pid });
                 return hookData;
             }
 
             // AI分析
             const analysisResult = await analyzer.analyzeContent({
-                content: String(post.content),
+                content: String(edited.content),
                 contentType: 'post',
-                contentId: post.pid,
-                uid: post.uid
+                contentId: pid,
+                uid: uid
             });
 
             winston.info('[ai-moderation] Post edit analysis result', { action: analysisResult.action, score: analysisResult.score });
@@ -242,16 +244,16 @@ const postsHooks = {
 
             if (analysisResult.action === 'flagged' || analysisResult.action === 'rejected') {
                 // フラグを作成（待ち状態へ）
-                await Flags.create('post', post.pid, actorUid, `AI Remoderation: score=${analysisResult.score}`, null, true);
-                winston.info('[ai-moderation] Post flagged on edit', { pid: post.pid });
+                await Flags.create('post', pid, actorUid, `AI Remoderation: score=${analysisResult.score}`, null, true);
+                winston.info('[ai-moderation] Post flagged on edit', { pid });
             } else {
                 // 改善パス: 既存フラグがあれば解決
-                await Flags.resolveFlag('post', post.pid, actorUid);
-                winston.info('[ai-moderation] Resolved existing flags due to improvement', { pid: post.pid });
+                await Flags.resolveFlag('post', pid, actorUid);
+                winston.info('[ai-moderation] Resolved existing flags due to improvement', { pid });
             }
 
-            lastModerationByPost.set(post.pid, now);
-            lastModerationByUser.set(post.uid, now);
+            lastModerationByPost.set(pid, now);
+            lastModerationByUser.set(uid, now);
         } catch (err) {
             winston.error('[ai-moderation] Error during post edit remoderation', { error: err.message, stack: err.stack });
         }
