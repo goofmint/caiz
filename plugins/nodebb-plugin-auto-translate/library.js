@@ -296,23 +296,12 @@ plugin.onPostSave = async function(data) {
             content: post.content ? post.content.substring(0, 50) + '...' : 'empty'
         });
         
-        // Check if translation is enabled and API is available
-        const settings = await plugin.settingsManager.getRawSettings();
-        if (!settings.api || !settings.api.geminiApiKey) {
-            winston.info('[auto-translate] No API key configured, skipping translation');
+        // Perform translation (no diff check on create)
+        const translations = await performPostTranslation(post, { checkDiff: false });
+        if (!translations) {
+            winston.info('[auto-translate] Translation skipped on save', { pid: post.pid });
             return data;
         }
-        
-        // Skip if content is too short or empty
-        if (!post.content || post.content.length < 10) {
-            winston.info('[auto-translate] Content too short, skipping translation');
-            return data;
-        }
-        
-        winston.info('[auto-translate] Translating post:', { pid: post.pid });
-        
-        // Perform translation
-        const translations = await translateAndSaveContent('post', post.pid, post.content, settings);
 
         // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
         try {
@@ -343,26 +332,12 @@ plugin.onTopicSave = async function(data) {
             title: topic.title ? topic.title.substring(0, 50) + '...' : 'empty'
         });
         
-        // Check if translation is enabled and API is available
-        const settings = await plugin.settingsManager.getRawSettings();
-        if (!settings.api || !settings.api.geminiApiKey) {
-            winston.info('[auto-translate] No API key configured, skipping translation');
+        // Perform translation (no diff check on create)
+        const translations = await performTopicTranslation(topic, { checkDiff: false });
+        if (!translations) {
+            winston.info('[auto-translate] Translation skipped on topic save', { tid: topic.tid });
             return data;
         }
-        
-        // Skip if title is too short or empty
-        if (!topic.title || topic.title.length < 5) {
-            winston.info('[auto-translate] Title too short, skipping translation');
-            return data;
-        }
-        
-        winston.info('[auto-translate] Translating topic:', { tid: topic.tid });
-        
-        // Format title as Markdown heading for better translation context
-        const markdownTitle = `# ${topic.title}`;
-        
-        // Perform translation
-        const translations = await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
 
         // Index to Elasticsearch via caiz-elastic plugin (direct call; no fallbacks)
         try {
@@ -378,6 +353,67 @@ plugin.onTopicSave = async function(data) {
         // Don't fail the topic creation if translation fails
     }
     
+    return data;
+};
+
+/**
+ * Hook: After post edit — re-translate if content changed (no fallbacks)
+ */
+plugin.onPostEdit = async function (data) {
+    try {
+        const post = data && data.post;
+        if (!post || !post.pid) {
+            winston.warn('[auto-translate] onPostEdit called without post payload');
+            return data;
+        }
+        const translations = await performPostTranslation(post, { checkDiff: true });
+        if (translations) {
+            winston.info('[auto-translate] Re-translation completed for edited post', { pid: post.pid });
+            // Update Elasticsearch index explicitly after re-translation
+            try {
+                const elastic = require('../nodebb-plugin-caiz-elastic/library');
+                await elastic.indexPost({ post, translations });
+                winston.info('[auto-translate] Re-indexed post into Elasticsearch (edit)', { pid: post.pid });
+            } catch (e) {
+                winston.error('[auto-translate] Failed to re-index edited post into Elasticsearch', { pid: post.pid, error: e.message });
+            }
+        } else {
+            winston.info('[auto-translate] Re-translation skipped for edited post', { pid: post.pid });
+        }
+    } catch (err) {
+        winston.error('[auto-translate] Failed to re-translate edited post', { error: err.message, stack: err.stack });
+    }
+    return data;
+};
+
+/**
+ * Hook: After topic edit — re-translate if title changed (no fallbacks)
+ */
+plugin.onTopicEdit = async function (data) {
+    try {
+        const topic = data && data.topic;
+        if (!topic || !topic.tid) {
+            winston.warn('[auto-translate] onTopicEdit called without topic payload');
+            return data;
+        }
+
+        const translations = await performTopicTranslation(topic, { checkDiff: true });
+        if (translations) {
+            winston.info('[auto-translate] Re-translation completed for edited topic', { tid: topic.tid });
+            // Update Elasticsearch index explicitly after re-translation
+            try {
+                const elastic = require('../nodebb-plugin-caiz-elastic/library');
+                await elastic.indexTopic({ topic, translations });
+                winston.info('[auto-translate] Re-indexed topic into Elasticsearch (edit)', { tid: topic.tid });
+            } catch (e) {
+                winston.error('[auto-translate] Failed to re-index edited topic into Elasticsearch', { tid: topic.tid, error: e.message });
+            }
+        } else {
+            winston.info('[auto-translate] Re-translation skipped for edited topic', { tid: topic.tid });
+        }
+    } catch (err) {
+        winston.error('[auto-translate] Failed to re-translate edited topic', { error: err.message, stack: err.stack });
+    }
     return data;
 };
 
@@ -435,6 +471,77 @@ async function translateAndSaveContent(type, id, content, settings) {
         });
         throw err;
     }
+}
+
+/**
+ * Internal helper: translate post content with optional diff check
+ * - checkDiff=false: always translate (subject to length validation)
+ * - checkDiff=true: translate only if DB.original differs from current content
+ * Returns translations object on success, or null if skipped.
+ */
+async function performPostTranslation(post, { checkDiff }) {
+    if (!post || !post.pid) {
+        throw new Error('performPostTranslation: invalid post payload');
+    }
+
+    const settings = await plugin.settingsManager.getRawSettings();
+    if (!settings || !settings.api || !settings.api.geminiApiKey) {
+        winston.error('[auto-translate] Missing API settings; aborting translation', { pid: post.pid });
+        return null;
+    }
+
+    const content = String(post.content || '');
+    if (content.length < 10) {
+        winston.info('[auto-translate] Content too short; skip translation', { pid: post.pid, length: content.length });
+        return null;
+    }
+
+    if (checkDiff) {
+        const key = `auto-translate:post:${post.pid}`;
+        const existing = await db.getObject(key);
+        const previousOriginal = existing && typeof existing.original === 'string' ? existing.original : null;
+        const changed = !previousOriginal || previousOriginal !== content;
+        winston.info('[auto-translate] Post diff check (edit)', { pid: post.pid, hadPrevious: !!previousOriginal, changed });
+        if (!changed) return null;
+    }
+
+    const translations = await translateAndSaveContent('post', post.pid, content, settings);
+    return translations || null;
+}
+
+/**
+ * Internal helper: translate topic title with optional diff check
+ * Returns translations object on success, or null if skipped.
+ */
+async function performTopicTranslation(topic, { checkDiff }) {
+    if (!topic || !topic.tid) {
+        throw new Error('performTopicTranslation: invalid topic payload');
+    }
+
+    const settings = await plugin.settingsManager.getRawSettings();
+    if (!settings || !settings.api || !settings.api.geminiApiKey) {
+        winston.error('[auto-translate] Missing API settings; aborting translation', { tid: topic.tid });
+        return null;
+    }
+
+    const title = String(topic.title || '');
+    if (title.length < 5) {
+        winston.info('[auto-translate] Title too short; skip translation', { tid: topic.tid, length: title.length });
+        return null;
+    }
+
+    const markdownTitle = `# ${title}`;
+    if (checkDiff) {
+        const key = `auto-translate:topic:${topic.tid}`;
+        const existing = await db.getObject(key);
+        const previousOriginal = existing && typeof existing.original === 'string' ? existing.original : null;
+        const changed = !previousOriginal || previousOriginal !== markdownTitle;
+        winston.info('[auto-translate] Topic diff check (edit)', { tid: topic.tid, hadPrevious: !!previousOriginal, changed });
+        if (!changed) return null;
+    }
+
+    const translations = await translateAndSaveContent('topic', topic.tid, markdownTitle, settings);
+    return translations || null;
 }
 
 /**
