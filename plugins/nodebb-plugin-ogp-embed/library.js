@@ -217,9 +217,13 @@ plugin.parsePost = async function(hookData) {
                         processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${cardHtml}`);
                     } else if (item.type === 'prefix-suffix') {
                         const openP = `<p${item.pAttrs}>`;
-                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
-                        const suffixPart = `${openP}${item.suffixHtml}</p>`;
-                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${cardHtml}\n${suffixPart}`);
+                        const prefixPart = item.prefixHtml ? `${openP}${item.prefixHtml}</p>` : '';
+                        // strip id attribute from suffix attrs
+                        const suffixAttrs = String(item.pAttrs || '').replace(/\s+id\s*=\s*(".*?"|'.*?')/i, '');
+                        const openSuffixP = `<p${suffixAttrs}>`;
+                        const suffixPart = item.suffixHtml ? `${openSuffixP}${item.suffixHtml}</p>` : '';
+                        const combined = [prefixPart, cardHtml, suffixPart].filter(Boolean).join('\n');
+                        processedContent = processedContent.replace(fullMatch, combined);
                     } else {
                         processedContent = processedContent.replace(fullMatch, cardHtml);
                     }
@@ -238,9 +242,13 @@ plugin.parsePost = async function(hookData) {
                         processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${placeholderHtml}`);
                     } else if (item.type === 'prefix-suffix') {
                         const openP = `<p${item.pAttrs}>`;
-                        const prefixPart = `${openP}${item.prefixHtml}</p>`;
-                        const suffixPart = `${openP}${item.suffixHtml}</p>`;
-                        processedContent = processedContent.replace(fullMatch, `${prefixPart}\n${placeholderHtml}\n${suffixPart}`);
+                        const prefixPart = item.prefixHtml ? `${openP}${item.prefixHtml}</p>` : '';
+                        // strip id attribute from suffix attrs
+                        const suffixAttrs = String(item.pAttrs || '').replace(/\s+id\s*=\s*(".*?"|'.*?')/i, '');
+                        const openSuffixP = `<p${suffixAttrs}>`;
+                        const suffixPart = item.suffixHtml ? `${openSuffixP}${item.suffixHtml}</p>` : '';
+                        const combined = [prefixPart, placeholderHtml, suffixPart].filter(Boolean).join('\n');
+                        processedContent = processedContent.replace(fullMatch, combined);
                     } else {
                         processedContent = processedContent.replace(fullMatch, placeholderHtml);
                     }
