@@ -201,8 +201,11 @@
   - [x] 46: 規約モーダル表示トリガー 設計ドキュメント作成（.tmp/tasks/task-46-consent-modal-trigger.md）
   - [x] div.topic-info のカテゴリー名が多言語処理されていない
   - [x] 47: div.topic-info カテゴリー名 i18n 設計ドキュメント作成（.tmp/tasks/task-47-topic-info-category-i18n.md）
-  - [ ] html lang 属性が多言語処理されていない
+  - [x] html lang 属性が多言語処理されていない
 - MCP機能 ver2
+- [ ] 50: APIトークンでもSSE接続できるようにする 設計ドキュメント作成（.tmp/tasks/task-50-sse-with-api-token.md）
+  - [ ] 詳細な検索条件のサポート（カテゴリー、タグ、投稿ユーザー、日付範囲）
+  - [ ] 特定のコミュニティ・カテゴリー以下に投稿できるようにする
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
   - [ ] 逆プロキシ前提のヘッダ/タイムアウト
