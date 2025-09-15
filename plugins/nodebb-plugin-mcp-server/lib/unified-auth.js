@@ -6,8 +6,8 @@ const OAuthToken = require('./oauth-token');
 
 /**
  * Unified OAuth2 Authentication Middleware
- * Supports OAuth2 Device Authorization Grant tokens only
- * API tokens are no longer supported (deprecated)
+ * Supports OAuth2 Device Authorization Grant tokens
+ * and Personal API Tokens issued by nodebb-plugin-caiz
  */
 class OAuthAuthenticator {
     /**
@@ -174,8 +174,27 @@ class OAuthAuthenticator {
      * @returns {Promise<null>} Always returns null
      */
     static async validateAPIToken(apiToken) {
-        winston.verbose('[mcp-server] API token validation attempted but no longer supported');
-        return null;
+        try {
+            // Reuse validator from caiz plugin (strict: throw if module missing)
+            const caizMcp = require('../../nodebb-plugin-caiz/libs/mcp-server');
+            const info = await caizMcp.validateApiToken(apiToken);
+            if (!info || !info.uid || !info.token) {
+                return null;
+            }
+            const scopes = Array.isArray(info.token.permissions) ? info.token.permissions : [];
+            return {
+                userId: info.uid,
+                clientId: null,
+                scopes,
+                type: 'api_token',
+                tokenId: info.token.id,
+                expiresAt: null,
+                createdAt: info.token.created_at,
+            };
+        } catch (err) {
+            winston.verbose('[mcp-server] API token validation failed:', err.message);
+            return null;
+        }
     }
 
     /**
@@ -267,9 +286,12 @@ class OAuthAuthenticator {
 
         // Determine token type and validate
         let authInfo = null;
-
-        // Always try OAuth2 validation (API tokens no longer supported)
+        // Try OAuth2 first
         authInfo = await OAuthAuthenticator.validateOAuth2Token(token);
+        // If not OAuth2, try API token validation explicitly
+        if (!authInfo) {
+            authInfo = await OAuthAuthenticator.validateAPIToken(token);
+        }
 
         if (!authInfo) {
             winston.verbose('[mcp-server] Token validation failed');
@@ -333,9 +355,12 @@ class OAuthAuthenticator {
         const token = OAuthAuthenticator.extractBearerToken(req.get('Authorization'));
         
         if (token) {
-            // Try OAuth2 validation
-            const authInfo = await OAuthAuthenticator.validateOAuth2Token(token);
-            
+            // Try OAuth2 first, then API token
+            let authInfo = await OAuthAuthenticator.validateOAuth2Token(token);
+            if (!authInfo) {
+                authInfo = await OAuthAuthenticator.validateAPIToken(token);
+            }
+
             if (authInfo) {
                 // Get user information
                 const User = require.main.require('./src/user');
