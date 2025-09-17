@@ -203,8 +203,8 @@
   - [x] 47: div.topic-info カテゴリー名 i18n 設計ドキュメント作成（.tmp/tasks/task-47-topic-info-category-i18n.md）
   - [x] html lang 属性が多言語処理されていない
 - MCP機能 ver2
-- [ ] 50: APIトークンでもSSE接続できるようにする 設計ドキュメント作成（.tmp/tasks/task-50-sse-with-api-token.md）
-  - [ ] 詳細な検索条件のサポート（カテゴリー、タグ、投稿ユーザー、日付範囲）
+  - [x] 50: APIトークンでもSSE接続できるようにする 設計ドキュメント作成（.tmp/tasks/task-50-sse-with-api-token.md）
+- [ ] 51. MCPサーバーで、詳細な検索条件のサポート（コミュニティ以下のカテゴリー、タグ、投稿ユーザー、日付範囲）（.tmp/tasks/task-51-mcp-advanced-search.md）
   - [ ] 特定のコミュニティ・カテゴリー以下に投稿できるようにする
   - [ ] レート制限
     - `POST /mcp/messages` に rps 制限
@@ -214,7 +214,7 @@
 - 配信
   - [ ] RTMP受信
 - [x] 48: 投稿を編集した場合に再翻訳 設計ドキュメント作成（.tmp/tasks/task-48-retranslate-on-edit.md）
-- [ ] 49: 投稿を編集した場合に、再モデレーション 設計ドキュメント作成（.tmp/tasks/task-48-post-edit-remoderation.md）
+- [x] 49: 投稿を編集した場合に、再モデレーション 設計ドキュメント作成（.tmp/tasks/task-48-post-edit-remoderation.md）
 - コミュニティごとの未読表示
 - プロフィールの多言語化 https://caiz.dev/user/goofmint/posts
 - トピックの多言語化 https://caiz.dev/user/goofmint/topics
