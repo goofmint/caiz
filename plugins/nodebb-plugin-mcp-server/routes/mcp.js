@@ -183,9 +183,9 @@ async function processJsonRpcMessage(message, req) {
             const options = {
                 userId: req.auth?.userId || 0,
                 roles: req.auth?.roles || [],
-                locale: req.headers['accept-language'] || 'en',
+                locale: (req.headers['accept-language'] || 'en').split(',')[0].trim() || 'en',
                 limit: limit,
-                maxLimit: 50,
+                maxLimit: 100, // keep in sync with schema (pageSize.maximum)
                 traceId: req.headers['x-trace-id'] || null,
                 // New filters (validated by Ajv prior to here)
                 categorySlugs: toolArguments?.categorySlugs,

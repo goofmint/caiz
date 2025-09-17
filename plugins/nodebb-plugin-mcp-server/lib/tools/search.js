@@ -66,8 +66,8 @@ const searchTool = {
                 type: 'object',
                 description: 'Inclusive date range in ISO 8601',
                 properties: {
-                    from: { type: 'string', minLength: 1 },
-                    to: { type: 'string', minLength: 1 }
+                    from: { type: 'string', format: 'date-time', minLength: 1 },
+                    to: { type: 'string', format: 'date-time', minLength: 1 }
                 },
                 additionalProperties: false
             },
