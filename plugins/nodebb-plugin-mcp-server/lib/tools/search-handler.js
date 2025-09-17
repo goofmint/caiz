@@ -17,12 +17,12 @@ class SearchCache {
         this.TTL = 5 * 60 * 1000; // 5 minutes
     }
 
-    getCacheKey(query, category, userId) {
-        return `search:${userId}:${category || 'all'}:${query}`;
+    getCacheKey(query, category, userId, extraKey = '') {
+        return `search:${userId}:${category || 'all'}:${query}:${extraKey}`;
     }
 
-    async get(query, category, userId) {
-        const key = this.getCacheKey(query, category, userId);
+    async get(query, category, userId, extraKey = '') {
+        const key = this.getCacheKey(query, category, userId, extraKey);
         const cached = this.cache.get(key);
         
         if (!cached) {
@@ -38,8 +38,8 @@ class SearchCache {
         return cached.data;
     }
 
-    async set(query, category, userId, results) {
-        const key = this.getCacheKey(query, category, userId);
+    async set(query, category, userId, results, extraKey = '') {
+        const key = this.getCacheKey(query, category, userId, extraKey);
         this.cache.set(key, {
             data: results,
             timestamp: Date.now()
@@ -210,7 +210,11 @@ async function searchTopics(query, userId, limit) {
                     score: post.score || 0,
                     metadata: {
                         author: post.user?.username || 'Unknown',
+                        authorUid: post.user?.uid,
+                        authorUsername: post.user?.username,
                         category: post.topic.category?.name || '',
+                        categorySlug: post.topic.category?.slug || '',
+                        tags: Array.isArray(post.topic?.tags) ? post.topic.tags : [],
                         timestamp: new Date(post.topic.timestamp).toISOString(),
                         url: nconf.get('url') + '/topic/' + post.topic.slug
                     }
@@ -270,7 +274,11 @@ async function searchPosts(query, userId, limit) {
                     score: post.score || 0,
                     metadata: {
                         author: post.user?.username || 'Unknown',
+                        authorUid: post.user?.uid,
+                        authorUsername: post.user?.username,
                         category: post.topic?.category?.name || '',
+                        categorySlug: post.topic?.category?.slug || '',
+                        tags: Array.isArray(post.topic?.tags) ? post.topic.tags : [],
                         timestamp: new Date(post.timestamp).toISOString(),
                         url: nconf.get('url') + '/post/' + post.pid
                     }
@@ -501,38 +509,102 @@ async function executeSearch(query, category, options = {}) {
         limit = 20,
         maxLimit = 50,
         signal = null,
-        traceId = null
+        traceId = null,
+        // Advanced filters
+        categorySlugs,
+        includeSubcategories = false,
+        tags,
+        authorUserIds,
+        authorUsernames,
+        dateRange,
+        page = 1,
+        pageSize,
+        sort = 'relevance'
     } = options;
     
     try {
-        // Normalize and enforce limit
-        const normalizedLimit = normalizeLimit(limit, maxLimit);
-        const effectiveLimit = Math.min(normalizedLimit, maxLimit);
-        
+        // Determine effective page/pageSize (backward-compat with limit)
+        const effectivePage = Number.isFinite(page) && page > 0 ? page : 1;
+        const basePageSize = Number.isFinite(pageSize) ? pageSize : limit;
+        const normalizedLimit = normalizeLimit(basePageSize, maxLimit);
+        const effectivePageSize = Math.min(normalizedLimit, maxLimit);
+        // To collect enough docs for pagination, fetch up to page*pageSize (capped)
+        const fetchLimit = Math.min(maxLimit, effectivePage * effectivePageSize);
+
+        // Validate advanced inputs (no silent fallbacks)
+        if (Array.isArray(categorySlugs) && categorySlugs.some(s => typeof s !== 'string' || s.trim() === '')) {
+            throw new Error('Invalid params: categorySlugs must be non-empty strings');
+        }
+        if (Array.isArray(tags) && tags.some(t => typeof t !== 'string' || t.trim() === '')) {
+            throw new Error('Invalid params: tags must be non-empty strings');
+        }
+        if (Array.isArray(authorUserIds) && authorUserIds.some(id => !Number.isInteger(id) || id <= 0)) {
+            throw new Error('Invalid params: authorUserIds must be positive integers');
+        }
+        if (Array.isArray(authorUsernames) && authorUsernames.some(u => typeof u !== 'string' || u.trim() === '')) {
+            throw new Error('Invalid params: authorUsernames must be non-empty strings');
+        }
+        let fromTs = null;
+        let toTs = null;
+        if (dateRange) {
+            if (typeof dateRange !== 'object') {
+                throw new Error('Invalid params: dateRange must be object');
+            }
+            if (dateRange.from) {
+                const f = Date.parse(dateRange.from);
+                if (Number.isNaN(f)) throw new Error('Invalid params: dateRange.from must be ISO 8601');
+                fromTs = f;
+            }
+            if (dateRange.to) {
+                const t = Date.parse(dateRange.to);
+                if (Number.isNaN(t)) throw new Error('Invalid params: dateRange.to must be ISO 8601');
+                toTs = t;
+            }
+            if (fromTs !== null && toTs !== null && fromTs > toTs) {
+                throw new Error('Invalid params: dateRange.from must be <= dateRange.to');
+            }
+        }
+
         // Sanitize query
         const sanitizedQuery = sanitizeSearchQuery(query);
-        
+
+        // Build cache extra key from filters to avoid cross-contamination
+        const extraKey = JSON.stringify({
+            categorySlugs: Array.isArray(categorySlugs) ? categorySlugs.slice().sort() : undefined,
+            includeSubcategories: !!includeSubcategories,
+            tags: Array.isArray(tags) ? tags.slice().sort() : undefined,
+            authorUserIds: Array.isArray(authorUserIds) ? authorUserIds.slice().sort((a,b)=>a-b) : undefined,
+            authorUsernames: Array.isArray(authorUsernames) ? authorUsernames.slice().sort() : undefined,
+            dateRange: dateRange || undefined,
+            page: effectivePage,
+            pageSize: effectivePageSize,
+            sort
+        });
+
         // Check cache
-        const cached = await searchCache.get(sanitizedQuery, category, userId);
+        const cached = await searchCache.get(sanitizedQuery, category, userId, extraKey);
         if (cached) {
             const duration = Date.now() - startTime;
             logSearchActivity(userId, sanitizedQuery, category, cached.length, duration);
-            return formatSearchResults(cached, sanitizedQuery, category, duration);
+            // Apply final pagination slice (cached results already reflect filters)
+            const offset = (effectivePage - 1) * effectivePageSize;
+            const pageResults = cached.slice(offset, offset + effectivePageSize);
+            return formatSearchResults(pageResults, sanitizedQuery, category, duration);
         }
         
         // Perform concurrent searches based on category
         const searchPromises = [];
         
         if (!category || category === 'topics') {
-            searchPromises.push(searchTopics(sanitizedQuery, userId, effectiveLimit));
+            searchPromises.push(searchTopics(sanitizedQuery, userId, fetchLimit));
         }
         
         if (!category || category === 'posts') {
-            searchPromises.push(searchPosts(sanitizedQuery, userId, effectiveLimit));
+            searchPromises.push(searchPosts(sanitizedQuery, userId, fetchLimit));
         }
         
         if (!category || category === 'users') {
-            searchPromises.push(searchUsers(sanitizedQuery, userId, effectiveLimit));
+            searchPromises.push(searchUsers(sanitizedQuery, userId, fetchLimit));
         }
         
         // Wait for all searches to complete
@@ -546,16 +618,50 @@ async function executeSearch(query, category, options = {}) {
             }
         }
         
-        // Sort by score
-        results.sort((a, b) => (b.score || 0) - (a.score || 0));
-        
-        // Apply final limit
-        if (results.length > effectiveLimit) {
-            results = results.slice(0, effectiveLimit);
+        // Apply advanced filters
+        if (Array.isArray(categorySlugs) && categorySlugs.length > 0) {
+            const allowed = new Set(categorySlugs);
+            // Preserve items without metadata or without categorySlug; filter only when present
+            results = results.filter(r => (!r.metadata || !('categorySlug' in r.metadata)) ? true : allowed.has(r.metadata.categorySlug));
+        }
+        if (Array.isArray(tags) && tags.length > 0) {
+            const required = new Set(tags);
+            results = results.filter(r => Array.isArray(r.metadata?.tags) && [...required].every(t => r.metadata.tags.includes(t)));
+        }
+        // Author filter preference: IDs > usernames
+        if (Array.isArray(authorUserIds) && authorUserIds.length > 0) {
+            const idSet = new Set(authorUserIds.map(n => Number(n)));
+            results = results.filter(r => typeof r.metadata?.authorUid === 'number' && idSet.has(r.metadata.authorUid));
+        } else if (Array.isArray(authorUsernames) && authorUsernames.length > 0) {
+            const nameSet = new Set(authorUsernames.map(s => String(s)));
+            results = results.filter(r => typeof r.metadata?.authorUsername === 'string' && nameSet.has(r.metadata.authorUsername));
+        }
+        if (fromTs !== null || toTs !== null) {
+            results = results.filter(r => {
+                const ts = Date.parse(r.metadata?.timestamp || '');
+                if (Number.isNaN(ts)) return false;
+                if (fromTs !== null && ts < fromTs) return false;
+                if (toTs !== null && ts > toTs) return false;
+                return true;
+            });
+        }
+
+        // Sort
+        if (sort === 'newest') {
+            results.sort((a, b) => new Date(b.metadata?.timestamp || 0) - new Date(a.metadata?.timestamp || 0));
+        } else if (sort === 'oldest') {
+            results.sort((a, b) => new Date(a.metadata?.timestamp || 0) - new Date(b.metadata?.timestamp || 0));
+        } else {
+            // relevance (default)
+            results.sort((a, b) => (b.score || 0) - (a.score || 0));
         }
         
+        // Final pagination
+        const offset = (effectivePage - 1) * effectivePageSize;
+        results = results.slice(offset, offset + effectivePageSize);
+        
         // Cache results
-        await searchCache.set(sanitizedQuery, category, userId, results);
+        await searchCache.set(sanitizedQuery, category, userId, results, extraKey);
         
         // Log activity
         const duration = Date.now() - startTime;
