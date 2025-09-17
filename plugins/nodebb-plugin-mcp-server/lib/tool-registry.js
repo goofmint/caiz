@@ -1,6 +1,7 @@
 'use strict';
 
 const Ajv = require('ajv');
+const addFormats = require('ajv-formats');
 const winston = require.main.require('winston');
 
 // JSON Schema validator instance with strict mode, defaults, and type coercion
@@ -10,6 +11,9 @@ const ajv = new Ajv({
     useDefaults: true,
     coerceTypes: true
 });
+
+// Register standard formats (e.g., date-time) for schema validation
+addFormats(ajv);
 
 /**
  * Tool definition validation

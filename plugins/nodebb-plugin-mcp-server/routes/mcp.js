@@ -179,6 +179,25 @@ async function processJsonRpcMessage(message, req) {
             const query = toolArguments?.query;
             const category = toolArguments?.category;
             const limit = toolArguments?.limit || 20;
+            // Advanced options passed through without changing function signature
+            const options = {
+                userId: req.auth?.userId || 0,
+                roles: req.auth?.roles || [],
+                locale: (req.headers['accept-language'] || 'en').split(',')[0].trim() || 'en',
+                limit: limit,
+                maxLimit: 100, // keep in sync with schema (pageSize.maximum)
+                traceId: req.headers['x-trace-id'] || null,
+                // New filters (validated by Ajv prior to here)
+                categorySlugs: toolArguments?.categorySlugs,
+                includeSubcategories: toolArguments?.includeSubcategories,
+                tags: toolArguments?.tags,
+                authorUserIds: toolArguments?.authorUserIds,
+                authorUsernames: toolArguments?.authorUsernames,
+                dateRange: toolArguments?.dateRange,
+                page: toolArguments?.page,
+                pageSize: toolArguments?.pageSize,
+                sort: toolArguments?.sort,
+            };
             
             // Get user context from request
             const userId = req.auth?.userId || 0;
@@ -194,14 +213,7 @@ async function processJsonRpcMessage(message, req) {
             });
             
             try {
-                result = await searchHandler.executeSearch(query, category, {
-                    userId: userId,
-                    roles: roles,
-                    locale: req.headers['accept-language'] || 'en',
-                    limit: limit,
-                    maxLimit: 50,
-                    traceId: req.headers['x-trace-id'] || null
-                });
+                result = await searchHandler.executeSearch(query, category, options);
             } catch (err) {
                 winston.error('[mcp-server] Search execution error:', err);
                 result = searchHandler.handleSearchError(err, query, category);
